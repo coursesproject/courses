@@ -3,7 +3,8 @@ SPACE = _{" "|"\t"}
 SPACES = _{SPACE*}
 
 COMMENT_SYMBOLS = _{"#"|"/"}
-COMMENT_DEF = _{PEEK[0..1]} // FAST version : _{"#"}
+//COMMENT_DEF = _{PEEK[0..1]} // FAST version : _{"#"}
+COMMENT_DEF = _{"#"}
 
 TAG_OPEN = _{"<<"}
 TAG_CLOSE = _{">>"}
@@ -64,4 +65,4 @@ top_level = _{SPACES ~ (block ~ END | code_block ~ END | markup_block | source_c
 comment_def = {PUSH(COMMENT_SYMBOLS+)}
 comment_set = _{comment_def ~"|" ~ SPACES ~ "DOC" ~ silent_str ~ END}
 
-doc = _{comment_set ~ top_level+}
+doc = _{top_level+}

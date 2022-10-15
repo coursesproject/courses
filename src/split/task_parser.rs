@@ -1,8 +1,9 @@
+use anyhow::Context;
 use pest::iterators::Pair;
 use pest::Parser;
 use std::collections::HashMap;
 
-use crate::types::{Block, SolutionBlock, Content, Document, Inner, Value};
+use crate::split::types::{Block, CodeTaskDefinition, Content, Inner, SolutionBlock, Value};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -32,8 +33,8 @@ fn parse_source_comment(pair: Pair<Rule>) -> anyhow::Result<String> {
     Ok(match pair.as_rule() {
         Rule::source_comment => {
             let mut inner = pair.into_inner();
-            let spacing = inner.next().unwrap();
-            let str = inner.next().unwrap();
+            let spacing = inner.next().context("Comment spacing")?;
+            let str = inner.next().context("Comment content")?;
             let spacing: String = spacing.as_str().parse()?;
             let str: String = str.as_str().parse()?;
 
@@ -64,8 +65,8 @@ pub fn parse_inner_block(pair: Pair<Rule>) -> anyhow::Result<Inner> {
     Ok(match r {
         Rule::code_block => {
             let mut block_segments = pair.into_inner();
-            let placeholder_pair = block_segments.next().unwrap();
-            let solution_pair = block_segments.next().unwrap();
+            let placeholder_pair = block_segments.next().context("Code block placeholder")?;
+            let solution_pair = block_segments.next().context("Code block solution")?;
 
             let placeholder: Vec<Content> = placeholder_pair
                 .into_inner()
@@ -90,8 +91,16 @@ pub fn parse_attribute(pair: Pair<Rule>) -> anyhow::Result<(String, String)> {
     Ok(match pair.as_rule() {
         Rule::attr => {
             let mut segments = pair.into_inner();
-            let name = segments.next().unwrap().as_str().parse()?;
-            let value = segments.next().unwrap().as_str().parse()?;
+            let name = segments
+                .next()
+                .context("Attribute name")?
+                .as_str()
+                .parse()?;
+            let value = segments
+                .next()
+                .context("Attribute value")?
+                .as_str()
+                .parse()?;
 
             (name, value)
         }
@@ -103,9 +112,13 @@ pub fn parse_value(pair: Pair<Rule>) -> anyhow::Result<Value> {
     Ok(match pair.as_rule() {
         Rule::block => {
             let mut block_segments = pair.into_inner();
-            let keyword = block_segments.next().unwrap().as_str().parse()?;
-            let attribute_pairs = block_segments.next().unwrap();
-            let content_pairs = block_segments.next().unwrap();
+            let keyword = block_segments
+                .next()
+                .context("Parsing keyword")?
+                .as_str()
+                .parse()?;
+            let attribute_pairs = block_segments.next().context("Error in attribute pairs")?;
+            let content_pairs = block_segments.next().context("Error in content pairs")?;
 
             let attributes_vec = attribute_pairs
                 .into_inner()
@@ -136,12 +149,14 @@ pub fn parse_value(pair: Pair<Rule>) -> anyhow::Result<Value> {
     })
 }
 
-pub fn parse_document(content: &str) -> anyhow::Result<Document> {
-    let p = TaskParser::parse(Rule::doc, content)?;
+pub fn parse_code_string(content: &str) -> anyhow::Result<CodeTaskDefinition> {
+    let mut padded = content.to_string();
+    padded.push_str("\n");
+    let p = TaskParser::parse(Rule::doc, &padded)?;
 
     let vals = p
         .into_iter()
         .map(parse_value)
         .collect::<anyhow::Result<Vec<Value>>>()?;
-    Ok(Document { blocks: vals })
+    Ok(CodeTaskDefinition { blocks: vals })
 }

@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub trait Output {
-    fn to_string(&self, solution: bool) -> String;
+    fn write_string(&self, solution: bool) -> String;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -47,13 +47,13 @@ pub enum Value {
     SrcBlock { content: Content },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename = "document")]
-pub struct Document {
+pub struct CodeTaskDefinition {
     pub blocks: Vec<Value>,
 }
 
-impl Document {
+impl CodeTaskDefinition {
     fn to_json(&self) -> String {
         serde_json::to_string(&self).expect("Could not construct JSON representation.")
     }
@@ -67,16 +67,16 @@ impl<T> Output for Vec<T>
 where
     T: Output,
 {
-    fn to_string(&self, solution: bool) -> String {
+    fn write_string(&self, solution: bool) -> String {
         self.into_iter()
-            .map(|v| v.to_string(solution))
+            .map(|v| v.write_string(solution))
             .collect::<Vec<String>>()
             .join("")
     }
 }
 
 impl Output for Content {
-    fn to_string(&self, _: bool) -> String {
+    fn write_string(&self, _: bool) -> String {
         match self {
             Content::Code { code: value } => value.to_string(),
             Content::Markup { markup: _value } => "".to_string(),
@@ -85,40 +85,46 @@ impl Output for Content {
 }
 
 impl Output for Inner {
-    fn to_string(&self, solution: bool) -> String {
+    fn write_string(&self, solution: bool) -> String {
         match self {
-            Inner::SolutionBlock(SolutionBlock{
+            Inner::SolutionBlock(SolutionBlock {
                 placeholder,
                 solution: solution_block,
             }) => {
                 if solution {
-                    solution_block.to_string(solution)
+                    solution_block.write_string(solution)
                 } else {
-                    placeholder.to_string(solution)
+                    placeholder.write_string(solution)
                 }
             }
-            Inner::SrcBlock(content) => content.to_string(solution),
+            Inner::SrcBlock(content) => content.write_string(solution),
         }
     }
 }
 
 impl Output for Block {
-    fn to_string(&self, solution: bool) -> String {
-        self.inner.to_string(solution)
+    fn write_string(&self, solution: bool) -> String {
+        self.inner.write_string(solution)
     }
 }
 
 impl Output for Value {
-    fn to_string(&self, solution: bool) -> String {
+    fn write_string(&self, solution: bool) -> String {
         match self {
-            Value::Block { block } => block.to_string(solution),
-            Value::SrcBlock { content } => content.to_string(solution),
+            Value::Block { block } => block.write_string(solution),
+            Value::SrcBlock { content } => content.write_string(solution),
         }
     }
 }
 
-impl Output for Document {
-    fn to_string(&self, solution: bool) -> String {
-        self.blocks.to_string(solution)
+impl Output for CodeTaskDefinition {
+    fn write_string(&self, solution: bool) -> String {
+        self.blocks.write_string(solution)
+    }
+}
+
+impl CodeTaskDefinition {
+    pub fn split(&self) -> (String, String) {
+        (self.write_string(false), self.write_string(true))
     }
 }

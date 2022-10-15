@@ -1,14 +1,12 @@
+use pulldown_cmark::CodeBlockKind::Fenced;
+use pulldown_cmark::Tag::CodeBlock;
+use pulldown_cmark::{CowStr, Event, Parser};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::iter::FlatMap;
 use std::slice::Iter;
 use std::vec::IntoIter;
-use pulldown_cmark::{CowStr, Event, Parser};
-use pulldown_cmark::CodeBlockKind::Fenced;
-use pulldown_cmark::Tag::CodeBlock;
-use serde::{Serialize, Deserialize, Deserializer, Serializer};
-use serde_json::Value;
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Notebook {
@@ -39,21 +37,28 @@ pub struct CellMeta {
     additional: Dict,
 }
 
-type Metadata = HashMap<String, String>;
-
-fn concatenate_deserialize<'de, D>(input: D) -> Result<String, D::Error> where D: Deserializer<'de> {
+fn concatenate_deserialize<'de, D>(input: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
     let base: Vec<String> = Deserialize::deserialize(input)?;
     Ok(base.into_iter().collect())
 }
 
-fn concatenate_serialize<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+fn concatenate_serialize<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
     serializer.collect_seq(value.split("\n"))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CellCommon {
     pub metadata: CellMeta,
-    #[serde(deserialize_with = "concatenate_deserialize", serialize_with = "concatenate_serialize")]
+    #[serde(
+        deserialize_with = "concatenate_deserialize",
+        serialize_with = "concatenate_serialize"
+    )]
     pub source: String,
 }
 
@@ -65,7 +70,7 @@ pub enum Cell {
     #[serde(rename = "markdown")]
     Markdown {
         #[serde(flatten)]
-        common: CellCommon
+        common: CellCommon,
     },
     #[serde(rename = "code")]
     Code {
@@ -97,31 +102,29 @@ pub enum CellEventIterator<'a, 'b> {
     },
 }
 
-
 impl<'a> IntoIterator for &'a Cell {
     type Item = Event<'a>;
     type IntoIter = CellEventIterator<'a, 'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Cell::Markdown { common } => {
-                CellEventIterator::Markdown {
-                    cell: &self,
-                    parser: Parser::new(&common.source),
-                }
-            }
+            Cell::Markdown { common } => CellEventIterator::Markdown {
+                cell: &self,
+                parser: Parser::new(&common.source),
+            },
             Cell::Code { common, .. } => {
                 let cblock = CodeBlock(Fenced(CowStr::Boxed("".into())));
                 CellEventIterator::Code {
                     cell: &self,
-                    events: vec![Event::Start(cblock.clone()), Event::Text(CowStr::Borrowed(&common.source)), Event::End(cblock)].into_iter(),
+                    events: vec![
+                        Event::Start(cblock.clone()),
+                        Event::Text(CowStr::Borrowed(&common.source)),
+                        Event::End(cblock),
+                    ]
+                    .into_iter(),
                 }
             }
-            Cell::Raw { common } => {
-                CellEventIterator::Raw {
-                    cell: &self,
-                }
-            }
+            Cell::Raw { .. } => CellEventIterator::Raw { cell: &self },
         }
     }
 }
@@ -131,21 +134,19 @@ impl<'a, 'b> Iterator for CellEventIterator<'a, 'b> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            CellEventIterator::Markdown { cell, parser } => {
-                parser.next()
-            }
-            CellEventIterator::Code { cell, events } => {
-                events.next()
-            }
-            CellEventIterator::Raw { cell } => {
-                None
-            }
+            CellEventIterator::Markdown { parser, .. } => parser.next(),
+            CellEventIterator::Code { events, .. } => events.next(),
+            CellEventIterator::Raw { .. } => None,
         }
     }
 }
 
 pub struct NotebookIterator<'a, 'b> {
-    iter: FlatMap<Iter<'a, Cell>, CellEventIterator<'a, 'b>, fn(&'a Cell) -> CellEventIterator<'a, 'b>>,
+    iter: FlatMap<
+        Iter<'a, Cell>,
+        CellEventIterator<'a, 'b>,
+        fn(&'a Cell) -> CellEventIterator<'a, 'b>,
+    >,
 }
 
 impl<'a> IntoIterator for &'a Notebook {
@@ -154,7 +155,7 @@ impl<'a> IntoIterator for &'a Notebook {
 
     fn into_iter(self) -> Self::IntoIter {
         NotebookIterator {
-            iter: self.cells.iter().flat_map(|c| c.into_iter())
+            iter: self.cells.iter().flat_map(|c| c.into_iter()),
         }
     }
 }
@@ -185,15 +186,14 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
 //     }
 // }
 
-
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::path::PathBuf;
+
+    use crate::notebook::Notebook;
+    use pulldown_cmark::html;
     use std::fs::File;
     use std::io::BufReader;
-    use pulldown_cmark::html;
-    use crate::notebook::Notebook;
+    use std::path::PathBuf;
 
     #[test]
     fn deserialize() {
@@ -215,7 +215,6 @@ mod tests {
 
         let mut html_output = String::new();
         html::push_html(&mut html_output, nb.into_iter());
-
 
         // println!("{}", html_output);
     }

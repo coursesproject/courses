@@ -1,11 +1,10 @@
-use crate::builder::{Builder, parse};
+use crate::builder::Builder;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::fs::{File};
-use std::io::BufReader;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -186,18 +185,29 @@ impl Config {
         })
     }
 
-    pub fn build(&self, builder: &Builder) -> Result<()> {
+    pub fn build(&self, builder: &mut Builder) -> Result<()> {
         fs::create_dir_all(self.build_path.as_path())?;
+
         for chapter in &self.chapters {
             println!("Building chapter {}", chapter.id);
             let chapter_build_path = self.build_path.as_path().join(chapter.id.clone());
             fs::create_dir_all(chapter_build_path.as_path())?;
             for section in &chapter.sections {
                 let section_build_path = chapter_build_path.join(format!("{}.html", section.id));
-                let content = Builder::parse_pd(section.doc.clone())?;
+                let section_meta_path =
+                    chapter_build_path.join(format!("{}_meta.json", section.id));
+                let section_solution_path =
+                    chapter_build_path.join(format!("{}_solution.py", section.id));
+                let content = builder.parse_pd(section.doc.clone())?;
                 // let content = parse(section.doc.clone())?;
-                let result = builder.render_section(&self, content)?;
+                let result = builder.render_section(&self, content.html)?;
                 fs::write(section_build_path, result)?;
+
+                let f = File::create(section_meta_path)?;
+                let writer = BufWriter::new(f);
+                serde_json::to_writer(writer, &content.split_meta)?;
+
+                fs::write(section_solution_path, content.raw_solution)?;
             }
         }
 
