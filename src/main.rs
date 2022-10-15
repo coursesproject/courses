@@ -3,9 +3,11 @@ use clap::{Parser, Subcommand};
 use courses::builder::Builder;
 use courses::config::Config;
 use notify::{RecursiveMode, Watcher};
+use penguin::Server;
 use std::env;
 use std::fs::File;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -25,7 +27,8 @@ enum Commands {
     Publish {},
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let path = cli.path.unwrap_or(env::current_dir()?);
     let cfg = Config::generate_from_directory(path.as_path()).unwrap();
@@ -43,11 +46,18 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Serve {} => {
             let p2 = path.as_path().join("content");
+            let p_build = path.as_path().join("build");
+
+            let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
+                .add_mount("/", p_build)?
+                .build()?;
+
             let mut watcher = notify::recommended_watcher(move |res| match res {
                 Ok(event) => {
                     let mut builder = Builder::new(path.as_path(), vec![]).unwrap();
 
                     cfg.build(&mut builder).unwrap();
+                    controller.reload();
                     println!("event: {:?}", event)
                 }
                 Err(e) => println!("watch error: {:?}", e),
@@ -57,7 +67,13 @@ fn main() -> anyhow::Result<()> {
             // below will be monitored for changes.
             watcher.watch(p2.as_path(), RecursiveMode::Recursive)?;
 
-            loop {}
+            // tokio::spawn(async move {
+            //     tokio::time::sleep(Duration::from_secs(5)).await;
+            //     controller.reload();
+            // });
+
+            server.await?;
+
             Ok(())
         }
         _ => Ok(()),
