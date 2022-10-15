@@ -157,7 +157,7 @@ impl Chapter {
 }
 
 impl Config {
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Config> {
+    pub fn generate_from_directory<P: AsRef<Path>>(path: P) -> Result<Config> {
         let cfg_path = path.as_ref().join("config.yml");
         let cfg: ConfigFile = serde_yaml::from_reader(BufReader::new(File::open(cfg_path)?))?;
 
