@@ -38,7 +38,7 @@ impl<'a> Extension<'a> for CodeSplit {
             Event::Start(tag) => match &tag {
                 Tag::CodeBlock(attribute_string) => {
                     self.code_started = true;
-                    // if let CodeBlockKind::Fenced(attr_str) = attribute_string {
+                    // if let CodeBlockKind::Fencged(attr_str) = attribute_string {
                     //     if attr_str.len() == 0 || attr_str.to_string() == "python".to_string() {
                     //         self.code_started = true;
                     //     }
