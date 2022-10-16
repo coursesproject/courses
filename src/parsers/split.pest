@@ -29,7 +29,7 @@ str = {(!NEWLINE ~ ANY)*}
 silent_str = _{(!NEWLINE ~ ANY)*}
 
 
-markup = {(!TAG_CLOSE ~ !keyword ~ !NEWLINE ~ ANY)*}
+markup = {(!TAG_CLOSE ~ !keyword ~ !NEWLINE ~ !TAG_OPEN ~ ANY)*}
 markup_wrap = _{ SPACES ~ MARKUP ~ SPACES ~ markup}
 
 comment_space = {SPACE*}
@@ -37,11 +37,11 @@ source_comment = { comment_space ~ REGULAR_COMMENT ~ SPACES ~ str}
 source_code = {(!(NEWLINE|COMMENT_DEF) ~ ANY)*}
 
 
-block_def = _{ MARKUP ~ SPACES ~ PUSH(keyword) ~ SPACES ~ attributes ~ SPACES ~ TAG_OPEN }
+block_def = _{ MARKUP ~ SPACES ~ TAG_OPEN ~ SPACES ~ PUSH(keyword) ~ SPACES ~ attributes }
 end_tag = _{("END_" ~ POP)}
 block_end = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ end_tag }
 
-code_block_def = _{ MARKUP ~ SPACES ~ CODE ~ SPACES ~ TAG_OPEN}
+code_block_def = _{ MARKUP ~ SPACES ~ TAG_OPEN ~ SPACES ~ CODE}
 code_block_solution = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ SOLUTION ~ SPACES ~ TAG_OPEN }
 end_code = _{("END_" ~ CODE)}
 code_block_end = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ end_code }

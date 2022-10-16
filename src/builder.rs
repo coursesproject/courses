@@ -1,7 +1,8 @@
 use crate::config::{Config, Document, Format};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
-use crate::split::types::CodeTaskDefinition;
+use crate::parsers::split::Rule;
+use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use pandoc::{InputFormat, MarkdownExtension, OutputKind, Pandoc, PandocOutput};
@@ -11,6 +12,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use tera::Tera;
+use thiserror::Error;
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
@@ -24,6 +26,14 @@ lazy_static! {
         tera.autoescape_on(vec![".html", ".sql"]);
         tera
     };
+}
+
+#[derive(Debug, Error)]
+pub enum BuildError {
+    #[error("Split parser error")]
+    SplitParserError(#[from] pest::error::Error<Rule>),
+    #[error("Attribute parser error")]
+    AttributeParserError,
 }
 
 #[derive(Debug)]

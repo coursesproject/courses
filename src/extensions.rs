@@ -1,5 +1,5 @@
-use crate::split::task_parser::parse_code_string;
-use crate::split::types::CodeTaskDefinition;
+use crate::parsers::split::{format_pest_err, parse_code_string};
+use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
 
@@ -38,7 +38,8 @@ impl<'a> Extension<'a> for CodeSplit {
             Event::Start(tag) => match &tag {
                 Tag::CodeBlock(attribute_string) => {
                     self.code_started = true;
-                    // if let CodeBlockKind::Fencged(attr_str) = attribute_string {
+                    // TODO: Find other way to test the attribute string (possibly parse it)
+                    // if let CodeBlockKind::Fenced(attr_str) = attribute_string {
                     //     if attr_str.len() == 0 || attr_str.to_string() == "python".to_string() {
                     //         self.code_started = true;
                     //     }
@@ -56,12 +57,20 @@ impl<'a> Extension<'a> for CodeSplit {
             },
             Event::Text(txt) => {
                 if self.code_started {
-                    let mut doc = parse_code_string(txt.as_ref()).context("Parsing code cell")?;
-                    let (placeholder, solution) = doc.split();
-                    self.solution_string.push_str(&solution);
-                    self.source_def.blocks.append(&mut doc.blocks);
+                    let res = parse_code_string(txt.as_ref());
+                    match res {
+                        Ok(mut doc) => {
+                            let (placeholder, solution) = doc.split();
+                            self.solution_string.push_str(&solution);
+                            self.source_def.blocks.append(&mut doc.blocks);
 
-                    Event::Text(CowStr::Boxed(placeholder.into_boxed_str()))
+                            Event::Text(CowStr::Boxed(placeholder.into_boxed_str()))
+                        }
+                        Err(e) => Event::Html(CowStr::Boxed(
+                            format!(r#"<div class="alert alert-warning">Split parsing failed: {}</div>"#, format_pest_err(e))
+                                .into_boxed_str(),
+                        )),
+                    }
                 } else {
                     Event::Text(txt)
                 }

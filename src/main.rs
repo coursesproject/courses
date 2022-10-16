@@ -48,6 +48,9 @@ async fn main() -> anyhow::Result<()> {
             let p2 = path.as_path().join("content");
             let p_build = path.as_path().join("build");
 
+            let mut builder = Builder::new(path.as_path(), vec![]).unwrap();
+            cfg.build(&mut builder).unwrap();
+
             let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
                 .add_mount("/", p_build)?
                 .build()?;

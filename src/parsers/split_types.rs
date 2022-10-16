@@ -45,6 +45,8 @@ pub enum Value {
     Block { block: Block },
     #[serde(rename = "src")]
     SrcBlock { content: Content },
+    #[serde(rename = "code_block")]
+    SolutionBlock(SolutionBlock),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -113,6 +115,16 @@ impl Output for Value {
         match self {
             Value::Block { block } => block.write_string(solution),
             Value::SrcBlock { content } => content.write_string(solution),
+            Value::SolutionBlock(SolutionBlock {
+                placeholder,
+                solution: solution_block,
+            }) => {
+                if solution {
+                    solution_block.write_string(solution)
+                } else {
+                    placeholder.write_string(solution)
+                }
+            }
         }
     }
 }

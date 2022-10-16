@@ -6,13 +6,13 @@ pub mod config;
 pub mod document_parser;
 pub mod extensions;
 pub mod notebook;
-pub mod split;
+pub mod parsers;
 mod visitor;
 
 #[cfg(test)]
 mod tests {
-    use crate::split::task_parser::parse_code_string;
-    use crate::split::types::Output;
+    use crate::parsers::split::parse_code_string;
+    use crate::parsers::split_types::Output;
 
     #[test]
     fn test_parse() {
