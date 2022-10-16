@@ -1,6 +1,6 @@
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, Parser};
+use pulldown_cmark::{CowStr, Event, Options, Parser};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -110,10 +110,10 @@ impl<'a> IntoIterator for &'a Cell {
         match self {
             Cell::Markdown { common } => CellEventIterator::Markdown {
                 cell: &self,
-                parser: Parser::new(&common.source),
+                parser: Parser::new_ext(&common.source, Options::all()),
             },
             Cell::Code { common, .. } => {
-                let cblock = CodeBlock(Fenced(CowStr::Boxed("".into())));
+                let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));
                 CellEventIterator::Code {
                     cell: &self,
                     events: vec![
