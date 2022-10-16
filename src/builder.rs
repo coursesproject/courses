@@ -67,7 +67,7 @@ impl Builder {
     }
 
     pub fn parse_pd(&mut self, doc: Document) -> Result<RenderData> {
-        let options = Options::empty();
+        let options = Options::all();
 
         let html_output = match doc.format {
             Format::Notebook => {
