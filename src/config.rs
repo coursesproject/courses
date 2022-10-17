@@ -75,7 +75,7 @@ impl Format {
         }
     }
 }
-
+cffc
 impl Document {
     fn new<P: AsRef<Path>>(section_path: P) -> Result<Self> {
         Ok(Document {
