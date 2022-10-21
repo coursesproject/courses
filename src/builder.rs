@@ -1,4 +1,4 @@
-use crate::config::{Config, Document, Format};
+use crate::config::{Chapter, Config, Document, Format, Section};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
 use crate::parsers::split::Rule;
@@ -111,9 +111,17 @@ impl Builder {
         })
     }
 
-    pub fn render_section(&self, config: &Config, content: String) -> Result<String> {
+    pub fn render_section(
+        &self,
+        config: &Config,
+        section: &Section,
+        chapter: &Chapter,
+        content: String,
+    ) -> Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);
+        context.insert("current_section", section);
+        context.insert("current_chapter", chapter);
         context.insert("html", &content);
         context.insert("title", "Test");
         self.tera

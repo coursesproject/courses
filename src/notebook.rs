@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::iter::FlatMap;
 use std::slice::Iter;
+use std::str::Chars;
 use std::vec::IntoIter;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,7 +43,8 @@ where
     D: Deserializer<'de>,
 {
     let base: Vec<String> = Deserialize::deserialize(input)?;
-    Ok(base.into_iter().collect())
+    let source = base.into_iter().collect();
+    Ok(escape_string_deserialize(source))
 }
 
 fn concatenate_serialize<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
@@ -50,6 +52,20 @@ where
     S: Serializer,
 {
     serializer.collect_seq(value.split("\n"))
+}
+
+fn escape_string_deserialize(source: String) -> String {
+    let escaped = source
+        .chars()
+        .flat_map(|c| {
+            if c == '\\' {
+                r#"\\"#.chars().collect()
+            } else {
+                vec![c]
+            }
+        })
+        .collect::<String>();
+    escaped
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -114,6 +130,7 @@ impl<'a> IntoIterator for &'a Cell {
             },
             Cell::Code { common, .. } => {
                 let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));
+                let source = &common.source;
                 CellEventIterator::Code {
                     cell: &self,
                     events: vec![

@@ -75,7 +75,7 @@ impl Format {
         }
     }
 }
-cffc
+
 impl Document {
     fn new<P: AsRef<Path>>(section_path: P) -> Result<Self> {
         Ok(Document {
@@ -136,7 +136,13 @@ impl Chapter {
             Err(_) => Vec::new(),
         };
 
-        let chapter_index = chapter_dir.as_ref().join("index.md");
+        let chapter_index_md = chapter_dir.as_ref().join("index.md");
+        let chapter_index_ipynb = chapter_dir.as_ref().join("index.ipynb");
+        let chapter_index = if (chapter_index_md.is_file()) {
+            chapter_index_md
+        } else {
+            chapter_index_ipynb
+        };
 
         Ok(Chapter {
             title: "hej".to_string(),
@@ -185,6 +191,35 @@ impl Config {
         })
     }
 
+    fn build_section<P: AsRef<Path>>(
+        &self,
+        section: &Section,
+        chapter: &Chapter,
+        builder: &mut Builder,
+        chapter_build_path: P,
+    ) -> Result<()> {
+        let section_build_path = chapter_build_path
+            .as_ref()
+            .join(format!("{}.html", section.id));
+        let section_meta_path = chapter_build_path
+            .as_ref()
+            .join(format!("{}_meta.json", section.id));
+        let section_solution_path = chapter_build_path
+            .as_ref()
+            .join(format!("{}_solution.py", section.id));
+        let content = builder.parse_pd(section.doc.clone())?;
+        // let content = parse(section.doc.clone())?;
+        let result = builder.render_section(&self, section, chapter, content.html)?;
+        fs::write(section_build_path, result)?;
+
+        let f = File::create(section_meta_path)?;
+        let writer = BufWriter::new(f);
+        serde_json::to_writer(writer, &content.split_meta)?;
+
+        fs::write(section_solution_path, content.raw_solution)?;
+        Ok(())
+    }
+
     pub fn build(&self, builder: &mut Builder) -> Result<()> {
         fs::create_dir_all(self.build_path.as_path())?;
 
@@ -192,22 +227,15 @@ impl Config {
             println!("Building chapter {}", chapter.id);
             let chapter_build_path = self.build_path.as_path().join(chapter.id.clone());
             fs::create_dir_all(chapter_build_path.as_path())?;
+
+            let index_section = Section {
+                id: "index".to_string(),
+                doc: chapter.doc.clone(),
+            };
+            self.build_section(&index_section, chapter, builder, &chapter_build_path);
+
             for section in &chapter.sections {
-                let section_build_path = chapter_build_path.join(format!("{}.html", section.id));
-                let section_meta_path =
-                    chapter_build_path.join(format!("{}_meta.json", section.id));
-                let section_solution_path =
-                    chapter_build_path.join(format!("{}_solution.py", section.id));
-                let content = builder.parse_pd(section.doc.clone())?;
-                // let content = parse(section.doc.clone())?;
-                let result = builder.render_section(&self, content.html)?;
-                fs::write(section_build_path, result)?;
-
-                let f = File::create(section_meta_path)?;
-                let writer = BufWriter::new(f);
-                serde_json::to_writer(writer, &content.split_meta)?;
-
-                fs::write(section_solution_path, content.raw_solution)?;
+                self.build_section(section, chapter, builder, &chapter_build_path)?
             }
         }
 
