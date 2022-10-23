@@ -3,6 +3,7 @@ use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory
 use crate::notebook::Notebook;
 use crate::parsers::split::Rule;
 use crate::parsers::split_types::CodeTaskDefinition;
+use crate::render::render_notebook;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use pandoc::{InputFormat, MarkdownExtension, OutputKind, Pandoc, PandocOutput};
@@ -39,6 +40,7 @@ pub enum BuildError {
 #[derive(Debug)]
 pub struct RenderData {
     pub html: String,
+    pub notebook: Notebook,
     pub raw_solution: String,
     pub split_meta: CodeTaskDefinition,
 }
@@ -103,9 +105,14 @@ impl Builder {
         let mut html_output = String::new();
 
         let iter: Result<Vec<Event<'i>>> = iter.collect();
-        html::push_html(&mut html_output, iter?.into_iter());
+        let iter = iter?;
+
+        let nb = render_notebook(iter.clone().into_iter())?;
+
+        html::push_html(&mut html_output, iter.into_iter());
         Ok(RenderData {
             html: html_output,
+            notebook: nb,
             raw_solution: code_ext.solution_string,
             split_meta: code_ext.source_def,
         })

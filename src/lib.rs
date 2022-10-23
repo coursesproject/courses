@@ -7,6 +7,7 @@ pub mod document_parser;
 pub mod extensions;
 pub mod notebook;
 pub mod parsers;
+pub mod render;
 mod visitor;
 
 #[cfg(test)]

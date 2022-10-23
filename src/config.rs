@@ -201,6 +201,9 @@ impl Config {
         let section_build_path = chapter_build_path
             .as_ref()
             .join(format!("{}.html", section.id));
+        let section_notebook_path = chapter_build_path
+            .as_ref()
+            .join(format!("{}.ipynb", section.id));
         let section_meta_path = chapter_build_path
             .as_ref()
             .join(format!("{}_meta.json", section.id));
@@ -211,6 +214,9 @@ impl Config {
         // let content = parse(section.doc.clone())?;
         let result = builder.render_section(&self, section, chapter, content.html)?;
         fs::write(section_build_path, result)?;
+        let f = File::create(section_notebook_path)?;
+        let writer = BufWriter::new(f);
+        serde_json::to_writer(writer, &content.notebook)?;
 
         let f = File::create(section_meta_path)?;
         let writer = BufWriter::new(f);

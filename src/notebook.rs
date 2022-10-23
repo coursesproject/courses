@@ -19,22 +19,22 @@ use std::vec::IntoIter;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Notebook {
-    metadata: NotebookMeta,
-    nbformat: i64,
-    nbformat_minor: i64,
-    cells: Vec<Cell>,
+    pub(crate) metadata: NotebookMeta,
+    pub(crate) nbformat: i64,
+    pub(crate) nbformat_minor: i64,
+    pub(crate) cells: Vec<Cell>,
 }
 
 type Dict = HashMap<String, Value>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NotebookMeta {
-    kernelspec: HashMap<String, Value>,
+    pub(crate) kernelspec: Option<HashMap<String, Value>>,
     #[serde(flatten)]
-    optional: Dict,
+    pub(crate) optional: Dict,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CellMeta {
     collapsed: Option<bool>,
     autoscroll: Option<Value>,
@@ -120,6 +120,16 @@ pub enum OutputValue {
     Svg(String),
     #[serde(rename = "application/json")]
     Json(HashMap<String, Value>),
+    #[serde(rename = "text/html")]
+    Html(
+        #[serde(
+            deserialize_with = "concatenate_deserialize",
+            serialize_with = "concatenate_serialize"
+        )]
+        String,
+    ),
+    #[serde(rename = "application/javascript")]
+    Javascript(String),
 }
 
 // #[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq)]
@@ -255,6 +265,14 @@ impl CellOutput {
                     OutputValue::Json(v) => {
                         vec![Event::Text(CowStr::Boxed(
                             format!("{:?}", v).into_boxed_str(),
+                        ))]
+                    }
+                    OutputValue::Html(v) => {
+                        vec![Event::Html(CowStr::Boxed(v.to_string().into_boxed_str()))]
+                    }
+                    OutputValue::Javascript(v) => {
+                        vec![Event::Html(CowStr::Boxed(
+                            format!("<script>{}</script>", v).into_boxed_str(),
                         ))]
                     }
                 })
