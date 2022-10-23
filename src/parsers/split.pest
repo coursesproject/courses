@@ -34,7 +34,7 @@ markup_wrap = _{ SPACES ~ MARKUP ~ SPACES ~ markup}
 
 comment_space = {SPACE*}
 source_comment = { comment_space ~ REGULAR_COMMENT ~ SPACES ~ str}
-source_code = {(!(NEWLINE|COMMENT_DEF) ~ ANY)*}
+source_code = {(!(NEWLINE|MARKUP) ~ ANY)*}
 
 
 block_def = _{ MARKUP ~ SPACES ~ TAG_OPEN ~ SPACES ~ PUSH(keyword) ~ SPACES ~ attributes }
