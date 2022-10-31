@@ -40,9 +40,10 @@ impl Pipeline {
     pub fn build_file<P: AsRef<Path>>(
         &mut self,
         path: P,
-        config: BuildConfig<()>,
+        config: &BuildConfig<()>,
         build_config: &BuildConfig<Option<DocumentConfig>>,
     ) -> anyhow::Result<()> {
+        println!("Started");
         // let doc_base = RelativePathBuf::from_path(&path)?;
         // let doc_path = doc_base
         //     .strip_prefix(RelativePathBuf::from_path(&self.project_path)?)
@@ -55,32 +56,28 @@ impl Pipeline {
         let el = doc_iter.next().unwrap().to_str().unwrap();
 
         let doc = if el.contains(".") {
-            config.index
+            &config.index
         } else {
             let first_elem = doc_iter.next().unwrap().to_str().unwrap();
 
             // let file_name = doc_iter.next().unwrap().to_str().unwrap();
             let file_id = section_id(path.as_ref()).unwrap();
 
-            let part: Part<()> = config
+            let part: &Part<()> = &config
                 .content
-                .into_iter()
+                .iter()
                 .filter(|e| &e.id == el)
                 .next()
                 .unwrap();
-            let elem = part
-                .chapters
-                .into_iter()
-                .filter(|c| &c.id == first_elem)
-                .next();
+            let elem = part.chapters.iter().filter(|c| &c.id == first_elem).next();
 
             match elem {
-                None => part.index,
+                None => &part.index,
                 Some(c) => {
-                    let doc = c.documents.into_iter().filter(|d| d.id == file_id).next();
+                    let doc = c.documents.iter().filter(|d| d.id == file_id).next();
                     match doc {
-                        None => c.index,
-                        Some(d) => d,
+                        None => &c.index,
+                        Some(d) => &d,
                     }
                 }
             }

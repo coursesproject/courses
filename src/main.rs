@@ -6,7 +6,7 @@ use courses::config::Config;
 use courses::parser::DocParser;
 use courses::pipeline::Pipeline;
 use courses::render::HtmlRenderer;
-use notify::event::ModifyKind;
+use notify::event::{AccessKind, ModifyKind};
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use penguin::Server;
 use std::env;
@@ -55,6 +55,8 @@ async fn main() -> anyhow::Result<()> {
             let p_build = path.as_path().join("build");
 
             let config: BuildConfig<()> = BuildConfig::generate_from_directory(&path)?;
+            let c2 = config.clone();
+
             let mut pipeline = Pipeline::new(path.as_path())?;
             let cf = pipeline.build_everything(config)?;
 
@@ -73,17 +75,19 @@ async fn main() -> anyhow::Result<()> {
                     let event: Event = event;
                     println!("event: {:?}", event);
                     match event.kind {
-                        EventKind::Modify(kind) => match kind {
-                            ModifyKind::Data(ch) => {
-                                let config: BuildConfig<()> =
-                                    BuildConfig::generate_from_directory(&path).unwrap();
+                        EventKind::Access(kind) => match kind {
+                            AccessKind::Close(_) => {
                                 let mut pipeline = Pipeline::new(path.as_path()).unwrap();
                                 // let res = pipeline.build_everything(config).unwrap();
                                 let p = event.paths.first().unwrap();
-                                pipeline.build_file(p, config, &cf).unwrap();
+                                pipeline.build_file(p, &c2, &cf).unwrap();
 
                                 controller.reload();
                             }
+                            _ => {}
+                        },
+                        EventKind::Modify(kind) => match kind {
+                            ModifyKind::Data(ch) => {}
                             _ => {}
                         },
                         _ => {}
