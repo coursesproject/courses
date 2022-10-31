@@ -1,5 +1,6 @@
-use crate::builder::Builder;
-use anyhow::{anyhow, Result};
+use crate::builder_old::Builder;
+use crate::cfg::Format;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
@@ -26,20 +27,27 @@ pub struct Chapter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Section {
+    title: String,
     id: String,
     doc: Document,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Format {
-    Markdown,
-    Notebook,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DocFrontMatter {
+    pub title: Option<String>,
+    #[serde(rename = "type", default = "default_doc_type")]
+    pub doc_type: String,
+}
+
+fn default_doc_type() -> String {
+    "text".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
     pub format: Format,
     pub path: PathBuf,
+    pub meta: Option<DocFrontMatter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,21 +74,12 @@ struct ConfigFile {
     build_path: String,
 }
 
-impl Format {
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
-        match path.as_ref().extension().unwrap().to_str().unwrap() {
-            "md" => Ok(Format::Markdown),
-            "ipynb" => Ok(Format::Notebook),
-            _ => Err(anyhow!("Invalid file extension")),
-        }
-    }
-}
-
 impl Document {
     fn new<P: AsRef<Path>>(section_path: P) -> Result<Self> {
         Ok(Document {
             path: section_path.as_ref().to_path_buf(),
             format: Format::from_path(section_path)?,
+            meta: None,
         })
     }
 }
@@ -106,6 +105,7 @@ fn extension_in(extension: &str) -> bool {
 impl Section {
     fn new<P: AsRef<Path>>(section_path: P) -> Result<Self> {
         Ok(Section {
+            title: "".to_string(),
             id: raw_file_name(section_path.as_ref()).unwrap(),
             doc: Document::new(section_path)?,
         })
@@ -145,7 +145,7 @@ impl Chapter {
         };
 
         Ok(Chapter {
-            title: "hej".to_string(),
+            title: "".to_string(),
             id: chapter_dir
                 .as_ref()
                 .file_name()
@@ -197,7 +197,7 @@ impl Config {
         chapter: &Chapter,
         builder: &mut Builder,
         chapter_build_path: P,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let section_build_path = chapter_build_path
             .as_ref()
             .join(format!("{}.html", section.id));
@@ -212,7 +212,7 @@ impl Config {
             .join(format!("{}_solution.py", section.id));
         let content = builder.parse_pd(section.doc.clone())?;
         // let content = parse(section.doc.clone())?;
-        let result = builder.render_section(&self, section, chapter, content.html)?;
+        let result = builder.render_section(&self, section, chapter, &content)?;
         fs::write(section_build_path, result)?;
         let f = File::create(section_notebook_path)?;
         let writer = BufWriter::new(f);
@@ -223,28 +223,51 @@ impl Config {
         serde_json::to_writer(writer, &content.split_meta)?;
 
         fs::write(section_solution_path, content.raw_solution)?;
-        Ok(())
+        Ok(content.heading)
     }
 
-    pub fn build(&self, builder: &mut Builder) -> Result<()> {
+    pub fn build(&mut self, builder: &mut Builder) -> Result<Self> {
         fs::create_dir_all(self.build_path.as_path())?;
 
+        let mut cfg = self.clone();
+
+        let mut new_chapters = Vec::new();
         for chapter in &self.chapters {
             println!("Building chapter {}", chapter.id);
             let chapter_build_path = self.build_path.as_path().join(chapter.id.clone());
             fs::create_dir_all(chapter_build_path.as_path())?;
 
             let index_section = Section {
+                title: "Index".to_string(),
                 id: "index".to_string(),
                 doc: chapter.doc.clone(),
             };
-            self.build_section(&index_section, chapter, builder, &chapter_build_path);
 
+            let heading =
+                self.build_section(&index_section, chapter, builder, &chapter_build_path)?;
+
+            let mut new_sections = Vec::new();
             for section in &chapter.sections {
-                self.build_section(section, chapter, builder, &chapter_build_path)?
+                let ch = (*chapter).clone();
+                let heading = self.build_section(section, chapter, builder, &chapter_build_path)?;
+                new_sections.push(Section {
+                    title: heading,
+                    id: section.id.clone(),
+                    doc: section.doc.clone(),
+                })
             }
+            new_chapters.push(Chapter {
+                title: heading,
+                id: chapter.id.clone(),
+                doc: chapter.doc.clone(),
+                sections: new_sections,
+                resources: chapter.resources.clone(),
+                code: chapter.code.clone(),
+            });
         }
 
-        Ok(())
+        cfg.chapters = new_chapters;
+
+        Ok(cfg)
     }
 }

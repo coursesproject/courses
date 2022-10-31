@@ -1,12 +1,16 @@
 #[macro_use]
 extern crate pest_derive;
 
-pub mod builder;
+pub mod builder_old;
+pub mod cfg;
 pub mod config;
 pub mod document_parser;
 pub mod extensions;
 pub mod notebook;
+pub mod notebook_writer;
+pub mod parser;
 pub mod parsers;
+pub mod pipeline;
 pub mod render;
 mod visitor;
 

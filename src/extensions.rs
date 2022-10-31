@@ -84,8 +84,9 @@ impl<'a> Extension<'a> for CodeSplit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::builder::Builder;
-    use crate::config::{Document, Format};
+    use crate::builder_old::Builder;
+    use crate::cfg::Format;
+    use crate::config::Document;
 
     #[test]
     fn test_code_split() {

@@ -1,19 +1,21 @@
-use crate::config::{Chapter, Config, Document, Format, Section};
+use crate::cfg::Format;
+use crate::config::{Chapter, Config, DocFrontMatter, Document, Section};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
+use crate::notebook_writer::render_notebook;
 use crate::parsers::split::Rule;
 use crate::parsers::split_types::CodeTaskDefinition;
-use crate::render::render_notebook;
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
-use pandoc::{InputFormat, MarkdownExtension, OutputKind, Pandoc, PandocOutput};
-use pulldown_cmark::{html, Event, Options, Parser};
+use pulldown_cmark::HeadingLevel::H1;
+use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use tera::Tera;
 use thiserror::Error;
+use yaml_front_matter::YamlFrontMatter;
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
@@ -39,6 +41,8 @@ pub enum BuildError {
 
 #[derive(Debug)]
 pub struct RenderData {
+    pub heading: String,
+    pub meta: DocFrontMatter,
     pub html: String,
     pub notebook: Notebook,
     pub raw_solution: String,
@@ -71,23 +75,29 @@ impl Builder {
     pub fn parse_pd(&mut self, doc: Document) -> Result<RenderData> {
         let options = Options::all();
 
-        let html_output = match doc.format {
+        let res = match doc.format {
             Format::Notebook => {
                 let bf = BufReader::new(File::open(doc.path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
-                self.render(nb.into_iter())
+                let meta = DocFrontMatter {
+                    title: Some("None yet".to_string()),
+                    doc_type: "exercise".to_string(),
+                };
+                self.render(meta, nb.into_iter())
             }
             Format::Markdown => {
                 let input = fs::read_to_string(doc.path)?;
-                let parser = Parser::new_ext(&input, options);
-                self.render(parser)
+                let doc: yaml_front_matter::Document<DocFrontMatter> =
+                    YamlFrontMatter::parse(&input).unwrap();
+                let parser = Parser::new_ext(&doc.content, options);
+                self.render(doc.metadata, parser)
             }
         };
 
-        html_output
+        res
     }
 
-    fn render<'i, I>(&mut self, iter: I) -> Result<RenderData>
+    fn render<'i, I>(&mut self, meta: DocFrontMatter, iter: I) -> Result<RenderData>
     where
         I: Iterator<Item = Event<'i>>,
     {
@@ -107,10 +117,32 @@ impl Builder {
         let iter: Result<Vec<Event<'i>>> = iter.collect();
         let iter = iter?;
 
+        let mut i_tmp = iter.clone().into_iter();
+        let mut heading = "".to_string();
+        while let Some(e) = i_tmp.next() {
+            if let Event::Start(tag) = e {
+                if let Tag::Heading(lvl, _, _) = tag {
+                    match lvl {
+                        H1 => {
+                            if let Some(txt) = i_tmp.next() {
+                                if let Event::Text(actual_text) = txt {
+                                    heading = actual_text.into_string();
+                                    break;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
         let nb = render_notebook(iter.clone().into_iter())?;
 
         html::push_html(&mut html_output, iter.into_iter());
         Ok(RenderData {
+            heading,
+            meta,
             html: html_output,
             notebook: nb,
             raw_solution: code_ext.solution_string,
@@ -123,50 +155,17 @@ impl Builder {
         config: &Config,
         section: &Section,
         chapter: &Chapter,
-        content: String,
+        render_data: &RenderData,
     ) -> Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);
         context.insert("current_section", section);
-        context.insert("current_chapter", chapter);
-        context.insert("html", &content);
+        context.insert("current_chapter", &chapter);
+        context.insert("html", &render_data.html);
         context.insert("title", "Test");
+        context.insert("meta", &render_data.meta);
         self.tera
             .render("section.tera.html", &context)
             .context("Render error")
-    }
-}
-
-pub fn parse(doc: Document) -> Result<String> {
-    let mut pandoc = Pandoc::new();
-
-    let extensions = vec![
-        MarkdownExtension::FencedCodeBlocks,
-        MarkdownExtension::FencedCodeAttributes,
-        MarkdownExtension::BracketedSpans,
-        MarkdownExtension::FencedDivs,
-        MarkdownExtension::TexMathDollars,
-        MarkdownExtension::BacktickCodeBlocks,
-    ];
-
-    match doc.format {
-        Format::Markdown => pandoc
-            .add_input(doc.path.as_path())
-            .set_input_format(InputFormat::Markdown, extensions),
-
-        Format::Notebook => pandoc
-            .add_input(doc.path.as_path())
-            .set_input_format(InputFormat::Other("ipynb".to_string()), extensions),
-    };
-
-    pandoc.set_output(OutputKind::Pipe);
-    let output = pandoc
-        .execute()
-        .with_context(|| format!("Document: {}", doc.path.display()))?;
-
-    if let PandocOutput::ToBuffer(string) = output {
-        Ok(string)
-    } else {
-        panic!("No buffer");
     }
 }

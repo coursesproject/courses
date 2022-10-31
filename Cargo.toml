@@ -18,6 +18,10 @@ serde_with = "2.0.1"
 base64 = "0.13.1"
 image = "0.24.4"
 
+yaml-front-matter = "0.1.0"
+
+relative-path = "1.7.2"
+
 thiserror = "1.0.37"
 anyhow = { version = "1.0.65", features = ["backtrace"] }
 

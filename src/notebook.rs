@@ -1,5 +1,7 @@
+use crate::parser::FrontMatter;
 use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
+use anyhow::Context;
 use base64;
 use base64::display::Base64Display;
 use image::{load_from_memory, DynamicImage};
@@ -17,7 +19,7 @@ use std::slice::Iter;
 use std::str::Chars;
 use std::vec::IntoIter;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Notebook {
     pub(crate) metadata: NotebookMeta,
     pub(crate) nbformat: i64,
@@ -359,6 +361,29 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
 }
 
 impl Notebook {
+    pub fn get_front_matter(&self) -> anyhow::Result<Option<FrontMatter>> {
+        match &self.cells[0] {
+            Cell::Raw { common } => Ok(Some(serde_yaml::from_str(&common.source)?)),
+            Cell::Code { common, .. } => {
+                let r = common
+                    .metadata
+                    .additional
+                    .get("vscode")
+                    .and_then(|d| match d {
+                        Value::Object(o) => o.get("languageId"),
+                        _ => None,
+                    })
+                    .filter(|val| match val {
+                        Value::String(s) => s == "yaml",
+                        _ => false,
+                    })
+                    .and_then(|_| Some(serde_yaml::from_str(&common.source)));
+                r.map_or(Ok(None), |v| v.map(Some).context("Yaml"))
+            }
+            _ => Ok(None),
+        }
+    }
+
     pub fn map_cell(&self, f: fn(&Cell) -> anyhow::Result<Cell>) -> anyhow::Result<Notebook> {
         let cells = self.cells.iter().map(f);
         Ok(Notebook {
