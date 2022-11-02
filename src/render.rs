@@ -1,4 +1,4 @@
-use crate::cfg::BuildConfig;
+use crate::cfg::Config;
 use crate::parser::DocumentParsed;
 use crate::pipeline::DocumentConfig;
 use anyhow::{anyhow, Context};
@@ -26,7 +26,7 @@ impl HtmlRenderer {
     pub fn render_document(
         &self,
         doc: &DocumentParsed,
-        config: &BuildConfig<Option<DocumentConfig>>,
+        config: &Config<DocumentConfig>,
     ) -> anyhow::Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);

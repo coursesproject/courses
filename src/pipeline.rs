@@ -1,4 +1,4 @@
-use crate::cfg::{section_id, BuildConfig, Chapter, Document, Part, Transform, TransformParents};
+use crate::cfg::{section_id, Config, Chapter, Document, Part, Transform, TransformParents, ConfigItem};
 use crate::extensions::ExtensionFactory;
 use crate::parser::{DocParser, DocumentParsed, FrontMatter};
 use crate::render::HtmlRenderer;
@@ -7,9 +7,14 @@ use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs;
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use indicatif::ProgressBar;
+
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DocumentConfig {
     id: String,
     header: String,
@@ -40,14 +45,15 @@ impl Pipeline {
     pub fn build_file<P: AsRef<Path>>(
         &mut self,
         path: P,
-        config: &BuildConfig<()>,
-        build_config: &BuildConfig<Option<DocumentConfig>>,
+        config: &Config<()>,
+        build_config: &Config<DocumentConfig>,
     ) -> anyhow::Result<()> {
-        println!("Started");
+
         // let doc_base = RelativePathBuf::from_path(&path)?;
         // let doc_path = doc_base
         //     .strip_prefix(RelativePathBuf::from_path(&self.project_path)?)
         //     .unwrap();
+
 
         let doc_path = path
             .as_ref()
@@ -96,61 +102,90 @@ impl Pipeline {
 
         fs::create_dir_all(build_dir)?;
         fs::write(section_build_path, html).unwrap();
-        println!("Finished {}", doc.id);
+        println!("🔔 Document {} changed, re-rendered output", doc.id);
 
         Ok(())
     }
 
     pub fn build_everything(
         &mut self,
-        config: BuildConfig<()>,
-    ) -> anyhow::Result<BuildConfig<Option<DocumentConfig>>> {
-        let parsed = config.transform(&|doc| Pipeline::parse(self.project_path.clone(), doc));
+        config: Config<()>,
+    ) -> anyhow::Result<Config<DocumentConfig>> {
+        let mut len: u64 = 0;
+        for p in &config.content {
+            len += 1;
+            for c in &p.chapters {
+                len += c.documents.len() as u64 + 1;
+            }
+        }
 
-        let build_config = parsed.transform(&|doc| {
-            doc.content
-                .as_ref()
-                .map(|c| DocumentConfig {
-                    id: doc.id.clone(),
-                    header: c.title.clone(),
-                    frontmatter: c.frontmatter.clone(),
-                })
-                .map_err(|e| {
-                    println!("error: {:?}", e);
-                    e
-                })
-                .ok()
-        });
+        println!("[2/4] 📖 Parsing source documents...");
+
+
+        let bar = ProgressBar::new(len);
+        let parsed: Config<DocumentParsed> = config.into_iter().map(|item| item.map_doc(|doc| {
+            bar.inc(1);
+            Pipeline::parse(self.project_path.clone(), &doc)
+        })).collect::<anyhow::Result<Config<DocumentParsed>>>()?;
+        bar.finish();
+        // Work on how to create build configuration
+        println!("[3/4] 🌵 Generating build configuration...");
+        let build_config: Config<DocumentConfig> = parsed.clone().into_iter().map(|item| item.map_doc(|doc| {
+            let c = doc.content;
+            Ok(DocumentConfig {
+                id: doc.id.clone(),
+                header: c.title.clone(),
+                frontmatter: c.frontmatter.clone(),
+            })
+        })).collect::<anyhow::Result<Config<DocumentConfig>>>()?;
+
+        let build_config: Config<DocumentConfig> = parsed.clone().into_iter().map(|item| item.map_doc(|doc| {
+            let c = doc.content;
+            Ok(DocumentConfig {
+                id: doc.id.clone(),
+                header: c.title.clone(),
+                frontmatter: c.frontmatter.clone(),
+            })
+            // .map_err(|e| {
+            //     println!("error: {:?}", e);
+            //     e
+            // })
+            // .ok()
+        })).collect::<anyhow::Result<Config<DocumentConfig>>>()?;
 
         let build_path = self.project_path.join("build");
-        let res: BuildConfig<anyhow::Result<()>> =
-            parsed.transform_parents(&|doc, part, chapter| {
-                let r = doc.content.as_ref().unwrap(); //TODO: Fix
-                let res = self.renderer.render_document(&r, &build_config);
-                match res {
-                    Ok(res) => {
-                        let mut section_build_dir = build_path.clone();
 
-                        if let Some(pt) = part {
-                            section_build_dir = section_build_dir.join(pt.id.clone());
-                        }
+        println!("[X/4] Writing notebooks...");
+        let res: Vec<()> = parsed.clone().into_iter().map(|item|  {
+            let mut notebook_build_dir = build_path.as_path().join("source").join(&item.doc.path);
+            notebook_build_dir.pop(); // Pop filename
+            let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", item.doc.id));
 
-                        if let Some(ch) = chapter {
-                            section_build_dir = section_build_dir.join(ch.id.clone())
-                        };
+            fs::create_dir_all(notebook_build_dir)?;
+            let f = File::create(notebook_build_path)?;
+            let writer = BufWriter::new(f);
+            serde_json::to_writer(writer, &item.doc.content.notebook)?;
+            Ok(())
+        }).collect::<anyhow::Result<Vec<()>>>()?;
 
-                        let section_build_path = section_build_dir.join(format!("{}.html", doc.id));
 
-                        fs::create_dir_all(section_build_dir)?;
-                        fs::write(section_build_path, res).unwrap();
-                        println!("Finished {}", doc.id);
-                        Ok(())
-                    }
-                    Err(e) => {
-                        panic!("{:?}", e)
-                    }
-                }
-            });
+        println!("[4/4] 🌼 Rendering output...");
+        let res: Vec<()> = parsed.clone().into_iter().map(|item| {
+            let output = self.renderer.render_document(&item.doc.content, &build_config)?;
+
+            let mut html_build_dir = build_path.as_path().join("web").join(&item.doc.path);
+            html_build_dir.pop(); // Pop filename
+            let section_build_path = html_build_dir.join(format!("{}.html", item.doc.id));
+
+            fs::create_dir_all(html_build_dir)?;
+            fs::write(section_build_path, output).unwrap();
+
+            Ok(())
+        }).collect::<anyhow::Result<Vec<()>>>()?;
+
+
         Ok(build_config)
     }
 }
+
+

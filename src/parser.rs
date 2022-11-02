@@ -26,14 +26,14 @@ fn default_doc_type() -> String {
     "text".to_string()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DocumentParsed {
     pub(crate) title: String,
     pub(crate) frontmatter: FrontMatter,
     pub(crate) html: String,
-    notebook: Notebook,
-    raw_solution: String,
-    split_meta: CodeTaskDefinition,
+    pub(crate) notebook: Notebook,
+    pub(crate) raw_solution: String,
+    pub(crate) split_meta: CodeTaskDefinition,
 }
 
 pub struct DocParser {
@@ -57,15 +57,16 @@ impl DocParser {
     pub fn parse(&mut self, doc: &Document<()>) -> anyhow::Result<DocumentParsed> {
         let options = Options::all();
 
+        let content_path = self.project_path.join("content").join(&doc.path);
         let res = match doc.format {
             Format::Notebook => {
-                let bf = BufReader::new(File::open(&doc.path)?);
+                let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
                 let meta = nb.get_front_matter().unwrap().unwrap_or_default();
                 self.process(doc, meta, nb.into_iter())
             }
             Format::Markdown => {
-                let input = fs::read_to_string(&doc.path)?;
+                let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap();
                 let parser = Parser::new_ext(&yml.content, options);

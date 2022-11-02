@@ -19,7 +19,7 @@ use std::slice::Iter;
 use std::str::Chars;
 use std::vec::IntoIter;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Notebook {
     pub(crate) metadata: NotebookMeta,
     pub(crate) nbformat: i64,
@@ -29,7 +29,7 @@ pub struct Notebook {
 
 type Dict = HashMap<String, Value>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NotebookMeta {
     pub(crate) kernelspec: Option<HashMap<String, Value>>,
     #[serde(flatten)]
