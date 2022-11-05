@@ -1,9 +1,12 @@
 #[macro_use]
 extern crate pest_derive;
 
+mod ast;
 pub mod builder_old;
 pub mod cfg;
+mod cfg2;
 pub mod config;
+mod document;
 pub mod document_parser;
 pub mod extensions;
 pub mod notebook;
@@ -13,7 +16,6 @@ pub mod parsers;
 pub mod pipeline;
 pub mod render;
 mod visitor;
-mod cfg2;
 
 #[cfg(test)]
 mod tests {

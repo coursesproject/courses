@@ -1,4 +1,6 @@
-use crate::cfg::{section_id, Config, Chapter, Document, Part, Transform, TransformParents, ConfigItem};
+use crate::cfg::{
+    section_id, Chapter, Config, ConfigItem, DocumentSpec, Part, Transform, TransformParents,
+};
 use crate::extensions::ExtensionFactory;
 use crate::parser::{DocParser, DocumentParsed, FrontMatter};
 use crate::render::HtmlRenderer;
@@ -13,7 +15,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use indicatif::ProgressBar;
-
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DocumentConfig {
@@ -38,7 +39,7 @@ impl Pipeline {
         })
     }
 
-    fn parse(project_path: PathBuf, doc: &Document<()>) -> anyhow::Result<DocumentParsed> {
+    fn parse(project_path: PathBuf, doc: &DocumentSpec<()>) -> anyhow::Result<DocumentParsed> {
         let mut parser = DocParser::new(project_path, vec![])?;
         parser.parse(doc)
     }
@@ -49,12 +50,10 @@ impl Pipeline {
         config: &Config<()>,
         build_config: &Config<DocumentConfig>,
     ) -> anyhow::Result<()> {
-
         // let doc_base = RelativePathBuf::from_path(&path)?;
         // let doc_path = doc_base
         //     .strip_prefix(RelativePathBuf::from_path(&self.project_path)?)
         //     .unwrap();
-
 
         let doc_path = path
             .as_ref()
@@ -91,11 +90,11 @@ impl Pipeline {
         };
 
         let parsed = Pipeline::parse(self.project_path.clone(), doc)?;
-        let parsed_doc = Document {
+        let parsed_doc = DocumentSpec {
             id: doc.id.clone(),
             format: doc.format.clone(),
             path: doc.path.clone(),
-            content: Arc::new(parsed)
+            content: Arc::new(parsed),
         };
 
         let basebuild_path = self.project_path.join("build");
@@ -135,39 +134,64 @@ impl Pipeline {
         println!("[2/4] 📖 Parsing source documents...");
 
         let bar = ProgressBar::new(len);
-        let parsed: Config<DocumentParsed> = config.into_iter().map(|item| item.map_doc(|doc| {
-            bar.inc(1);
-            Pipeline::parse(self.project_path.clone(), &doc)
-        })).collect::<anyhow::Result<Config<DocumentParsed>>>()?;
+        let parsed: Config<DocumentParsed> = config
+            .into_iter()
+            .map(|item| {
+                item.map_doc(|doc| {
+                    bar.inc(1);
+                    Pipeline::parse(self.project_path.clone(), &doc)
+                })
+            })
+            .collect::<anyhow::Result<Config<DocumentParsed>>>()?;
         bar.finish();
 
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");
-        let build_config: Config<DocumentConfig> = parsed.clone().into_iter().map(|item| item.map_doc(|doc| {
-            let c = doc.content;
-            Ok(DocumentConfig {
-                id: doc.id.clone(),
-                header: c.title.clone(),
-                frontmatter: c.frontmatter.clone(),
+        let build_config: Config<DocumentConfig> = parsed
+            .clone()
+            .into_iter()
+            .map(|item| {
+                item.map_doc(|doc| {
+                    let c = doc.content;
+                    Ok(DocumentConfig {
+                        id: doc.id.clone(),
+                        header: c.title.clone(),
+                        frontmatter: c.frontmatter.clone(),
+                    })
+                })
             })
-        })).collect::<anyhow::Result<Config<DocumentConfig>>>()?;
+            .collect::<anyhow::Result<Config<DocumentConfig>>>()?;
 
         let build_path = self.project_path.join("build");
 
         println!("[X/4] Writing notebooks...");
-        let notebook_errors: Vec<anyhow::Result<()>> = parsed.clone().into_iter().map(|item|  self.write_notebook(&item.doc, &build_path)).collect();
-
+        let notebook_errors: Vec<anyhow::Result<()>> = parsed
+            .clone()
+            .into_iter()
+            .map(|item| self.write_notebook(&item.doc, &build_path))
+            .collect();
 
         println!("[4/4] 🌼 Rendering output...");
-        let html_errors: Vec<anyhow::Result<()>> = parsed.clone().into_iter().map(|item| self.write_html(&item.doc, &build_config, &build_path)).collect();
+        let html_errors: Vec<anyhow::Result<()>> = parsed
+            .clone()
+            .into_iter()
+            .map(|item| self.write_html(&item.doc, &build_config, &build_path))
+            .collect();
 
-        let md_errors: Vec<anyhow::Result<()>> = parsed.clone().into_iter().map(|item| self.write_markdown(&item.doc, &build_path)).collect();
-
+        let md_errors: Vec<anyhow::Result<()>> = parsed
+            .clone()
+            .into_iter()
+            .map(|item| self.write_markdown(&item.doc, &build_path))
+            .collect();
 
         Ok(build_config)
     }
 
-    fn write_notebook<P: AsRef<Path>>(&self, doc: &Document<DocumentParsed>, build_path: P) -> anyhow::Result<()> {
+    fn write_notebook<P: AsRef<Path>>(
+        &self,
+        doc: &DocumentSpec<DocumentParsed>,
+        build_path: P,
+    ) -> anyhow::Result<()> {
         let mut notebook_build_dir = build_path.as_ref().join("source").join(&doc.path);
         notebook_build_dir.pop(); // Pop filename
         let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", doc.id));
@@ -179,7 +203,11 @@ impl Pipeline {
         Ok(())
     }
 
-    fn write_markdown<P: AsRef<Path>>(&self, doc: &Document<DocumentParsed>, build_path: P) -> anyhow::Result<()> {
+    fn write_markdown<P: AsRef<Path>>(
+        &self,
+        doc: &DocumentSpec<DocumentParsed>,
+        build_path: P,
+    ) -> anyhow::Result<()> {
         let mut md_build_dir = build_path.as_ref().join("md").join(&doc.path);
         md_build_dir.pop(); // Pop filename
         let md_build_path = md_build_dir.join(format!("{}.md", doc.id));
@@ -189,7 +217,12 @@ impl Pipeline {
         Ok(())
     }
 
-    fn write_html<P: AsRef<Path>>(&self, doc: &Document<DocumentParsed>, build_config: &Config<DocumentConfig>, build_path: P) -> anyhow::Result<()> {
+    fn write_html<P: AsRef<Path>>(
+        &self,
+        doc: &DocumentSpec<DocumentParsed>,
+        build_config: &Config<DocumentConfig>,
+        build_path: P,
+    ) -> anyhow::Result<()> {
         let output = self.renderer.render_document(&doc.content, &build_config)?;
 
         let mut html_build_dir = build_path.as_ref().join("web").join(&doc.path);
@@ -202,5 +235,3 @@ impl Pipeline {
         Ok(())
     }
 }
-
-

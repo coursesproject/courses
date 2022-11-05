@@ -1,5 +1,5 @@
 use crate::builder_old::{Builder, RenderData};
-use crate::cfg::{Document, Format};
+use crate::cfg::{DocumentSpec, Format};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
@@ -55,7 +55,7 @@ impl DocParser {
         })
     }
 
-    pub fn parse(&mut self, doc: &Document<()>) -> anyhow::Result<DocumentParsed> {
+    pub fn parse(&mut self, doc: &DocumentSpec<()>) -> anyhow::Result<DocumentParsed> {
         let options = Options::all();
 
         let content_path = self.project_path.join("content").join(&doc.path);
@@ -80,7 +80,7 @@ impl DocParser {
 
     fn process<'i, I>(
         &mut self,
-        doc: &Document<()>,
+        doc: &DocumentSpec<()>,
         meta: FrontMatter,
         iter: I,
     ) -> anyhow::Result<DocumentParsed>

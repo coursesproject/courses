@@ -6,14 +6,14 @@ use std::sync::Arc;
 
 pub trait Transform<T, I, O> {
     fn transform<F>(&self, f: &F) -> T
-        where
-            F: Fn(&Document<I>) -> O;
+    where
+        F: Fn(&DocumentSpec<I>) -> O;
 }
 
 pub trait TransformParents<T, I, O> {
     fn transform_parents<F>(&self, f: &F) -> T
-        where
-            F: Fn(&Document<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
 }
 
 // impl<'a, D> IntoIterator for &'a Config<D> where D: Clone {
@@ -30,7 +30,10 @@ pub trait TransformParents<T, I, O> {
 //     }
 // }
 
-impl<D> IntoIterator for Config<D> where D: Clone {
+impl<D> IntoIterator for Config<D>
+where
+    D: Clone,
+{
     type Item = ConfigItem<D>;
     type IntoIter = ConfigIterator<D>;
 
@@ -81,7 +84,7 @@ pub struct ConfigItem<D> {
     pub chapter_id: Option<String>,
     pub part_idx: Option<usize>,
     pub chapter_idx: Option<usize>,
-    pub doc: Document<D>,
+    pub doc: DocumentSpec<D>,
 }
 
 pub struct ConfigItemRef<'a, D> {
@@ -89,11 +92,17 @@ pub struct ConfigItemRef<'a, D> {
     pub chapter_id: Option<String>,
     pub part_idx: Option<usize>,
     pub chapter_idx: Option<usize>,
-    pub doc: &'a Document<D>,
+    pub doc: &'a DocumentSpec<D>,
 }
 
 impl<D> ConfigItem<D> {
-    fn new(part_id: Option<String>, chapter_id: Option<String>, part_idx: Option<usize>, chapter_idx: Option<usize>, doc: Document<D>) -> Self {
+    fn new(
+        part_id: Option<String>,
+        chapter_id: Option<String>,
+        part_idx: Option<usize>,
+        chapter_idx: Option<usize>,
+        doc: DocumentSpec<D>,
+    ) -> Self {
         ConfigItem {
             part_id,
             chapter_id,
@@ -103,24 +112,42 @@ impl<D> ConfigItem<D> {
         }
     }
 
-    pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>> where F: Fn(&D) -> anyhow::Result<O> {
-        let doc = Document {
+    pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
+    where
+        F: Fn(&D) -> anyhow::Result<O>,
+    {
+        let doc = DocumentSpec {
             id: self.doc.id,
             format: self.doc.format,
             path: self.doc.path,
             content: Arc::new(f(self.doc.content.as_ref())?),
         };
-        Ok(ConfigItem::new(self.part_id, self.chapter_id, self.part_idx, self.chapter_idx, doc))
+        Ok(ConfigItem::new(
+            self.part_id,
+            self.chapter_id,
+            self.part_idx,
+            self.chapter_idx,
+            doc,
+        ))
     }
 
-    pub fn map_doc<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>> where F: Fn(Document<D>) -> anyhow::Result<O> {
-        let doc = Document {
+    pub fn map_doc<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
+    where
+        F: Fn(DocumentSpec<D>) -> anyhow::Result<O>,
+    {
+        let doc = DocumentSpec {
             id: self.doc.id.clone(),
             format: self.doc.format.clone(),
             path: self.doc.path.clone(),
             content: Arc::new(f(self.doc)?),
         };
-        Ok(ConfigItem::new(self.part_id, self.chapter_id, self.part_idx, self.chapter_idx, doc))
+        Ok(ConfigItem::new(
+            self.part_id,
+            self.chapter_id,
+            self.part_idx,
+            self.chapter_idx,
+            doc,
+        ))
     }
 }
 
@@ -156,15 +183,14 @@ impl<D> ConfigItem<D> {
 //     }
 // }
 
-
 impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
-    fn from_iter<T: IntoIterator<Item=ConfigItem<D>>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = ConfigItem<D>>>(iter: T) -> Self {
         // let mut index = it.next().unwrap().doc;
-        let mut index: Document<D> = Document {
+        let mut index: DocumentSpec<D> = DocumentSpec {
             id: "".to_string(),
             format: Format::Markdown,
             path: Default::default(),
-            content: Arc::new(D::default())
+            content: Arc::new(D::default()),
         };
 
         let mut parts: Vec<Part<D>> = vec![];
@@ -177,12 +203,23 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
                 part_idx => {
                     let part_id = item.part_id.unwrap();
                     match item.chapter_idx.unwrap() {
-                        0 => parts.push(Part { id: part_id, index: item.doc, chapters: vec![] }),
+                        0 => parts.push(Part {
+                            id: part_id,
+                            index: item.doc,
+                            chapters: vec![],
+                        }),
                         chapter_idx => {
                             let chapter_id = item.chapter_id.unwrap();
 
                             if last_chapter == chapter_idx {
-                                parts.last_mut().unwrap().chapters.last_mut().unwrap().documents.push(item.doc);
+                                parts
+                                    .last_mut()
+                                    .unwrap()
+                                    .chapters
+                                    .last_mut()
+                                    .unwrap()
+                                    .documents
+                                    .push(item.doc);
                             } else {
                                 parts.last_mut().unwrap().chapters.push(Chapter {
                                     id: chapter_id,
@@ -200,7 +237,7 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
         Config {
             project_path: Default::default(),
             index: index,
-            content: parts
+            content: parts,
         }
     }
 }
@@ -266,30 +303,45 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
 //     }
 // }
 
-impl<D> Iterator for ConfigIterator<D> where D: Clone {
+impl<D> Iterator for ConfigIterator<D>
+where
+    D: Clone,
+{
     type Item = ConfigItem<D>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.part_pos {
-            0 => { // Config index
+            0 => {
+                // Config index
                 self.part_pos += 1;
-                Some(ConfigItem::new(None, None, Some(0), None, self.config.index.clone()))
+                Some(ConfigItem::new(
+                    None,
+                    None,
+                    Some(0),
+                    None,
+                    self.config.index.clone(),
+                ))
             }
             part_idx if part_idx <= self.config.content.len() => {
                 let part = &self.config.content[part_idx - 1];
 
                 let current_chapter_pos = self.chapter_pos;
 
-
-
                 match current_chapter_pos {
-                    0 => { // Part index
+                    0 => {
+                        // Part index
                         if part.chapters.len() == 0 {
                             self.part_pos += 1;
                         } else {
                             self.chapter_pos += 1;
                         }
-                        Some(ConfigItem::new(Some(part.id.clone()), None, Some(part_idx), Some(0), part.index.clone()))
+                        Some(ConfigItem::new(
+                            Some(part.id.clone()),
+                            None,
+                            Some(part_idx),
+                            Some(0),
+                            part.index.clone(),
+                        ))
                     }
 
                     chapter_idx => {
@@ -309,20 +361,29 @@ impl<D> Iterator for ConfigIterator<D> where D: Clone {
                             self.doc_pos += 1;
                         }
 
-
-
                         match current_doc_pos {
-                            0 => { // Chapter index
-                                Some(ConfigItem::new(Some(part.id.clone()), Some(chapter.id.clone()), Some(part_idx), Some(chapter_idx), chapter.index.clone()))
+                            0 => {
+                                // Chapter index
+                                Some(ConfigItem::new(
+                                    Some(part.id.clone()),
+                                    Some(chapter.id.clone()),
+                                    Some(part_idx),
+                                    Some(chapter_idx),
+                                    chapter.index.clone(),
+                                ))
                             }
-                            doc_pos => {
-                                Some(ConfigItem::new(Some(part.id.clone()), Some(chapter.id.clone()), Some(part_idx), Some(chapter_idx), chapter.documents[doc_pos - 1].clone()))
-                            }
+                            doc_pos => Some(ConfigItem::new(
+                                Some(part.id.clone()),
+                                Some(chapter.id.clone()),
+                                Some(part_idx),
+                                Some(chapter_idx),
+                                chapter.documents[doc_pos - 1].clone(),
+                            )),
                         }
                     }
                 }
             }
-            _ => None
+            _ => None,
         }
     }
 }
@@ -336,19 +397,19 @@ pub enum Format {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Part<C> {
     pub(crate) id: String,
-    pub(crate) index: Document<C>,
+    pub(crate) index: DocumentSpec<C>,
     pub(crate) chapters: Vec<Chapter<C>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chapter<C> {
     pub(crate) id: String,
-    pub(crate) index: Document<C>,
-    pub(crate) documents: Vec<Document<C>>,
+    pub(crate) index: DocumentSpec<C>,
+    pub(crate) documents: Vec<DocumentSpec<C>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Document<C> {
+pub struct DocumentSpec<C> {
     pub(crate) id: String,
     pub(crate) format: Format,
     pub(crate) path: PathBuf,
@@ -358,14 +419,14 @@ pub struct Document<C> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config<C> {
     pub project_path: PathBuf,
-    pub(crate) index: Document<C>,
+    pub(crate) index: DocumentSpec<C>,
     pub(crate) content: Vec<Part<C>>,
 }
 
 impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
     fn transform<F>(&self, f: &F) -> Chapter<O>
-        where
-            F: Fn(&Document<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         Chapter {
             id: self.id.clone(),
@@ -377,8 +438,8 @@ impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
 
 impl<I> Chapter<I> {
     fn transform_parents_helper<F, O>(&self, part: &Part<I>, f: &F) -> Chapter<O>
-        where
-            F: Fn(&Document<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Chapter {
             id: self.id.clone(),
@@ -396,8 +457,8 @@ impl<I> Chapter<I> {
 
 impl<I, O> Transform<Part<O>, I, O> for Part<I> {
     fn transform<F>(&self, f: &F) -> Part<O>
-        where
-            F: Fn(&Document<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         Part {
             id: self.id.clone(),
@@ -409,8 +470,8 @@ impl<I, O> Transform<Part<O>, I, O> for Part<I> {
 
 impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
     fn transform_parents<F>(&self, f: &F) -> Part<O>
-        where
-            F: Fn(&Document<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Part {
             id: self.id.clone(),
@@ -426,8 +487,8 @@ impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
 
 impl<I, O> Transform<Config<O>, I, O> for Config<I> {
     fn transform<F>(&self, f: &F) -> Config<O>
-        where
-            F: Fn(&Document<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         Config {
             project_path: self.project_path.clone(),
@@ -439,8 +500,8 @@ impl<I, O> Transform<Config<O>, I, O> for Config<I> {
 
 impl<I, O> TransformParents<Config<O>, I, O> for Config<I> {
     fn transform_parents<F>(&self, f: &F) -> Config<O>
-        where
-            F: Fn(&Document<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Config {
             project_path: self.project_path.clone(),
@@ -454,12 +515,12 @@ impl<I, O> TransformParents<Config<O>, I, O> for Config<I> {
     }
 }
 
-impl<I, O> Transform<Document<O>, I, O> for Document<I> {
-    fn transform<F>(&self, f: &F) -> Document<O>
-        where
-            F: Fn(&Document<I>) -> O,
+impl<I, O> Transform<DocumentSpec<O>, I, O> for DocumentSpec<I> {
+    fn transform<F>(&self, f: &F) -> DocumentSpec<O>
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
-        Document {
+        DocumentSpec {
             id: self.id.clone(),
             format: self.format.clone(),
             path: self.path.clone(),
@@ -468,18 +529,17 @@ impl<I, O> Transform<Document<O>, I, O> for Document<I> {
     }
 }
 
-
-impl<I> Document<I> {
+impl<I> DocumentSpec<I> {
     fn transform_parents_helper<F, O>(
         &self,
         part: Option<&Part<I>>,
         chapter: Option<&Chapter<I>>,
         f: &F,
-    ) -> Document<O>
-        where
-            F: Fn(&Document<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    ) -> DocumentSpec<O>
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
-        Document {
+        DocumentSpec {
             id: self.id.clone(),
             format: self.format.clone(),
             path: self.path.clone(),
@@ -514,9 +574,9 @@ fn chapter_id<P: AsRef<Path>>(path: P) -> Option<String> {
     Some(path.as_ref().file_name()?.to_str().unwrap().to_string())
 }
 
-impl Document<()> {
+impl DocumentSpec<()> {
     fn new<P: AsRef<Path>>(section_path: P) -> anyhow::Result<Self> {
-        Ok(Document {
+        Ok(DocumentSpec {
             id: section_id(section_path.as_ref()).ok_or(anyhow!("Could not get raw file name"))?,
             path: section_path.as_ref().to_path_buf(),
             format: Format::from_path(section_path)?,
@@ -531,7 +591,10 @@ fn extension_in(extension: &str) -> bool {
     EXT.iter().any(|e| e == &extension)
 }
 
-fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(chapter_dir: &P, content_path: &PC) -> anyhow::Result<Document<()>> {
+fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
+    chapter_dir: &P,
+    content_path: &PC,
+) -> anyhow::Result<DocumentSpec<()>> {
     let chapter_index_md = chapter_dir.as_ref().join("index.md");
     let chapter_index_ipynb = chapter_dir.as_ref().join("index.ipynb");
     let chapter_index = if chapter_index_md.is_file() {
@@ -540,11 +603,14 @@ fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(chapter_dir: &P, content_path: 
         chapter_index_ipynb
     };
 
-    Document::new(chapter_index.strip_prefix(content_path.as_ref())?)
+    DocumentSpec::new(chapter_index.strip_prefix(content_path.as_ref())?)
 }
 
 impl Chapter<()> {
-    fn new<P: AsRef<Path>, PC: AsRef<Path>>(chapter_dir: P, content_path: PC) -> anyhow::Result<Self> {
+    fn new<P: AsRef<Path>, PC: AsRef<Path>>(
+        chapter_dir: P,
+        content_path: PC,
+    ) -> anyhow::Result<Self> {
         let section_dir = chapter_dir.as_ref();
 
         let dirs = fs::read_dir(section_dir)?;
@@ -560,9 +626,9 @@ impl Chapter<()> {
             .filter(|entry| !entry.file_name().to_str().unwrap().contains("index"))
             .filter(|entry| entry.metadata().map(|meta| meta.is_file()).is_ok());
 
-        let documents: Vec<Document<()>> = paths
-            .map(|entry| Document::new(entry.path().strip_prefix(content_path.as_ref())?))
-            .collect::<anyhow::Result<Vec<Document<()>>>>()?;
+        let documents: Vec<DocumentSpec<()>> = paths
+            .map(|entry| DocumentSpec::new(entry.path().strip_prefix(content_path.as_ref())?))
+            .collect::<anyhow::Result<Vec<DocumentSpec<()>>>>()?;
 
         let index_doc = index_helper(&chapter_dir, &content_path);
 
