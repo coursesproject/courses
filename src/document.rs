@@ -1,4 +1,4 @@
-use crate::notebook::{Cell, Notebook};
+use crate::notebook::{Cell, CellEventIterator, CellOutput, Notebook};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, Options, Parser};
@@ -6,21 +6,23 @@ use std::iter::FlatMap;
 use std::slice::Iter;
 use std::vec::IntoIter;
 
-pub struct CellOutput {}
-
+#[derive(Debug, Clone, Default)]
 pub enum Element {
     Markdown {
         content: String,
     },
     Code {
         content: String,
-        output: Option<CellOutput>,
+        output: Option<Vec<CellOutput>>,
     },
     Raw {
         content: String,
     },
+    #[default]
+    Default,
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct Document {
     elements: Vec<Element>,
 }
@@ -46,7 +48,7 @@ impl From<Notebook> for Document {
                     common, outputs, ..
                 } => Element::Code {
                     content: common.source,
-                    output: None,
+                    output: Some(outputs),
                 },
                 Cell::Raw { common } => Element::Raw {
                     content: common.source,
@@ -68,62 +70,74 @@ impl<'a, 'b> Iterator for ElementIterator<'a, 'b> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        match self {
+            ElementIterator::Markdown { parser, .. } => parser.next(),
+            ElementIterator::Code { events, .. } => events.next(),
+            ElementIterator::Raw { .. } => None,
+        }
     }
 }
 
-impl<'a> IntoIterator for &'a Element {
+#[derive(Default, Copy, Clone)]
+pub struct IteratorConfig {
+    include_output: bool,
+    include_solutions: bool,
+}
+
+pub trait ConfigureIterator {
+    type Item;
+    type IntoIter;
+
+    fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter;
+}
+
+impl<'a> ConfigureIterator for &'a Element {
     type Item = Event<'a>;
     type IntoIter = ElementIterator<'a, 'a>;
 
-    fn into_iter(self) -> Self::IntoIter {
+    fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {
         match self {
             Element::Markdown { content } => ElementIterator::Markdown {
                 parser: Parser::new_ext(&content, Options::all()),
             },
 
-            Element::Code { content, .. } => {
+            Element::Code {
+                content,
+                output: outputs,
+            } => {
                 let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));
                 let mut events = vec![
                     Event::Start(cblock.clone()),
                     Event::Text(CowStr::Borrowed(content)),
                     Event::End(cblock),
                 ];
-                // outputs
-                //     .into_iter()
-                //     .for_each(|o| events.append(&mut o.to_events()));
+                if config.include_output {
+                    if let Some(os) = outputs {
+                        for o in os {
+                            events.append(&mut o.to_events());
+                        }
+                    }
+                }
+
                 ElementIterator::Code {
                     events: events.into_iter(),
                 }
             }
             Element::Raw { .. } => ElementIterator::Raw {},
+            _ => ElementIterator::Raw {},
         }
     }
 }
 
-pub struct DocumentIterator<'a, 'b> {
-    iter: FlatMap<
-        Iter<'a, Element>,
-        ElementIterator<'a, 'b>,
-        fn(&'a Element) -> ElementIterator<'a, 'b>,
-    >,
-}
-
-impl<'a, 'b> Iterator for DocumentIterator<'a, 'b> {
+impl<'a> ConfigureIterator for &'a Document {
     type Item = Event<'a>;
+    type IntoIter = Box<dyn Iterator<Item = Self::Item> + 'a>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-impl<'a, 'b> IntoIterator for &'a Document {
-    type Item = Event<'a>;
-    type IntoIter = DocumentIterator<'a, 'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        DocumentIterator {
-            iter: self.elements.iter().flat_map(|elem| elem.into_iter()),
-        }
+    fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {
+        Box::new(
+            self.elements
+                .iter()
+                .flat_map(move |elem: &Element| elem.configure_iterator(config)),
+        )
     }
 }

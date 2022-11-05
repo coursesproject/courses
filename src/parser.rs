@@ -1,5 +1,6 @@
 use crate::builder_old::{Builder, RenderData};
 use crate::cfg::{DocumentSpec, Format};
+use crate::document::{ConfigureIterator, Document, IteratorConfig};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
@@ -30,6 +31,7 @@ fn default_doc_type() -> String {
 pub struct DocumentParsed {
     pub(crate) title: String,
     pub(crate) frontmatter: FrontMatter,
+    pub(crate) doc_content: Document,
     pub(crate) html: String,
     pub(crate) notebook: Notebook,
     pub(crate) md: String,
@@ -64,14 +66,14 @@ impl DocParser {
                 let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
                 let meta = nb.get_front_matter().unwrap().unwrap_or_default();
-                self.process(doc, meta, nb.into_iter())
+                self.process(doc, Document::from(nb.clone()), meta, nb.into_iter())
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap();
                 let parser = Parser::new_ext(&yml.content, options);
-                self.process(doc, yml.metadata, parser)
+                self.process(doc, Document::from(input), yml.metadata, parser)
             }
         };
 
@@ -81,24 +83,27 @@ impl DocParser {
     fn process<'i, I>(
         &mut self,
         doc: &DocumentSpec<()>,
+        content: Document,
         meta: FrontMatter,
         iter: I,
     ) -> anyhow::Result<DocumentParsed>
     where
         I: Iterator<Item = Event<'i>>,
     {
-        let exts: Vec<Box<dyn Extension<'i>>> = self.extensions.iter().map(|e| e.build()).collect();
+        let exts: Vec<Box<dyn Extension>> = self.extensions.iter().map(|e| e.build()).collect();
+
+        let iter = content.configure_iterator(IteratorConfig::default());
 
         let iter = iter.map(|e| Ok(e));
         let iter = exts.into_iter().fold(
-            Box::new(iter) as Box<dyn Iterator<Item = anyhow::Result<Event<'i>>>>,
+            Box::new(iter) as Box<dyn Iterator<Item = anyhow::Result<Event>>>,
             |it, mut ext| Box::new(it.map(move |e| e.and_then(|e| ext.each(e)))),
         );
 
         let mut code_ext = CodeSplit::default();
         let iter = iter.map(|v| code_ext.each(v?));
 
-        let iter: anyhow::Result<Vec<Event<'i>>> = iter.collect();
+        let iter: anyhow::Result<Vec<Event>> = iter.collect();
         let iter = iter?;
 
         let heading = Self::find_header(&iter);
@@ -113,6 +118,7 @@ impl DocParser {
             html: html_output,
             md,
             notebook: nb,
+            doc_content: content,
             raw_solution: code_ext.solution_string,
             split_meta: code_ext.source_def,
             frontmatter: meta,
