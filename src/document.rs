@@ -84,6 +84,26 @@ pub struct IteratorConfig {
     include_solutions: bool,
 }
 
+pub struct IteratorConfigBuilder {
+    include_output: Option<bool>,
+    include_solutions: Option<bool>,
+}
+
+impl IteratorConfig {
+    pub fn include_output(self) -> Self {
+        IteratorConfig {
+            include_output: true,
+            include_solutions: self.include_solutions,
+        }
+    }
+    pub fn include_solutions(self) -> Self {
+        IteratorConfig {
+            include_output: self.include_output,
+            include_solutions: true,
+        }
+    }
+}
+
 pub trait ConfigureIterator {
     type Item;
     type IntoIter;

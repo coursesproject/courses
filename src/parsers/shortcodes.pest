@@ -1,0 +1,13 @@
+BEGIN = _{"{{"}
+END = _{"}}"}
+
+WHITESPACE = _{" "}
+
+name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_")*}
+key = {(ASCII_ALPHA|"_")+}
+value = {ASCII_ALPHANUMERIC+}
+param = {key ~ "=" ~ value}
+
+parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
+
+p = _{BEGIN ~ name ~ parameters? ~ END }

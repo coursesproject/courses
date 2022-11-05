@@ -1,6 +1,7 @@
 use crate::builder_old::{Builder, RenderData};
 use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, Document, IteratorConfig};
+use crate::extensions::shortcode_extender::{OutputFormat, ShortCodeExtender};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
@@ -43,6 +44,7 @@ pub struct DocParser {
     project_path: PathBuf,
     code_split: CodeSplitFactory,
     extensions: Vec<Box<dyn ExtensionFactory>>,
+    tera: Tera,
 }
 
 impl DocParser {
@@ -50,10 +52,14 @@ impl DocParser {
         project_path: P,
         extensions: Vec<Box<dyn ExtensionFactory>>,
     ) -> anyhow::Result<Self> {
+        let pattern = project_path.as_ref().to_str().unwrap().to_string()
+            + &format!("/templates/shortcodes/**/*.tera.*");
+
         Ok(DocParser {
             project_path: project_path.as_ref().to_path_buf(),
             code_split: CodeSplitFactory {},
             extensions,
+            tera: Tera::new(&pattern)?,
         })
     }
 
@@ -92,7 +98,7 @@ impl DocParser {
     {
         let exts: Vec<Box<dyn Extension>> = self.extensions.iter().map(|e| e.build()).collect();
 
-        let iter = content.configure_iterator(IteratorConfig::default());
+        let iter = content.configure_iterator(IteratorConfig::default().include_output());
 
         let iter = iter.map(|e| Ok(e));
         let iter = exts.into_iter().fold(
@@ -107,9 +113,12 @@ impl DocParser {
         let iter = iter?;
 
         let heading = Self::find_header(&iter);
+        let iter = ShortCodeExtender::from_iter(iter.into_iter(), &self.tera)?;
 
-        let nb = render_notebook(iter.clone().into_iter())?;
-        let md = render_markdown(iter.clone().into_iter())?;
+        let nb = render_notebook(
+            content.configure_iterator(IteratorConfig::default().include_solutions()),
+        )?;
+        let md = render_markdown(content.configure_iterator(IteratorConfig::default()))?;
         let mut html_output = String::new();
         html::push_html(&mut html_output, iter.into_iter());
 

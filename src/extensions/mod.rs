@@ -1,3 +1,5 @@
+pub mod shortcode_extender;
+
 use crate::parsers::split::{format_pest_err, parse_code_string};
 use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
@@ -95,7 +97,7 @@ mod tests {
         let doc = Document {
             format: Format::Markdown,
             path: "resources/test/code.md".into(),
-            meta: None
+            meta: None,
         };
 
         let res = builder.parse_pd(doc).unwrap();

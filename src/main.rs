@@ -40,15 +40,21 @@ async fn main() -> anyhow::Result<()> {
         Commands::Build {} => {
             println!("[1/4] ‍💡 Reading project directory...");
 
-
             let mut pipeline = Pipeline::new(path.as_path())?;
             let cf = pipeline.build_everything(cfg.clone())?;
 
             serde_yaml::to_writer(
-                &File::create(cfg.clone().project_path.as_path().join("build").join("config.yml")).unwrap(),
+                &File::create(
+                    cfg.clone()
+                        .project_path
+                        .as_path()
+                        .join("build")
+                        .join("config.yml"),
+                )
+                .unwrap(),
                 &cf,
             )
-                .unwrap();
+            .unwrap();
 
             println!("🌟 Done.");
             Ok(())
@@ -89,11 +95,16 @@ async fn main() -> anyhow::Result<()> {
                         },
                         EventKind::Modify(kind) => match kind {
                             ModifyKind::Data(ch) => {
-                                let mut pipeline = Pipeline::new(path.as_path()).unwrap();
                                 // let res = pipeline.build_everything(config).unwrap();
                                 let p = event.paths.first().unwrap();
 
-                                pipeline.build_file(p, &c2, &cf).unwrap();
+                                let mut pipeline = Pipeline::new(path.as_path()).unwrap();
+
+                                if p.starts_with(path.as_path().join("content")) {
+                                    pipeline.build_file(p, &c2, &cf).unwrap();
+                                } else {
+                                    pipeline.build_everything(c2.clone()).unwrap();
+                                }
 
                                 controller.reload();
                             }

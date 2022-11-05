@@ -1,8 +1,9 @@
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{fs, io};
 
 pub trait Transform<T, I, O> {
     fn transform<F>(&self, f: &F) -> T
@@ -613,9 +614,8 @@ impl Chapter<()> {
     ) -> anyhow::Result<Self> {
         let section_dir = chapter_dir.as_ref();
 
-        let dirs = fs::read_dir(section_dir)?;
-        let paths = dirs
-            .filter_map(|entry| entry.ok())
+        let paths = get_sorted_paths(section_dir)?
+            .into_iter()
             .filter(|entry| {
                 entry
                     .path()
@@ -645,18 +645,11 @@ impl Part<()> {
         let part_folder = chapter_id(&dir).ok_or(anyhow!("Can't get part id"))?;
         // let part_dir = dir.as_ref().join(&part_folder);
 
-        let chapters = match fs::read_dir(&dir) {
-            Ok(dir) => {
-                let paths = dir
-                    .filter_map(|entry| entry.ok())
-                    .filter(|entry| entry.metadata().map(|meta| meta.is_dir()).unwrap());
-
-                paths
-                    .map(|entry| Chapter::new(entry.path(), content_path.as_ref()))
-                    .collect::<anyhow::Result<Vec<Chapter<()>>>>()?
-            }
-            Err(_) => Vec::new(),
-        };
+        let chapters = get_sorted_paths(&dir)?
+            .into_iter()
+            .filter(|entry| entry.metadata().map(|meta| meta.is_dir()).unwrap())
+            .map(|entry| Chapter::new(entry.path(), content_path.as_ref()))
+            .collect::<anyhow::Result<Vec<Chapter<()>>>>()?;
 
         Ok(Part {
             id: part_folder,
@@ -666,17 +659,21 @@ impl Part<()> {
     }
 }
 
+fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
+    let mut paths: Vec<_> = fs::read_dir(&path)?.filter_map(|r| r.ok()).collect();
+    paths.sort_by_key(|p| p.path());
+    Ok(paths)
+}
+
 impl Config<()> {
     pub fn generate_from_directory<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let content_path = path.as_ref().join("content");
-        let parts = fs::read_dir(&content_path)?
+
+        let parts = get_sorted_paths(&content_path)?
+            .into_iter()
             .filter_map(|entry| {
-                entry
-                    .map(|entry| {
-                        let m = fs::metadata(entry.path());
-                        m.map(|m| m.is_dir().then_some(entry)).ok()?
-                    })
-                    .ok()?
+                let m = fs::metadata(entry.path());
+                m.map(|m| m.is_dir().then_some(entry)).ok()?
             })
             .map(|entry| {
                 let file_path = entry.path();
