@@ -81,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
             let mut watcher = notify::recommended_watcher(move |res| match res {
                 Ok(event) => {
                     let event: Event = event;
-                    // println!("event: {:?}", event);
+                    println!("event: {:?}", event);
                     match event.kind {
                         EventKind::Access(kind) => match kind {
                             AccessKind::Close(_) => {}

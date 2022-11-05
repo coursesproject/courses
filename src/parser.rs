@@ -2,7 +2,7 @@ use crate::builder_old::{Builder, RenderData};
 use crate::cfg::{Document, Format};
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
-use crate::notebook_writer::render_notebook;
+use crate::notebook_writer::{render_markdown, render_notebook};
 use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::anyhow;
 use pulldown_cmark::HeadingLevel::H1;
@@ -32,6 +32,7 @@ pub struct DocumentParsed {
     pub(crate) frontmatter: FrontMatter,
     pub(crate) html: String,
     pub(crate) notebook: Notebook,
+    pub(crate) md: String,
     pub(crate) raw_solution: String,
     pub(crate) split_meta: CodeTaskDefinition,
 }
@@ -103,12 +104,14 @@ impl DocParser {
         let heading = Self::find_header(&iter);
 
         let nb = render_notebook(iter.clone().into_iter())?;
+        let md = render_markdown(iter.clone().into_iter())?;
         let mut html_output = String::new();
         html::push_html(&mut html_output, iter.into_iter());
 
         Ok(DocumentParsed {
             title: heading,
             html: html_output,
+            md,
             notebook: nb,
             raw_solution: code_ext.solution_string,
             split_meta: code_ext.source_def,

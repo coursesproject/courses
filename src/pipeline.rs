@@ -10,6 +10,7 @@ use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use indicatif::ProgressBar;
 
@@ -89,19 +90,31 @@ impl Pipeline {
             }
         };
 
-        let parsed = Pipeline::parse(self.project_path.clone(), &doc)?;
-        let build_path = self.project_path.join("build");
+        let parsed = Pipeline::parse(self.project_path.clone(), doc)?;
+        let parsed_doc = Document {
+            id: doc.id.clone(),
+            format: doc.format.clone(),
+            path: doc.path.clone(),
+            content: Arc::new(parsed)
+        };
 
-        let mut doc_relative_dir = doc_path.to_path_buf();
-        doc_relative_dir.pop();
+        let basebuild_path = self.project_path.join("build");
+        // let build_path = self.project_path.join("build").join("web");
+        //
+        // let mut doc_relative_dir = doc_path.to_path_buf();
+        // doc_relative_dir.pop();
+        //
+        // let build_dir = build_path.join(doc_relative_dir);
+        // let html = self.renderer.render_document(&parsed, build_config)?;
+        // // let mut section_build_dir = build_path.join(part.id.clone()).join(chapter.id.clone());
+        // let section_build_path = build_dir.join(format!("{}.html", doc.id));
+        //
+        // fs::create_dir_all(build_dir)?;
+        // fs::write(section_build_path, html).unwrap();
 
-        let build_dir = build_path.join(doc_relative_dir);
-        let html = self.renderer.render_document(&parsed, build_config)?;
-        // let mut section_build_dir = build_path.join(part.id.clone()).join(chapter.id.clone());
-        let section_build_path = build_dir.join(format!("{}.html", doc.id));
+        self.write_html(&parsed_doc, build_config, &basebuild_path)?;
+        self.write_notebook(&parsed_doc, &basebuild_path)?;
 
-        fs::create_dir_all(build_dir)?;
-        fs::write(section_build_path, html).unwrap();
         println!("🔔 Document {} changed, re-rendered output", doc.id);
 
         Ok(())
@@ -121,13 +134,13 @@ impl Pipeline {
 
         println!("[2/4] 📖 Parsing source documents...");
 
-
         let bar = ProgressBar::new(len);
         let parsed: Config<DocumentParsed> = config.into_iter().map(|item| item.map_doc(|doc| {
             bar.inc(1);
             Pipeline::parse(self.project_path.clone(), &doc)
         })).collect::<anyhow::Result<Config<DocumentParsed>>>()?;
         bar.finish();
+
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");
         let build_config: Config<DocumentConfig> = parsed.clone().into_iter().map(|item| item.map_doc(|doc| {
@@ -139,52 +152,54 @@ impl Pipeline {
             })
         })).collect::<anyhow::Result<Config<DocumentConfig>>>()?;
 
-        let build_config: Config<DocumentConfig> = parsed.clone().into_iter().map(|item| item.map_doc(|doc| {
-            let c = doc.content;
-            Ok(DocumentConfig {
-                id: doc.id.clone(),
-                header: c.title.clone(),
-                frontmatter: c.frontmatter.clone(),
-            })
-            // .map_err(|e| {
-            //     println!("error: {:?}", e);
-            //     e
-            // })
-            // .ok()
-        })).collect::<anyhow::Result<Config<DocumentConfig>>>()?;
-
         let build_path = self.project_path.join("build");
 
         println!("[X/4] Writing notebooks...");
-        let res: Vec<()> = parsed.clone().into_iter().map(|item|  {
-            let mut notebook_build_dir = build_path.as_path().join("source").join(&item.doc.path);
-            notebook_build_dir.pop(); // Pop filename
-            let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", item.doc.id));
-
-            fs::create_dir_all(notebook_build_dir)?;
-            let f = File::create(notebook_build_path)?;
-            let writer = BufWriter::new(f);
-            serde_json::to_writer(writer, &item.doc.content.notebook)?;
-            Ok(())
-        }).collect::<anyhow::Result<Vec<()>>>()?;
+        let notebook_errors: Vec<anyhow::Result<()>> = parsed.clone().into_iter().map(|item|  self.write_notebook(&item.doc, &build_path)).collect();
 
 
         println!("[4/4] 🌼 Rendering output...");
-        let res: Vec<()> = parsed.clone().into_iter().map(|item| {
-            let output = self.renderer.render_document(&item.doc.content, &build_config)?;
+        let html_errors: Vec<anyhow::Result<()>> = parsed.clone().into_iter().map(|item| self.write_html(&item.doc, &build_config, &build_path)).collect();
 
-            let mut html_build_dir = build_path.as_path().join("web").join(&item.doc.path);
-            html_build_dir.pop(); // Pop filename
-            let section_build_path = html_build_dir.join(format!("{}.html", item.doc.id));
-
-            fs::create_dir_all(html_build_dir)?;
-            fs::write(section_build_path, output).unwrap();
-
-            Ok(())
-        }).collect::<anyhow::Result<Vec<()>>>()?;
+        let md_errors: Vec<anyhow::Result<()>> = parsed.clone().into_iter().map(|item| self.write_markdown(&item.doc, &build_path)).collect();
 
 
         Ok(build_config)
+    }
+
+    fn write_notebook<P: AsRef<Path>>(&self, doc: &Document<DocumentParsed>, build_path: P) -> anyhow::Result<()> {
+        let mut notebook_build_dir = build_path.as_ref().join("source").join(&doc.path);
+        notebook_build_dir.pop(); // Pop filename
+        let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", doc.id));
+
+        fs::create_dir_all(notebook_build_dir)?;
+        let f = File::create(notebook_build_path)?;
+        let writer = BufWriter::new(f);
+        serde_json::to_writer(writer, &doc.content.notebook)?;
+        Ok(())
+    }
+
+    fn write_markdown<P: AsRef<Path>>(&self, doc: &Document<DocumentParsed>, build_path: P) -> anyhow::Result<()> {
+        let mut md_build_dir = build_path.as_ref().join("md").join(&doc.path);
+        md_build_dir.pop(); // Pop filename
+        let md_build_path = md_build_dir.join(format!("{}.md", doc.id));
+
+        fs::create_dir_all(md_build_dir)?;
+        fs::write(md_build_path, &doc.content.md).unwrap();
+        Ok(())
+    }
+
+    fn write_html<P: AsRef<Path>>(&self, doc: &Document<DocumentParsed>, build_config: &Config<DocumentConfig>, build_path: P) -> anyhow::Result<()> {
+        let output = self.renderer.render_document(&doc.content, &build_config)?;
+
+        let mut html_build_dir = build_path.as_ref().join("web").join(&doc.path);
+        html_build_dir.pop(); // Pop filename
+        let section_build_path = html_build_dir.join(format!("{}.html", doc.id));
+
+        fs::create_dir_all(html_build_dir)?;
+        fs::write(section_build_path, output).unwrap();
+
+        Ok(())
     }
 }
 

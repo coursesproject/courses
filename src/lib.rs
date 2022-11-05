@@ -13,6 +13,7 @@ pub mod parsers;
 pub mod pipeline;
 pub mod render;
 mod visitor;
+mod cfg2;
 
 #[cfg(test)]
 mod tests {
