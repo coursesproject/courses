@@ -14,6 +14,8 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use rayon::prelude::*;
+
 use indicatif::ProgressBar;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
