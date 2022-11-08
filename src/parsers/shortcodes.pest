@@ -1,9 +1,9 @@
 WHITESPACE = _{" "}
 
 
-string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "/" | "." | ":")*}
+string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "." | ":")*}
 string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
-basic_val = {ASCII_ALPHANUMERIC+}
+basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "." | ":")+}
 
 name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_")*}
 key = {(ASCII_ALPHA|"_")+}
@@ -12,4 +12,4 @@ param = {key ~ "=" ~ value}
 
 parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
 
-p = _{ name ~ parameters? }
+p = _{ name ~ parameters? ~ EOI }

@@ -1,8 +1,7 @@
 use clap::{Parser, Subcommand};
 use courses::cfg::Config;
 use courses::pipeline::Pipeline;
-use notify::event::{AccessKind, ModifyKind};
-use notify::{Event, EventKind, INotifyWatcher, RecursiveMode, Watcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
@@ -85,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
             println!("Server open at: http://localhost:8000");
 
             let config = notify::Config::default();
-            let mut debouncer: Debouncer<INotifyWatcher> = new_debouncer_opt(
+            let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(
                 Duration::from_millis(10),
                 None,
                 move |res: DebounceEventResult| match res {

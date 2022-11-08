@@ -3,6 +3,7 @@ use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, Options, Parser};
 use std::vec::IntoIter;
+use crate::extensions::shortcode_extender::ShortCodeProcessor;
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -23,6 +24,16 @@ pub enum Element {
 #[derive(Debug, Clone, Default)]
 pub struct Document {
     elements: Vec<Element>,
+}
+
+impl Document {
+    pub fn preprocess(&self, processor: &ShortCodeProcessor) -> Document {
+        let elements = self.elements.iter().map(|e| match e {
+            Element::Markdown { content } => { Element::Markdown { content: processor.process(content) } }
+            _ => e.clone()
+        }).collect();
+        Document { elements }
+    }
 }
 
 impl From<String> for Document {

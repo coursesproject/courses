@@ -63,21 +63,21 @@ impl DocParser {
 
     pub fn parse(&mut self, doc: &DocumentSpec<()>) -> anyhow::Result<DocumentParsed> {
         let options = Options::all();
-
+        let processor = ShortCodeProcessor::new(&self.tera);
         let content_path = self.project_path.join("content").join(&doc.path);
         let res = match doc.format {
             Format::Notebook => {
                 let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
                 let meta = nb.get_front_matter().unwrap().unwrap_or_default();
-                self.process(doc, Document::from(nb.clone()), meta, nb.into_iter())
+                self.process(doc, Document::from(nb.clone()).preprocess(&processor), meta, nb.into_iter())
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap();
                 let parser = Parser::new_ext(&yml.content, options);
-                self.process(doc, Document::from(input), yml.metadata, parser)
+                self.process(doc, Document::from(yml.content.clone()).preprocess(&processor), yml.metadata, parser)
             }
         };
 
@@ -121,7 +121,7 @@ impl DocParser {
         // let new_iter = ShortCodeExtender::new(&self.tera, iter.into_iter());
         html::push_html(&mut html_output, iter.into_iter());
 
-        html_output = ShortCodeProcessor::new(&self.tera).process(&html_output);
+        // html_output = ShortCodeProcessor::new(&self.tera).process(&html_output);
 
         Ok(DocumentParsed {
             title: heading,
