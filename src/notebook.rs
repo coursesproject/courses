@@ -3,8 +3,6 @@ use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
 use anyhow::Context;
 use base64;
-use base64::display::Base64Display;
-use image::{load_from_memory, DynamicImage};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
@@ -12,11 +10,9 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::EnumMap;
-use serde_yaml::with::singleton_map::serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::iter::FlatMap;
 use std::slice::Iter;
-use std::str::Chars;
 use std::vec::IntoIter;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

@@ -1,12 +1,10 @@
-use crate::builder_old::{Builder, RenderData};
 use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, Document, IteratorConfig};
-use crate::extensions::shortcode_extender::{OutputFormat, ShortCodeExtender};
+use crate::extensions::shortcode_extender::ShortCodeProcessor;
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
 use crate::parsers::split_types::CodeTaskDefinition;
-use anyhow::anyhow;
 use pulldown_cmark::HeadingLevel::H1;
 use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use serde::{Deserialize, Serialize};
@@ -113,14 +111,17 @@ impl DocParser {
         let iter = iter?;
 
         let heading = Self::find_header(&iter);
-        let iter = ShortCodeExtender::from_iter(iter.into_iter(), &self.tera)?;
+        // let iter = ShortCodeExtender::from_iter(iter.into_iter(), &self.tera)?;
 
         let nb = render_notebook(
             content.configure_iterator(IteratorConfig::default().include_solutions()),
         )?;
         let md = render_markdown(content.configure_iterator(IteratorConfig::default()))?;
         let mut html_output = String::new();
+        // let new_iter = ShortCodeExtender::new(&self.tera, iter.into_iter());
         html::push_html(&mut html_output, iter.into_iter());
+
+        html_output = ShortCodeProcessor::new(&self.tera).process(&html_output);
 
         Ok(DocumentParsed {
             title: heading,

@@ -1,6 +1,5 @@
 use pulldown_cmark::Event;
 use std::iter::{FilterMap, Map};
-use std::path::Iter;
 
 #[derive(Debug)]
 pub enum Ast<'a> {

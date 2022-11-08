@@ -1,20 +1,12 @@
-use crate::cfg::{
-    section_id, Chapter, Config, ConfigItem, DocumentSpec, Part, Transform, TransformParents,
-};
-use crate::extensions::ExtensionFactory;
+use crate::cfg::{section_id, Config, DocumentSpec, Part};
 use crate::parser::{DocParser, DocumentParsed, FrontMatter};
 use crate::render::HtmlRenderer;
-use anyhow::{anyhow, Context, Error};
-use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-
-use rayon::prelude::*;
 
 use indicatif::ProgressBar;
 

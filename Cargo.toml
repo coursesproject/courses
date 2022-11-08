@@ -39,6 +39,7 @@ pulldown-cmark = "0.9.2"
 enum_dispatch = "0.3.8"
 
 notify = {version="5.0.0"}
+notify-debouncer-mini = "0.2.1"
 
 penguin = "0.1.7"
 tokio = {version="1.21.2", features=["full"]}

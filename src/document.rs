@@ -2,8 +2,6 @@ use crate::notebook::{Cell, CellEventIterator, CellOutput, Notebook};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, Options, Parser};
-use std::iter::FlatMap;
-use std::slice::Iter;
 use std::vec::IntoIter;
 
 #[derive(Debug, Clone, Default)]

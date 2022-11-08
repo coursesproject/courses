@@ -1,13 +1,15 @@
-BEGIN = _{"{{"}
-END = _{"}}"}
-
 WHITESPACE = _{" "}
+
+
+string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "/" | "." | ":")*}
+string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
+basic_val = {ASCII_ALPHANUMERIC+}
 
 name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_")*}
 key = {(ASCII_ALPHA|"_")+}
-value = {ASCII_ALPHANUMERIC+}
+value = {string|basic_val}
 param = {key ~ "=" ~ value}
 
 parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
 
-p = _{BEGIN ~ name ~ parameters? ~ END }
+p = _{ name ~ parameters? }

@@ -1,6 +1,5 @@
 use crate::notebook::*;
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, LinkType, Tag};
-use serde::de::Unexpected::Str;
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use std::collections::HashMap;
 use std::io;
 
@@ -92,15 +91,13 @@ where
             Tag::List(i) => {
                 self.list_order_num = i;
             }
-            Tag::Item => {
-                match self.list_order_num {
-                    None => self.cell_source.push_str("- "),
-                    Some(i) => {
-                        self.cell_source.push_str(&format!("{}. ", i));
-                        self.list_order_num = self.list_order_num.map(|i| i+1);
-                    }
+            Tag::Item => match self.list_order_num {
+                None => self.cell_source.push_str("- "),
+                Some(i) => {
+                    self.cell_source.push_str(&format!("{}. ", i));
+                    self.list_order_num = self.list_order_num.map(|i| i + 1);
                 }
-            }
+            },
             Tag::FootnoteDefinition(_) => {}
             Tag::Table(_) => {}
             Tag::TableHead => {}
@@ -150,7 +147,8 @@ where
             Tag::Strong => self.cell_source.push_str("__"),
             Tag::Strikethrough => {}
             Tag::Link(type_, dest, title) => {
-                self.cell_source.push_str(format!("]({} {})", dest, title).as_str());
+                self.cell_source
+                    .push_str(format!("]({} {})", dest, title).as_str());
             }
             Tag::Image(_, _, _) => {}
         }
@@ -172,7 +170,8 @@ where
                 Event::TaskListMarker(_) => {}
             };
         }
-        self.finished_cells.push(self.cell_type.to_notebook_format(self.cell_source.clone()));
+        self.finished_cells
+            .push(self.cell_type.to_notebook_format(self.cell_source.clone()));
         Ok(Notebook {
             metadata: NotebookMeta {
                 kernelspec: None,
@@ -192,7 +191,6 @@ where
     NotebookWriter::new(iter).run()
 }
 
-
 struct MarkdownWriter<I> {
     iter: I,
     source: String,
@@ -200,8 +198,8 @@ struct MarkdownWriter<I> {
 }
 
 impl<'a, I> MarkdownWriter<I>
-    where
-        I: Iterator<Item = Event<'a>>,
+where
+    I: Iterator<Item = Event<'a>>,
 {
     fn new(iter: I) -> Self {
         MarkdownWriter {
@@ -232,15 +230,13 @@ impl<'a, I> MarkdownWriter<I>
             Tag::List(i) => {
                 self.list_order_num = i;
             }
-            Tag::Item => {
-                match self.list_order_num {
-                    None => self.source.push_str("- "),
-                    Some(i) => {
-                        self.source.push_str(&format!("{}. ", i));
-                        self.list_order_num = self.list_order_num.map(|i| i+1);
-                    }
+            Tag::Item => match self.list_order_num {
+                None => self.source.push_str("- "),
+                Some(i) => {
+                    self.source.push_str(&format!("{}. ", i));
+                    self.list_order_num = self.list_order_num.map(|i| i + 1);
                 }
-            }
+            },
             Tag::FootnoteDefinition(_) => {}
             Tag::Table(_) => {}
             Tag::TableHead => {}
@@ -272,7 +268,8 @@ impl<'a, I> MarkdownWriter<I>
             Tag::Strong => self.source.push_str("__"),
             Tag::Strikethrough => {}
             Tag::Link(type_, dest, title) => {
-                self.source.push_str(format!("]({} {})", dest, title).as_str());
+                self.source
+                    .push_str(format!("]({} {})", dest, title).as_str());
             }
             Tag::Image(_, _, _) => {}
         }
@@ -300,8 +297,8 @@ impl<'a, I> MarkdownWriter<I>
 }
 
 pub fn render_markdown<'a, I>(iter: I) -> io::Result<String>
-    where
-        I: Iterator<Item = Event<'a>>,
+where
+    I: Iterator<Item = Event<'a>>,
 {
     MarkdownWriter::new(iter).run()
 }
