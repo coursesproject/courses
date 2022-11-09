@@ -6,13 +6,15 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions-rs/toolchain@v1
-        - with:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
           toolchain: stable
-        - run: cargo install --path ./
-        - run: cd docs
-        - run: courses build
-        - uses: peaceiris/actions-gh-pages@v3
-          with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
-            publish_dir: ./docs/build/web/
+      - run: |
+          cargo install --path ./
+          cd docs
+          courses build
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/build/web/
