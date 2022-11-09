@@ -1,13 +1,13 @@
 <div class="flex-shrink-0 pt-3 ps-1 bg-white">
   <a
-    href="/"
+    href="{{project.url_prefix}}/"
     class="d-flex align-items-center pb-3 mb-3 link-dark text-decoration-none"
   >
     <span class="fs-6 fw-semibold">BRAND</span>
   </a>
   {% for part in config.content %}
   <a
-    href="/{{ part.id }}/index.html"
+    href="{{project.url_prefix}}/{{ part.id }}/index.html"
     class="d-flex align-items-center pb-3 link-dark text-decoration-none border-top fw-bold"
   >
     {{part.index.content.title}}
@@ -18,7 +18,7 @@
 
     <li class="ps-0 ms-0 mb-2">
       <a
-        href="/{{part.id}}/{{ chapter.id }}/index.html"
+        href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html"
         class="link-dark text-decoration-none lh-sm"
         >{{chapter.index.content.title}}</a
       >
@@ -28,7 +28,7 @@
         {% for doc in chapter.documents %}
         <li>
           <a
-            href="/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
+            href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
             class="link-primary text-decoration-none fw-light lh-sm"
             >{{doc.content.title}}</a
           >

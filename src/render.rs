@@ -1,12 +1,15 @@
-use crate::cfg::Config;
+use crate::cfg::{Config, ProjectConfig};
 use crate::parser::DocumentParsed;
 use crate::pipeline::DocumentConfig;
 use anyhow::{anyhow, Context};
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tera::Tera;
 
 pub struct HtmlRenderer {
     project_path: PathBuf,
+    project_config: ProjectConfig,
     tera: Tera,
 }
 
@@ -17,9 +20,15 @@ impl HtmlRenderer {
             .to_str()
             .ok_or(anyhow!("Invalid path"))?;
         let pattern = path_str.to_string() + "/templates/**/*.tera.html";
+
+        let config_path = project_path.as_ref().join("config.yml");
+        let config_reader = BufReader::new(File::open(config_path)?);
+        let project_config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
+
         Ok(HtmlRenderer {
             project_path: project_path.as_ref().to_path_buf(),
             tera: Tera::new(&pattern)?,
+            project_config,
         })
     }
 
@@ -30,6 +39,7 @@ impl HtmlRenderer {
     ) -> anyhow::Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);
+        context.insert("project", &self.project_config);
         context.insert("current_section", "hej");
         context.insert("current_chapter", "hej");
         context.insert("html", &doc.html);

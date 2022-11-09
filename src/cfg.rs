@@ -242,67 +242,6 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
         }
     }
 }
-//
-// impl<'a, D> Iterator for ConfigIterator<&'a D> where D: Clone {
-//     type Item = ConfigItem<&'a D>;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         match self.part_pos {
-//             0 => { // Config index
-//                 self.part_pos += 1;
-//                 Some(ConfigItem::new(None, None, Some(0), None, self.config.index.clone()))
-//             }
-//             part_idx if part_idx <= self.config.content.len() => {
-//                 let part = &self.config.content[part_idx - 1];
-//
-//                 let current_chapter_pos = self.chapter_pos;
-//
-//
-//
-//                 match current_chapter_pos {
-//                     0 => { // Part index
-//                         if part.chapters.len() == 0 {
-//                             self.part_pos += 1;
-//                         } else {
-//                             self.chapter_pos += 1;
-//                         }
-//                         Some(ConfigItem::new(Some(part.id.clone()), None, Some(part_idx), Some(0), part.index.clone()))
-//                     }
-//
-//                     chapter_idx => {
-//                         let chapter = &part.chapters[chapter_idx - 1];
-//
-//                         let current_doc_pos = self.doc_pos;
-//
-//                         if current_doc_pos >= chapter.documents.len() {
-//                             if current_chapter_pos >= part.chapters.len() {
-//                                 self.part_pos += 1;
-//                                 self.chapter_pos = 0;
-//                             } else {
-//                                 self.chapter_pos += 1;
-//                             }
-//                             self.doc_pos = 0;
-//                         } else {
-//                             self.doc_pos += 1;
-//                         }
-//
-//
-//
-//                         match current_doc_pos {
-//                             0 => { // Chapter index
-//                                 Some(ConfigItem::new(Some(part.id.clone()), Some(chapter.id.clone()), Some(part_idx), Some(chapter_idx), chapter.index.clone()))
-//                             }
-//                             doc_pos => {
-//                                 Some(ConfigItem::new(Some(part.id.clone()), Some(chapter.id.clone()), Some(part_idx), Some(chapter_idx), chapter.documents[doc_pos - 1].clone()))
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             _ => None
-//         }
-//     }
-// }
 
 impl<D> Iterator for ConfigIterator<D>
 where
@@ -422,6 +361,12 @@ pub struct Config<C> {
     pub project_path: PathBuf,
     pub(crate) index: DocumentSpec<C>,
     pub(crate) content: Vec<Part<C>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectConfig {
+    #[serde(default)]
+    pub url_prefix: String,
 }
 
 impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {

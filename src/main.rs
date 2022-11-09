@@ -1,17 +1,18 @@
 mod setup;
 
 use clap::{Parser, Subcommand};
-use courses::cfg::Config;
+use courses::cfg::{Config, ProjectConfig};
 use courses::pipeline::Pipeline;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
 use penguin::Server;
-use std::{env, fs};
 use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::time::Duration;
+use std::{env, fs};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -89,8 +90,12 @@ async fn main() -> anyhow::Result<()> {
             .unwrap();
             println!("🌟 Done.");
 
+            let config_path = path.as_path().join("config.yml");
+            let config_reader = BufReader::new(File::open(config_path)?);
+            let project_config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
+
             let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
-                .add_mount("/", p_build)?
+                .add_mount(project_config.url_prefix, p_build)?
                 .build()?;
 
             println!("Server open at: http://localhost:8000");
@@ -173,7 +178,7 @@ async fn main() -> anyhow::Result<()> {
 
             Ok(())
         }
-        Commands::Init{ name } => {
+        Commands::Init { name } => {
             let options = vec!["Default", "Empty"];
             let mut s = inquire::Select::new("What template set-up would you like?", options);
             s.starting_cursor = 0;

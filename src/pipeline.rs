@@ -159,18 +159,18 @@ impl Pipeline {
         let build_path = self.project_path.join("build");
 
         println!("[X/4] Writing notebooks...");
-        let notebook_errors: Vec<anyhow::Result<()>> = parsed
+        let notebook_errors: Vec<()> = parsed
             .clone()
             .into_iter()
             .map(|item| self.write_notebook(&item.doc, &build_path))
-            .collect();
+            .collect::<anyhow::Result<Vec<()>>>()?;
 
         println!("[4/4] 🌼 Rendering output...");
-        let html_errors: Vec<anyhow::Result<()>> = parsed
+        let html_errors: Vec<()> = parsed
             .clone()
             .into_iter()
             .map(|item| self.write_html(&item.doc, &build_config, &build_path))
-            .collect();
+            .collect::<anyhow::Result<Vec<()>>>()?;
 
         let md_errors: Vec<anyhow::Result<()>> = parsed
             .clone()
