@@ -1,14 +1,18 @@
-use crate::cfg::{section_id, Config, DocumentSpec, Part};
+use crate::cfg::{section_id, Config, ConfigItem, DocumentSpec, Part};
 use crate::parser::{DocParser, DocumentParsed, FrontMatter};
-use crate::render::HtmlRenderer;
+use crate::render::{HtmlRenderError, HtmlRenderer};
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::render::HtmlRenderError::TemplateError;
 use indicatif::ProgressBar;
+use termion::color;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DocumentConfig {
@@ -166,14 +170,39 @@ impl Pipeline {
             .collect::<anyhow::Result<Vec<()>>>()?;
 
         println!("[4/4] 🌼 Rendering output...");
-        let html_errors: Vec<()> = parsed
+        let html_results_filtered: Vec<ConfigItem<DocumentParsed>> = parsed
             .clone()
             .into_iter()
-            .map(|item| self.write_html(&item.doc, &build_config, &build_path))
-            .collect::<anyhow::Result<Vec<()>>>()?;
+            .map(|item| {
+                self.write_html(&item.doc, &build_config, &build_path)
+                    .map(|_| item)
+            })
+            .filter_map(|result| match result {
+                Ok(i) => Some(i),
+                Err(e) => {
+                    match e {
+                        HtmlRenderError::TemplateError(e, title) => {
+                            println!(
+                                "{}[Error] {}Could not render '{}' due to:",
+                                color::Fg(color::Red),
+                                color::Fg(color::Black),
+                                title
+                            );
+                            println!("\t{}", e);
+                            println!("\t\tCaused by: {}", e.source().unwrap());
+                        }
+                        HtmlRenderError::Other(e, title) => {
+                            println!("[Error] Could not render '{}' due to:", title);
+                            println!("[Error] {}", e);
+                        }
+                    }
+                    None
+                }
+            })
+            .collect();
 
-        let md_errors: Vec<anyhow::Result<()>> = parsed
-            .clone()
+        let md_errors: Vec<anyhow::Result<()>> = html_results_filtered
+            // .clone()
             .into_iter()
             .map(|item| self.write_markdown(&item.doc, &build_path))
             .collect();
@@ -216,14 +245,19 @@ impl Pipeline {
         doc: &DocumentSpec<DocumentParsed>,
         build_config: &Config<DocumentConfig>,
         build_path: P,
-    ) -> anyhow::Result<()> {
-        let output = self.renderer.render_document(&doc.content, &build_config)?;
+    ) -> Result<(), HtmlRenderError> {
+        let output = self
+            .renderer
+            .render_document(&doc.content, &build_config)
+            .map_err(|e| TemplateError(e, doc.path.to_str().unwrap().to_string()))?;
 
         let mut html_build_dir = build_path.as_ref().join("web").join(&doc.path);
         html_build_dir.pop(); // Pop filename
         let section_build_path = html_build_dir.join(format!("{}.html", doc.id));
 
-        fs::create_dir_all(html_build_dir)?;
+        fs::create_dir_all(html_build_dir)
+            .context("Could not create directory")
+            .map_err(|e| HtmlRenderError::Other(e, doc.path.to_str().unwrap().to_string()))?;
         fs::write(section_build_path, output).unwrap();
 
         Ok(())

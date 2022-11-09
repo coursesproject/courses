@@ -1,11 +1,13 @@
 use crate::cfg::{Config, ProjectConfig};
 use crate::parser::DocumentParsed;
 use crate::pipeline::DocumentConfig;
-use anyhow::{anyhow, Context};
+use crate::render::HtmlRenderError::TemplateError;
+use anyhow::anyhow;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tera::Tera;
+use thiserror::Error;
 
 pub struct HtmlRenderer {
     project_path: PathBuf,
@@ -36,7 +38,7 @@ impl HtmlRenderer {
         &self,
         doc: &DocumentParsed,
         config: &Config<DocumentConfig>,
-    ) -> anyhow::Result<String> {
+    ) -> tera::Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);
         context.insert("project", &self.project_config);
@@ -45,8 +47,14 @@ impl HtmlRenderer {
         context.insert("html", &doc.html);
         context.insert("title", "Test");
         context.insert("meta", &doc.frontmatter);
-        self.tera
-            .render("section.tera.html", &context)
-            .context("Render error")
+        self.tera.render("section.tera.html", &context)
     }
+}
+
+#[derive(Error, Debug)]
+pub enum HtmlRenderError {
+    #[error("template render error")]
+    TemplateError(tera::Error, String),
+    #[error("other error")]
+    Other(anyhow::Error, String),
 }

@@ -1,6 +1,9 @@
 name: courses-docs
 
-on: push
+on:
+  push:
+    paths:
+      - 'docs/'
 
 jobs:
   publish:
