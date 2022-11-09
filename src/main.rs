@@ -1,3 +1,5 @@
+mod setup;
+
 use clap::{Parser, Subcommand};
 use courses::cfg::Config;
 use courses::pipeline::Pipeline;
@@ -6,7 +8,7 @@ use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
 use penguin::Server;
-use std::env;
+use std::{env, fs};
 use std::fs::File;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -14,17 +16,23 @@ use std::time::Duration;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short, long)]
-    path: Option<PathBuf>,
-
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Serve {},
-    Build {},
+    Serve {
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+    },
+    Build {
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+    },
+    Init {
+        name: String,
+    },
     Test {},
     Publish {},
 }
@@ -32,11 +40,12 @@ enum Commands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let path = cli.path.unwrap_or(env::current_dir()?);
-    let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
 
     match cli.command {
-        Commands::Build {} => {
+        Commands::Build { path } => {
+            let path = path.unwrap_or(env::current_dir()?);
+            let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
+
             println!("[1/4] ‍💡 Reading project directory...");
 
             let mut pipeline = Pipeline::new(path.as_path())?;
@@ -58,7 +67,10 @@ async fn main() -> anyhow::Result<()> {
             println!("🌟 Done.");
             Ok(())
         }
-        Commands::Serve {} => {
+        Commands::Serve { path } => {
+            let path = path.unwrap_or(env::current_dir()?);
+            let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
+
             let p2 = path.as_path().join("content");
             let tp = path.as_path().join("templates");
             let p_build = path.as_path().join("build/web");
@@ -158,6 +170,16 @@ async fn main() -> anyhow::Result<()> {
             // });
 
             server.await?;
+
+            Ok(())
+        }
+        Commands::Init{ name } => {
+            let options = vec!["Default", "Empty"];
+            let mut s = inquire::Select::new("What template set-up would you like?", options);
+            s.starting_cursor = 0;
+            let res = s.prompt()?;
+
+            setup::setup(res)?;
 
             Ok(())
         }

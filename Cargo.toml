@@ -20,7 +20,10 @@ image = "0.24.4"
 indicatif = "0.17.1"
 yaml-front-matter = "0.1.0"
 
+tempfile = "3.3.0"
 relative-path = "1.7.2"
+rust-embed = "6.4.2"
+inquire = "0.5.2"
 
 thiserror = "1.0.37"
 anyhow = { version = "1.0.65", features = ["backtrace"] }
