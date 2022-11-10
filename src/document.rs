@@ -1,9 +1,10 @@
+use crate::extensions::shortcode_extender::{ShortCodeProcessError, ShortCodeProcessor};
 use crate::notebook::{Cell, CellEventIterator, CellOutput, Notebook};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, Options, Parser};
 use std::vec::IntoIter;
-use crate::extensions::shortcode_extender::ShortCodeProcessor;
+use thiserror::Error;
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -26,12 +27,24 @@ pub struct Document {
     elements: Vec<Element>,
 }
 
+#[derive(Error, Debug)]
+pub enum PreprocessError {
+    #[error("Shortcode error:")]
+    Shortcode(#[from] ShortCodeProcessError),
+}
+
 impl Document {
-    pub fn preprocess(&self, processor: &ShortCodeProcessor) -> anyhow::Result<Document> {
-        let elements = self.elements.iter().map(|e| match e {
-            Element::Markdown { content } => { Ok(Element::Markdown { content: processor.process(content)? }) }
-            _ => Ok(e.clone())
-        }).collect::<anyhow::Result<Vec<Element>>>()?;
+    pub fn preprocess(&self, processor: &ShortCodeProcessor) -> Result<Document, PreprocessError> {
+        let elements = self
+            .elements
+            .iter()
+            .map(|e| match e {
+                Element::Markdown { content } => Ok(Element::Markdown {
+                    content: processor.process(content)?,
+                }),
+                _ => Ok(e.clone()),
+            })
+            .collect::<Result<Vec<Element>, ShortCodeProcessError>>()?;
         Ok(Document { elements })
     }
 }

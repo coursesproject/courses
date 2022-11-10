@@ -1,8 +1,9 @@
-use crate::parsers::shortcodes::parse_shortcode;
-use std::fmt::{Display, Formatter};
-use pulldown_cmark::{Options, Parser};
+use crate::parsers::shortcodes::{parse_shortcode, Rule};
 use pulldown_cmark::html::push_html;
+use pulldown_cmark::{Options, Parser};
+use std::fmt::{Display, Formatter};
 use tera::Tera;
+use thiserror::Error;
 
 pub enum OutputFormat {
     Markdown,
@@ -61,6 +62,14 @@ fn find_shortcode(input: &str) -> Option<ShortcodeInfo> {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum ShortCodeProcessError {
+    #[error("Template render error")]
+    Tera(#[from] tera::Error),
+    #[error("Shortcode parsing error")]
+    Pest(#[from] pest::error::Error<Rule>),
+}
+
 pub struct ShortCodeProcessor<'a> {
     tera: &'a Tera,
 }
@@ -70,7 +79,7 @@ impl<'a> ShortCodeProcessor<'a> {
         ShortCodeProcessor { tera }
     }
 
-    fn render_inline_template(&self, shortcode: &str) -> anyhow::Result<String> {
+    fn render_inline_template(&self, shortcode: &str) -> Result<String, ShortCodeProcessError> {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
         let name = format!("{}.tera.html", code.name);
@@ -80,26 +89,28 @@ impl<'a> ShortCodeProcessor<'a> {
         Ok(self.tera.render(&name, &context)?)
     }
 
-    fn render_block_template(&self, shortcode: &str, body: &str) -> anyhow::Result<String> {
+    fn render_block_template(
+        &self,
+        shortcode: &str,
+        body: &str,
+    ) -> Result<String, ShortCodeProcessError> {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
         let name = format!("{}.tera.html", code.name);
         for (k, v) in code.parameters {
             context.insert(k, &v);
         }
-
 
         let processed = ShortCodeProcessor::new(self.tera).process(&body)?;
         let parser = Parser::new_ext(&processed, Options::all());
         let mut html = String::new();
         push_html(&mut html, parser);
 
-
         context.insert("body", &html);
         Ok(self.tera.render(&name, &context)?)
     }
 
-    pub fn process(&self, input: &str) -> anyhow::Result<String> {
+    pub fn process(&self, input: &str) -> Result<String, ShortCodeProcessError> {
         let mut rest = input;
 
         let mut result = String::new();

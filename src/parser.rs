@@ -1,10 +1,11 @@
 use crate::cfg::{DocumentSpec, Format};
-use crate::document::{ConfigureIterator, Document, IteratorConfig};
+use crate::document::{ConfigureIterator, Document, IteratorConfig, PreprocessError};
 use crate::extensions::shortcode_extender::ShortCodeProcessor;
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
 use crate::parsers::split_types::CodeTaskDefinition;
+use anyhow::Context;
 use pulldown_cmark::HeadingLevel::H1;
 use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use serde::{Deserialize, Serialize};
@@ -12,7 +13,6 @@ use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use anyhow::Context;
 use tera::Tera;
 use thiserror::Error;
 use yaml_front_matter::YamlFrontMatter;
@@ -60,6 +60,9 @@ pub enum ParserError {
 
     #[error("Anyhow Error: ")]
     Other(#[from] anyhow::Error),
+
+    #[error("Preprocessor Error: ")]
+    Preprocess(#[from] PreprocessError),
 }
 
 impl DocParser {
@@ -87,14 +90,24 @@ impl DocParser {
                 let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
                 let meta = nb.get_front_matter()?.unwrap_or_default();
-                self.process(doc, Document::from(nb.clone()).preprocess(&processor)?, meta, nb.into_iter())
+                self.process(
+                    doc,
+                    Document::from(nb.clone()).preprocess(&processor)?,
+                    meta,
+                    nb.into_iter(),
+                )
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap(); // TODO: HELP!
                 let parser = Parser::new_ext(&yml.content, options);
-                self.process(doc, Document::from(yml.content.clone()).preprocess(&processor)?, yml.metadata, parser)
+                self.process(
+                    doc,
+                    Document::from(yml.content.clone()).preprocess(&processor)?,
+                    yml.metadata,
+                    parser,
+                )
             }
         };
 

@@ -95,10 +95,13 @@ async fn main() -> anyhow::Result<()> {
             let project_config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
 
             let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
-                .add_mount(project_config.url_prefix, p_build)?
+                .add_mount(project_config.url_prefix.clone(), p_build)?
                 .build()?;
 
-            println!("Server open at: http://localhost:8000");
+            println!(
+                "Server open at: http://localhost:8000{}",
+                project_config.url_prefix
+            );
 
             let config = notify::Config::default();
             let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(

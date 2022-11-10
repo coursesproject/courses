@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::render::HtmlRenderError::TemplateError;
 use indicatif::ProgressBar;
@@ -55,7 +56,8 @@ impl Pipeline {
 
         let doc_path = path
             .as_ref()
-            .strip_prefix(self.project_path.as_path().join("content")).unwrap(); // TODO: Error handling;
+            .strip_prefix(self.project_path.as_path().join("content"))
+            .unwrap(); // TODO: Error handling;
         let mut doc_iter = doc_path.iter();
         let el = doc_iter.next().unwrap().to_str().unwrap();
 
@@ -109,7 +111,8 @@ impl Pipeline {
         // fs::create_dir_all(build_dir)?;
         // fs::write(section_build_path, html).unwrap();
 
-        self.write_html(&parsed_doc, build_config, &basebuild_path).unwrap(); // TODO: Error handling
+        self.write_html(&parsed_doc, build_config, &basebuild_path)
+            .unwrap(); // TODO: Error handling
         self.write_notebook(&parsed_doc, &basebuild_path).unwrap(); // TODO: Error handling
 
         println!("🔔 Document {} changed, re-rendered output", doc.id);
@@ -130,24 +133,29 @@ impl Pipeline {
         println!("[2/4] 📖 Parsing source documents...");
 
         let bar = ProgressBar::new(len);
+
         let parsed: Config<DocumentParsed> = config
             .into_iter()
             .map(|item| {
-                item.map_doc(|doc| {
-                    bar.inc(1);
-                    Pipeline::parse(self.project_path.clone(), &doc)
-                })
+                let res = item.map_doc(|doc| Pipeline::parse(self.project_path.clone(), &doc));
+                let res = match res {
+                    Ok(i) => Some(i),
+                    Err(e) => {
+                        let mut ei: &dyn Error = &e;
+                        while let Some(inner) = ei.source() {
+                            bar.println(format!("Caused by: {}\n", inner));
+                            ei = inner;
+                        }
+
+                        None
+                    }
+                };
+                bar.inc(1);
+                res
             })
-            .filter_map(|res| match res {
-                Ok(i) => Some(i),
-                Err(e) => {
-                    println!("[Error] Parse error: {}", e);
-                    None }
-            })
+            .filter_map(|res| res)
             .collect::<Config<DocumentParsed>>();
         bar.finish();
-
-
 
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");

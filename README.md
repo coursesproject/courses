@@ -27,8 +27,22 @@ specify sections as e.g. the solution. Instead of having to manually keep track 
 complete definition to test the solution and to build the output with a placeholder. Creating new exercises using 
 this method is easy. You start from a solution and simply mark of the parts that should not be visible in the published output.
 
-### More features
-There are 
+**Example code block:**
+```python
+#| << CODE
+# print("this is the placeholder and will be shown in the published output")
+#| >> SOLUTION <<
+print("this is the solution which is removed in the published version")
+#| >> END_CODE
+```
+
+*Note that the extra syntax is hidden in comments and therefore does not interfere with the underlying 
+implementation language. The solution is the only part that is not commented and can therefore be run during 
+development.*
+
+### Shortcodes
+
+``` ```
 
 ## Speed is a feature
 Courses is fast enough to make a real-time editing workflow possible. The built-in automatic rebuild and reload 
@@ -40,21 +54,38 @@ make changes.
 
 
 ## Similar projects
-Courses is far from the only tool for publishing learning resources and scientific material to the web. `Courses` has 
-a very distinct approach and a distinct set of goals. The following comparison might be helpful if you need help to 
-decide between the tools.
+Courses is far from the only tool for publishing learning resources and scientific material to the web. Depending on 
+your use case, these tools may be more appropriate for you.
+
+Choose `courses` if you
+- Value automatic and almost instantaneous rebuilds for watching changes live.
+- Write material that contains exercises that will benefit from automated testing and handling of solutions.
+- Want a simple binary that just work and has no dependency on environment setup or other tools.
+- Want an all-in-one tool for publishing your work. `courses` is not 
+- Can accept using a very new, likely unstable and definitely unsupported project.
+
+Choose Jupyterbook or Quarto if you
+- Mainly work with the Python or R ecosystems and don't want to meddle with HTML and templates
+- Just want to get your notebooks onto the web
+- Need integration with Jupyterhub
+- Need mature interactive components in your content
+
 
 ### Jupyterbook
 This project focuses highly on tight integration with the Jupyter Notebook ecosystem and formats. It is especially 
-great for allowing interaction with notebooks using existing technologies like JupyterHub. It uses sphinx as a 
-back-end which may be a positive or negative depending on your requirements. The custom markdown syntax it supports 
-(`myst-markdown`) has many convenient features but is incompatible with regular Jupyter Notebook editors (like 
-VSCode and JupyterLab). Because the entire project is built in Python, building is slow. Additionally, there's no 
+great for allowing interaction with notebooks using existing technologies like JupyterHub. It is a quite 
+mature project built on a very mature foundation including Sphinx for document handling and of course Jupyter for 
+interactivity. However, the huge amount of features it supports makes it much more complex than something like 
+`courses`. Because the entire project is built in Python, building is slow. Additionally, there's no 
 convenient automatic reload function.
 
 ### Quarto
 
+
 ### Static-site generators (e.g. Hugo, Jekyll)
-These tools are very generic and allow for customization of almost every aspect of the published webpage. However, 
-they don't support the Jupyter Notebook format directly. It is of course possible to use a conversion tool like 
-`jupytext` to generate Markdown from your `.ipynb` files. 
+These tools are very generic and allow for customization of almost every aspect of the published webpage. Hugo is 
+also very fast and widely used. However, these tools don't support Jupyter Notebooks or interactive content in 
+general (at least not directly) and they also have no support for automated tests or exercise handling.
+
+I heavily considered creating `courses` as an extension to one of these systems but ultimately chose not to because 
+of how much complexity and clutter the extra pre- and post-processing would add. 
