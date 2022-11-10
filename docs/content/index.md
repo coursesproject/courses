@@ -4,6 +4,13 @@ title: Courses documentation
 
 # Courses documentation
 
+{{ Failed }}
+
+´´´python
+#| CODE <<
+# Hej
+´´´
+
 Courses is a publishing system for interactive content. 
 
 - Supports both regular markdown documents and Jupyter Notebooks.

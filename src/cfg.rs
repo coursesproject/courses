@@ -132,9 +132,9 @@ impl<D> ConfigItem<D> {
         ))
     }
 
-    pub fn map_doc<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
+    pub fn map_doc<O, F, E>(self, f: F) -> Result<ConfigItem<O>, E>
     where
-        F: Fn(DocumentSpec<D>) -> anyhow::Result<O>,
+        F: Fn(DocumentSpec<D>) -> Result<O, E>,
     {
         let doc = DocumentSpec {
             id: self.doc.id.clone(),

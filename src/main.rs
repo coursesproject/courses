@@ -112,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
                             let mut pipeline = Pipeline::new(path.as_path()).unwrap();
 
                             if p.starts_with(path.as_path().join("content")) {
-                                pipeline.build_file(p, &c2, &cf).unwrap();
+                                pipeline.build_file(p, &c2, &cf);
                             } else {
                                 pipeline.build_everything(c2.clone()).unwrap();
                             }

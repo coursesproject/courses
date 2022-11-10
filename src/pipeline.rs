@@ -1,5 +1,5 @@
 use crate::cfg::{section_id, Config, ConfigItem, DocumentSpec, Part};
-use crate::parser::{DocParser, DocumentParsed, FrontMatter};
+use crate::parser::{DocParser, DocumentParsed, FrontMatter, ParserError};
 use crate::render::{HtmlRenderError, HtmlRenderer};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ impl Pipeline {
         })
     }
 
-    fn parse(project_path: PathBuf, doc: &DocumentSpec<()>) -> anyhow::Result<DocumentParsed> {
+    fn parse(project_path: PathBuf, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
         let mut parser = DocParser::new(project_path, vec![])?;
         parser.parse(doc)
     }
@@ -47,7 +47,7 @@ impl Pipeline {
         path: P,
         config: &Config<()>,
         build_config: &Config<DocumentConfig>,
-    ) -> anyhow::Result<()> {
+    ) {
         // let doc_base = RelativePathBuf::from_path(&path)?;
         // let doc_path = doc_base
         //     .strip_prefix(RelativePathBuf::from_path(&self.project_path)?)
@@ -55,7 +55,7 @@ impl Pipeline {
 
         let doc_path = path
             .as_ref()
-            .strip_prefix(self.project_path.as_path().join("content"))?;
+            .strip_prefix(self.project_path.as_path().join("content")).unwrap(); // TODO: Error handling;
         let mut doc_iter = doc_path.iter();
         let el = doc_iter.next().unwrap().to_str().unwrap();
 
@@ -87,7 +87,7 @@ impl Pipeline {
             }
         };
 
-        let parsed = Pipeline::parse(self.project_path.clone(), doc)?;
+        let parsed = Pipeline::parse(self.project_path.clone(), doc).unwrap(); // TODO: Error message
         let parsed_doc = DocumentSpec {
             id: doc.id.clone(),
             format: doc.format.clone(),
@@ -109,12 +109,10 @@ impl Pipeline {
         // fs::create_dir_all(build_dir)?;
         // fs::write(section_build_path, html).unwrap();
 
-        self.write_html(&parsed_doc, build_config, &basebuild_path)?;
-        self.write_notebook(&parsed_doc, &basebuild_path)?;
+        self.write_html(&parsed_doc, build_config, &basebuild_path).unwrap(); // TODO: Error handling
+        self.write_notebook(&parsed_doc, &basebuild_path).unwrap(); // TODO: Error handling
 
         println!("🔔 Document {} changed, re-rendered output", doc.id);
-
-        Ok(())
     }
 
     pub fn build_everything(
@@ -140,8 +138,16 @@ impl Pipeline {
                     Pipeline::parse(self.project_path.clone(), &doc)
                 })
             })
-            .collect::<anyhow::Result<Config<DocumentParsed>>>()?;
+            .filter_map(|res| match res {
+                Ok(i) => Some(i),
+                Err(e) => {
+                    println!("[Error] Parse error: {}", e);
+                    None }
+            })
+            .collect::<Config<DocumentParsed>>();
         bar.finish();
+
+
 
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");
@@ -189,7 +195,9 @@ impl Pipeline {
                                 title
                             );
                             println!("\t{}", e);
-                            println!("\t\tCaused by: {}", e.source().unwrap());
+                            if let Some(source) = e.source() {
+                                println!("\t\tCaused by: {}", source);
+                            }
                         }
                         HtmlRenderError::Other(e, title) => {
                             println!("[Error] Could not render '{}' due to:", title);
@@ -201,10 +209,17 @@ impl Pipeline {
             })
             .collect();
 
-        let md_errors: Vec<anyhow::Result<()>> = html_results_filtered
+        let md_errors: Vec<ConfigItem<DocumentParsed>> = html_results_filtered
             // .clone()
             .into_iter()
-            .map(|item| self.write_markdown(&item.doc, &build_path))
+            .map(|item| self.write_markdown(&item.doc, &build_path).map(|_| item))
+            .filter_map(|result| match result {
+                Ok(i) => Some(i),
+                Err(e) => {
+                    println!("[Error] Markdown render error: {}", e);
+                    None
+                }
+            })
             .collect();
 
         Ok(build_config)

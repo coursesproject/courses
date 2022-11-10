@@ -89,7 +89,7 @@ impl<'a> ShortCodeProcessor<'a> {
         }
 
 
-        let processed = ShortCodeProcessor::new(self.tera).process(&body);
+        let processed = ShortCodeProcessor::new(self.tera).process(&body)?;
         let parser = Parser::new_ext(&processed, Options::all());
         let mut html = String::new();
         push_html(&mut html, parser);
@@ -99,7 +99,7 @@ impl<'a> ShortCodeProcessor<'a> {
         Ok(self.tera.render(&name, &context)?)
     }
 
-    pub fn process(&self, input: &str) -> String {
+    pub fn process(&self, input: &str) -> anyhow::Result<String> {
         let mut rest = input;
 
         let mut result = String::new();
@@ -119,10 +119,7 @@ impl<'a> ShortCodeProcessor<'a> {
                             let tmp_name = (&rest[(start + 2)..(end - 2)]).trim();
                             println!("{}", tmp_name);
 
-                            let res = match self.render_inline_template(tmp_name) {
-                                Ok(res) => res,
-                                Err(e) => e.to_string(),
-                            };
+                            let res = self.render_inline_template(tmp_name)?;
 
                             result.push_str(pre);
                             result.push_str(&res);
@@ -136,10 +133,7 @@ impl<'a> ShortCodeProcessor<'a> {
                             let tmp_name = (&rest[(def.0 + 2)..(def.1)]).trim();
                             let body = (&rest[(def.1 + 2)..(end.0) - 2]).trim();
 
-                            let res = match self.render_block_template(tmp_name, body) {
-                                Ok(res) => res,
-                                Err(e) => e.to_string(),
-                            };
+                            let res = self.render_block_template(tmp_name, body)?;
 
                             result.push_str(pre);
                             result.push_str(&res);
@@ -152,6 +146,6 @@ impl<'a> ShortCodeProcessor<'a> {
             }
         }
 
-        result
+        Ok(result)
     }
 }

@@ -12,7 +12,9 @@ use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use anyhow::Context;
 use tera::Tera;
+use thiserror::Error;
 use yaml_front_matter::YamlFrontMatter;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -45,6 +47,21 @@ pub struct DocParser {
     tera: Tera,
 }
 
+#[derive(Error, Debug)]
+pub enum ParserError {
+    #[error("IO Error: ")]
+    IoError(#[from] std::io::Error),
+
+    #[error("Std Error: ")]
+    StdError(#[from] Box<dyn std::error::Error + Send>),
+
+    #[error("JSON Error: ")]
+    JSONError(#[from] serde_json::error::Error),
+
+    #[error("Anyhow Error: ")]
+    Other(#[from] anyhow::Error),
+}
+
 impl DocParser {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
@@ -61,23 +78,23 @@ impl DocParser {
         })
     }
 
-    pub fn parse(&mut self, doc: &DocumentSpec<()>) -> anyhow::Result<DocumentParsed> {
+    pub fn parse(&mut self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
         let options = Options::all();
         let processor = ShortCodeProcessor::new(&self.tera);
         let content_path = self.project_path.join("content").join(&doc.path);
-        let res = match doc.format {
+        let res: Result<DocumentParsed, ParserError> = match doc.format {
             Format::Notebook => {
                 let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
-                let meta = nb.get_front_matter().unwrap().unwrap_or_default();
-                self.process(doc, Document::from(nb.clone()).preprocess(&processor), meta, nb.into_iter())
+                let meta = nb.get_front_matter()?.unwrap_or_default();
+                self.process(doc, Document::from(nb.clone()).preprocess(&processor)?, meta, nb.into_iter())
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
-                    YamlFrontMatter::parse(&input).unwrap();
+                    YamlFrontMatter::parse(&input).unwrap(); // TODO: HELP!
                 let parser = Parser::new_ext(&yml.content, options);
-                self.process(doc, Document::from(yml.content.clone()).preprocess(&processor), yml.metadata, parser)
+                self.process(doc, Document::from(yml.content.clone()).preprocess(&processor)?, yml.metadata, parser)
             }
         };
 
@@ -90,7 +107,7 @@ impl DocParser {
         content: Document,
         meta: FrontMatter,
         iter: I,
-    ) -> anyhow::Result<DocumentParsed>
+    ) -> Result<DocumentParsed, ParserError>
     where
         I: Iterator<Item = Event<'i>>,
     {

@@ -27,12 +27,12 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn preprocess(&self, processor: &ShortCodeProcessor) -> Document {
+    pub fn preprocess(&self, processor: &ShortCodeProcessor) -> anyhow::Result<Document> {
         let elements = self.elements.iter().map(|e| match e {
-            Element::Markdown { content } => { Element::Markdown { content: processor.process(content) } }
-            _ => e.clone()
-        }).collect();
-        Document { elements }
+            Element::Markdown { content } => { Ok(Element::Markdown { content: processor.process(content)? }) }
+            _ => Ok(e.clone())
+        }).collect::<anyhow::Result<Vec<Element>>>()?;
+        Ok(Document { elements })
     }
 }
 
