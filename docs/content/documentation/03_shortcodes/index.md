@@ -12,10 +12,10 @@ to extend the functionality.
 ## Syntax
 Shortcodes support two syntaxes:
 
-**Inline:** `{{ name(arg1=value, arg2="a string value") }}` 
+**Inline:** `{{ name(arg1=value1, arg2="a string value") }}` 
 
 **Block:**
-```
+```html
 {% name(arg1=value, arg2="a string value") %}
 
 Valid markdown markup
@@ -39,11 +39,15 @@ specified manually.*
 
 ### Admonition
 
-```
+```html
 {% admon(class=css-color-class) %}
 This is some markup that will appear in an admonition box
 {% end %}
 ```
+
+{% admon(class=warning) %}
+Admonition example
+{% end %}
 
 ## Custom shortcodes
 Each shortcode is defined by a single template file by the same name in a project's `templates/shortcodes` folder. 

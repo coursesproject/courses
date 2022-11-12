@@ -5,13 +5,14 @@ use anyhow::Context;
 use base64;
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
+use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser, Tag};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::EnumMap;
 use std::collections::HashMap;
 use std::iter::FlatMap;
+use std::ops::Range;
 use std::slice::Iter;
 use std::vec::IntoIter;
 
@@ -201,11 +202,11 @@ pub enum Cell {
 pub enum CellEventIterator<'a, 'b> {
     Markdown {
         cell: &'a Cell,
-        parser: Parser<'a, 'b>,
+        parser: OffsetIter<'a, 'b>,
     },
     Code {
         cell: &'a Cell,
-        events: IntoIter<Event<'a>>,
+        events: IntoIter<(Event<'a>, Range<usize>)>,
     },
     Raw {
         cell: &'a Cell,
@@ -213,10 +214,10 @@ pub enum CellEventIterator<'a, 'b> {
 }
 
 impl CellOutput {
-    pub fn to_events(&self) -> Vec<Event> {
+    pub fn to_events(&self) -> Vec<(Event, Range<usize>)> {
         match self {
             CellOutput::Stream { name, text } => {
-                vec![Event::Html(CowStr::Boxed(
+                vec![(Event::Html(CowStr::Boxed(
                     format!(
                         r#"
                 <div class="alert alert-info">
@@ -226,7 +227,7 @@ impl CellOutput {
                         text
                     )
                     .into_boxed_str(),
-                ))]
+                )), (0..0))]
             }
             CellOutput::Data {
                 data,
@@ -240,59 +241,59 @@ impl CellOutput {
                             "plaintext".to_string().into_boxed_str(),
                         )));
                         vec![
-                            Event::Start(block.clone()),
-                            Event::Text(CowStr::Borrowed(v)),
-                            Event::End(block),
+                            (Event::Start(block.clone()), (0..0)),
+                            (Event::Text(CowStr::Borrowed(v)), (0..0)),
+                            (Event::End(block), (0..0)),
                         ]
                     }
                     OutputValue::Image(v) => {
-                        vec![Event::Html(CowStr::Boxed(
+                        vec![(Event::Html(CowStr::Boxed(
                             format!("<img src=\"data:image/png;base64,{}\"></img>", v)
                                 .into_boxed_str(),
-                        ))]
+                        )), (0..0))]
                     }
                     OutputValue::Svg(v) => {
-                        vec![Event::Html(CowStr::Boxed(
+                        vec![(Event::Html(CowStr::Boxed(
                             format!(
                                 "<img><svg width=\"640px\" height=\"480px\">{}</svg></img>",
                                 v
                             )
                             .into_boxed_str(),
-                        ))]
+                        )), (0..0))]
                     }
                     OutputValue::Json(v) => {
-                        vec![Event::Text(CowStr::Boxed(
+                        vec![(Event::Text(CowStr::Boxed(
                             format!("{:?}", v).into_boxed_str(),
-                        ))]
+                        )), (0..0))]
                     }
                     OutputValue::Html(v) => {
-                        vec![Event::Html(CowStr::Boxed(v.to_string().into_boxed_str()))]
+                        vec![(Event::Html(CowStr::Boxed(v.to_string().into_boxed_str())), (0..0))]
                     }
                     OutputValue::Javascript(v) => {
-                        vec![Event::Html(CowStr::Boxed(
+                        vec![(Event::Html(CowStr::Boxed(
                             format!("<script>{}</script>", v).into_boxed_str(),
-                        ))]
+                        )), (0..0))]
                     }
                 })
                 .collect(),
             CellOutput::Error { .. } => {
-                vec![Event::Text(CowStr::Boxed(
+                vec![(Event::Text(CowStr::Boxed(
                     "Error".to_string().into_boxed_str(),
-                ))]
+                )), (0..0))]
             }
         }
     }
 }
 
 impl<'a> IntoIterator for &'a Cell {
-    type Item = Event<'a>;
+    type Item = (Event<'a>, Range<usize>);
     type IntoIter = CellEventIterator<'a, 'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
             Cell::Markdown { common } => CellEventIterator::Markdown {
                 cell: &self,
-                parser: Parser::new_ext(&common.source, Options::all()),
+                parser: Parser::new_ext(&common.source, Options::all()).into_offset_iter(),
             },
             Cell::Code {
                 common, outputs, ..
@@ -300,9 +301,9 @@ impl<'a> IntoIterator for &'a Cell {
                 let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));
                 let source = &common.source;
                 let mut events = vec![
-                    Event::Start(cblock.clone()),
-                    Event::Text(CowStr::Borrowed(&common.source)),
-                    Event::End(cblock),
+                    (Event::Start(cblock.clone()), (0..0)),
+                    (Event::Text(CowStr::Borrowed(&common.source)), (0..common.source.len())),
+                    (Event::End(cblock), (common.source.len()..common.source.len())),
                 ];
                 outputs
                     .into_iter()
@@ -318,7 +319,7 @@ impl<'a> IntoIterator for &'a Cell {
 }
 
 impl<'a, 'b> Iterator for CellEventIterator<'a, 'b> {
-    type Item = Event<'a>;
+    type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -338,7 +339,7 @@ pub struct NotebookIterator<'a, 'b> {
 }
 
 impl<'a> IntoIterator for &'a Notebook {
-    type Item = Event<'a>;
+    type Item = (Event<'a>, Range<usize>);
     type IntoIter = NotebookIterator<'a, 'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -349,7 +350,7 @@ impl<'a> IntoIterator for &'a Notebook {
 }
 
 impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
-    type Item = Event<'a>;
+    type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
@@ -357,26 +358,10 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
 }
 
 impl Notebook {
-    pub fn get_front_matter(&self) -> anyhow::Result<Option<FrontMatter>> {
+    pub fn get_front_matter(&self) -> Result<FrontMatter, serde_yaml::Error> {
         match &self.cells[0] {
-            Cell::Raw { common } => Ok(Some(serde_yaml::from_str(&common.source)?)),
-            Cell::Code { common, .. } => {
-                let r = common
-                    .metadata
-                    .additional
-                    .get("vscode")
-                    .and_then(|d| match d {
-                        Value::Object(o) => o.get("languageId"),
-                        _ => None,
-                    })
-                    .filter(|val| match val {
-                        Value::String(s) => s == "yaml",
-                        _ => false,
-                    })
-                    .and_then(|_| Some(serde_yaml::from_str(&common.source)));
-                r.map_or(Ok(None), |v| v.map(Some).context("Yaml"))
-            }
-            _ => Ok(None),
+            Cell::Raw { common } => Ok(serde_yaml::from_str(&common.source)?),
+            _ => Ok(FrontMatter::default()),
         }
     }
 

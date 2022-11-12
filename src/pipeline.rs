@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use crate::render::HtmlRenderError::TemplateError;
 use indicatif::ProgressBar;
-use termion::color;
+use termion::{color, style};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DocumentConfig {
@@ -89,33 +89,41 @@ impl Pipeline {
             }
         };
 
-        let parsed = Pipeline::parse(self.project_path.clone(), doc).unwrap(); // TODO: Error message
-        let parsed_doc = DocumentSpec {
-            id: doc.id.clone(),
-            format: doc.format.clone(),
-            path: doc.path.clone(),
-            content: Arc::new(parsed),
-        };
+        let parsed = Pipeline::parse(self.project_path.clone(), doc); // TODO: Error message
+        match parsed {
+            Ok(parsed) => {
+                let parsed_doc = DocumentSpec {
+                    id: doc.id.clone(),
+                    format: doc.format.clone(),
+                    path: doc.path.clone(),
+                    content: Arc::new(parsed),
+                };
 
-        let basebuild_path = self.project_path.join("build");
-        // let build_path = self.project_path.join("build").join("web");
-        //
-        // let mut doc_relative_dir = doc_path.to_path_buf();
-        // doc_relative_dir.pop();
-        //
-        // let build_dir = build_path.join(doc_relative_dir);
-        // let html = self.renderer.render_document(&parsed, build_config)?;
-        // // let mut section_build_dir = build_path.join(part.id.clone()).join(chapter.id.clone());
-        // let section_build_path = build_dir.join(format!("{}.html", doc.id));
-        //
-        // fs::create_dir_all(build_dir)?;
-        // fs::write(section_build_path, html).unwrap();
+                let basebuild_path = self.project_path.join("build");
+                // let build_path = self.project_path.join("build").join("web");
+                //
+                // let mut doc_relative_dir = doc_path.to_path_buf();
+                // doc_relative_dir.pop();
+                //
+                // let build_dir = build_path.join(doc_relative_dir);
+                // let html = self.renderer.render_document(&parsed, build_config)?;
+                // // let mut section_build_dir = build_path.join(part.id.clone()).join(chapter.id.clone());
+                // let section_build_path = build_dir.join(format!("{}.html", doc.id));
+                //
+                // fs::create_dir_all(build_dir)?;
+                // fs::write(section_build_path, html).unwrap();
 
-        self.write_html(&parsed_doc, build_config, &basebuild_path)
-            .unwrap(); // TODO: Error handling
-        self.write_notebook(&parsed_doc, &basebuild_path).unwrap(); // TODO: Error handling
+                self.write_html(&parsed_doc, build_config, &basebuild_path)
+                    .unwrap(); // TODO: Error handling
+                self.write_notebook(&parsed_doc, &basebuild_path).unwrap(); // TODO: Error handling
 
-        println!("🔔 Document {} changed, re-rendered output", doc.id);
+                println!("🔔 Document {} changed, re-rendered output", doc.id);
+            }
+            Err(e) => {
+                println!("Error {}", e);
+            }
+        }
+
     }
 
     pub fn build_everything(
@@ -132,7 +140,7 @@ impl Pipeline {
 
         println!("[2/4] 📖 Parsing source documents...");
 
-        let bar = ProgressBar::new(len);
+        // let bar = ProgressBar::new(len);
 
         let parsed: Config<DocumentParsed> = config
             .into_iter()
@@ -142,20 +150,23 @@ impl Pipeline {
                     Ok(i) => Some(i),
                     Err(e) => {
                         let mut ei: &dyn Error = &e;
-                        while let Some(inner) = ei.source() {
-                            bar.println(format!("Caused by: {}\n", inner));
-                            ei = inner;
-                        }
+                        // bar.println(format!("{}{}error: {}{}{}\n", style::Bold, color::Fg(color::Red), style::Reset, color::Fg(color::Reset), ei));
+                        println!("{}{}error: {}{}{}", style::Bold, color::Fg(color::Red), style::Reset, color::Fg(color::Reset), ei);
+                        // while let Some(inner) = ei.source() {
+                        //     // bar.println(format!("Caused by: {}\n", inner));
+                        //     println!("{}cause: {}{}", style::Bold, style::Reset, inner);
+                        //     ei = inner;
+                        // }
 
                         None
                     }
                 };
-                bar.inc(1);
+                // bar.inc(1);
                 res
             })
             .filter_map(|res| res)
             .collect::<Config<DocumentParsed>>();
-        bar.finish();
+        // bar.finish();
 
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");

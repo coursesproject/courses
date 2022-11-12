@@ -1,16 +1,20 @@
 pub mod shortcode_extender;
 
-use crate::parsers::split::{format_pest_err, parse_code_string};
+use crate::parsers::split::{format_pest_err, human_errors, parse_code_string, Rule};
 use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
+use pest::error::InputLocation;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
+use thiserror::Error;
+use crate::document::DocPos;
+use crate::extensions::Error::CodeParseError;
 
 pub trait ExtensionFactory {
     fn build<'a>(&self) -> Box<dyn Extension<'a>>;
 }
 
 pub trait Extension<'a> {
-    fn each(&mut self, event: Event<'a>) -> anyhow::Result<Event<'a>>;
+    fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error>;
 }
 
 pub struct CodeSplitFactory {}
@@ -20,6 +24,14 @@ impl ExtensionFactory for CodeSplitFactory {
         Box::new(CodeSplit::default())
     }
 }
+
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("code split syntax error at {}: {}", .1, .0)]
+    CodeParseError(#[source] pest::error::Error<Rule>, DocPos)
+}
+
 
 #[derive(Debug, Default)]
 pub struct CodeSplit {
@@ -35,8 +47,8 @@ impl CodeSplit {
 }
 
 impl<'a> Extension<'a> for CodeSplit {
-    fn each(&mut self, event: Event<'a>) -> anyhow::Result<Event<'a>> {
-        let res = match event {
+    fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error> {
+        match event.0 {
             Event::Start(tag) => match &tag {
                 Tag::CodeBlock(attribute_string) => {
                     // self.code_started = true;
@@ -46,40 +58,46 @@ impl<'a> Extension<'a> for CodeSplit {
                             self.code_started = true;
                         }
                     }
-                    Event::Start(tag)
+                    Ok((Event::Start(tag), event.1))
                 }
-                _ => Event::Start(tag),
+                _ => Ok((Event::Start(tag), event.1)),
             },
             Event::End(tag) => match &tag {
                 Tag::CodeBlock(_content) => {
                     self.code_started = false;
-                    Event::End(tag)
+                    Ok((Event::End(tag), event.1))
                 }
-                _ => Event::End(tag),
+                _ => Ok((Event::End(tag), event.1)),
             },
             Event::Text(txt) => {
                 if self.code_started {
                     let res = parse_code_string(txt.as_ref());
-                    match res {
-                        Ok(mut doc) => {
-                            let (placeholder, solution) = doc.split();
-                            self.solution_string.push_str(&solution);
-                            self.source_def.blocks.append(&mut doc.blocks);
+                    Ok(res.map(|mut doc| {
+                        let (placeholder, solution) = doc.split();
+                        self.solution_string.push_str(&solution);
+                        self.source_def.blocks.append(&mut doc.blocks);
 
-                            Event::Text(CowStr::Boxed(placeholder.into_boxed_str()))
-                        }
-                        Err(e) => Event::Html(CowStr::Boxed(
-                            format!(r#"<div class="alert alert-warning">Split parsing failed: {}</div>"#, format_pest_err(e))
-                                .into_boxed_str(),
-                        )),
-                    }
+                        (Event::Text(CowStr::Boxed(placeholder.into_boxed_str())), event.1.clone())
+                    }).map_err(|e| human_errors(e)).map_err(|e| CodeParseError(e, event.1))?)
+                    // match res {
+                    //     Ok(mut doc) => {
+                    //         let (placeholder, solution) = doc.split();
+                    //         self.solution_string.push_str(&solution);
+                    //         self.source_def.blocks.append(&mut doc.blocks);
+                    //
+                    //         Event::Text(CowStr::Boxed(placeholder.into_boxed_str()))
+                    //     }
+                    //     Err(e) => Event::Html(CowStr::Boxed(
+                    //         format!(r#"<div class="alert alert-warning">Split parsing failed: {}</div>"#, format_pest_err(e))
+                    //             .into_boxed_str(),
+                    //     )),
+                    // }
                 } else {
-                    Event::Text(txt)
+                    Ok((Event::Text(txt), event.1))
                 }
             }
-            _ => event,
-        };
-        Ok(res)
+            _ => Ok(event),
+        }
     }
 }
 

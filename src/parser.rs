@@ -1,5 +1,5 @@
 use crate::cfg::{DocumentSpec, Format};
-use crate::document::{ConfigureIterator, Document, IteratorConfig, PreprocessError};
+use crate::document::{ConfigureIterator, DocPos, Document, IteratorConfig, PreprocessError};
 use crate::extensions::shortcode_extender::ShortCodeProcessor;
 use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
 use crate::notebook::Notebook;
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use tera::Tera;
 use thiserror::Error;
@@ -44,7 +45,8 @@ pub struct DocParser {
     project_path: PathBuf,
     code_split: CodeSplitFactory,
     extensions: Vec<Box<dyn ExtensionFactory>>,
-    tera: Tera,
+    tera_html: Tera,
+    tera_md: Tera,
 }
 
 #[derive(Error, Debug)]
@@ -52,49 +54,56 @@ pub enum ParserError {
     #[error("IO Error: ")]
     IoError(#[from] std::io::Error),
 
-    #[error("Std Error: ")]
-    StdError(#[from] Box<dyn std::error::Error + Send>),
+    #[error("Error in template")]
+    TemplateError(#[from] tera::Error),
 
     #[error("JSON Error: ")]
     JSONError(#[from] serde_json::error::Error),
 
-    #[error("Anyhow Error: ")]
-    Other(#[from] anyhow::Error),
+    #[error("Error parsing frontmatter: ")]
+    FrontMatter(#[from] serde_yaml::Error),
 
-    #[error("Preprocessor Error: ")]
+
+    #[error(transparent)]
     Preprocess(#[from] PreprocessError),
+
+    #[error(transparent)]
+    ExtensionError(#[from] crate::extensions::Error)
 }
 
 impl DocParser {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
         extensions: Vec<Box<dyn ExtensionFactory>>,
-    ) -> anyhow::Result<Self> {
-        let pattern = project_path.as_ref().to_str().unwrap().to_string()
-            + &format!("/templates/shortcodes/**/*.tera.*");
+    ) -> Result<Self, tera::Error> {
+        let pattern_html = project_path.as_ref().to_str().unwrap().to_string()
+            + &format!("/templates/shortcodes/html/**/*.tera.html");
+        let pattern_md = project_path.as_ref().to_str().unwrap().to_string()
+            + &format!("/templates/shortcodes/md/**/*.tera.md");
 
         Ok(DocParser {
             project_path: project_path.as_ref().to_path_buf(),
             code_split: CodeSplitFactory {},
             extensions,
-            tera: Tera::new(&pattern)?,
+            tera_html: Tera::new(&pattern_html)?,
+            tera_md: Tera::new(&pattern_md)?,
         })
     }
 
     pub fn parse(&mut self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
         let options = Options::all();
-        let processor = ShortCodeProcessor::new(&self.tera);
+        let processor = ShortCodeProcessor::new(&self.tera_md);
         let content_path = self.project_path.join("content").join(&doc.path);
         let res: Result<DocumentParsed, ParserError> = match doc.format {
             Format::Notebook => {
                 let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_reader(bf)?;
-                let meta = nb.get_front_matter()?.unwrap_or_default();
+                let meta = nb.get_front_matter()?;
                 self.process(
                     doc,
                     Document::from(nb.clone()).preprocess(&processor)?,
                     meta,
-                    nb.into_iter(),
+
                 )
             }
             Format::Markdown => {
@@ -106,7 +115,7 @@ impl DocParser {
                     doc,
                     Document::from(yml.content.clone()).preprocess(&processor)?,
                     yml.metadata,
-                    parser,
+
                 )
             }
         };
@@ -114,15 +123,12 @@ impl DocParser {
         res
     }
 
-    fn process<'i, I>(
+    fn process(
         &mut self,
         doc: &DocumentSpec<()>,
         content: Document,
         meta: FrontMatter,
-        iter: I,
     ) -> Result<DocumentParsed, ParserError>
-    where
-        I: Iterator<Item = Event<'i>>,
     {
         let exts: Vec<Box<dyn Extension>> = self.extensions.iter().map(|e| e.build()).collect();
 
@@ -130,14 +136,14 @@ impl DocParser {
 
         let iter = iter.map(|e| Ok(e));
         let iter = exts.into_iter().fold(
-            Box::new(iter) as Box<dyn Iterator<Item = anyhow::Result<Event>>>,
+            Box::new(iter) as Box<dyn Iterator<Item = Result<(Event, DocPos), crate::extensions::Error>>>,
             |it, mut ext| Box::new(it.map(move |e| e.and_then(|e| ext.each(e)))),
         );
 
         let mut code_ext = CodeSplit::default();
         let iter = iter.map(|v| code_ext.each(v?));
 
-        let iter: anyhow::Result<Vec<Event>> = iter.collect();
+        let iter: Result<Vec<(Event, DocPos)>, crate::extensions::Error> = iter.collect();
         let iter = iter?;
 
         let heading = Self::find_header(&iter);
@@ -149,7 +155,8 @@ impl DocParser {
         let md = render_markdown(content.configure_iterator(IteratorConfig::default()))?;
         let mut html_output = String::new();
         // let new_iter = ShortCodeExtender::new(&self.tera, iter.into_iter());
-        html::push_html(&mut html_output, iter.into_iter());
+
+        html::push_html(&mut html_output, iter.into_iter().map(|(event, _)| event));
 
         // html_output = ShortCodeProcessor::new(&self.tera).process(&html_output);
 
@@ -165,15 +172,15 @@ impl DocParser {
         })
     }
 
-    fn find_header(iter: &Vec<Event>) -> String {
+    fn find_header(iter: &Vec<(Event, DocPos)>) -> String {
         let mut i_tmp = iter.clone().into_iter();
         let mut heading = "".to_string();
-        while let Some(e) = i_tmp.next() {
+        while let Some((e, _)) = i_tmp.next() {
             if let Event::Start(tag) = e {
                 if let Tag::Heading(lvl, _, _) = tag {
                     match lvl {
                         H1 => {
-                            if let Some(txt) = i_tmp.next() {
+                            if let Some((txt, _)) = i_tmp.next() {
                                 if let Event::Text(actual_text) = txt {
                                     heading = actual_text.trim().to_string();
                                     break;

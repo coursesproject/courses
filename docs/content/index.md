@@ -4,12 +4,6 @@ title: Courses documentation
 
 # Courses documentation
 
-{{ Failed }}
-
-´´´python
-#| CODE <<
-# Hej
-´´´
 
 Courses is a publishing system for interactive content. 
 

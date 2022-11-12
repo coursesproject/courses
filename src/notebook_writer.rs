@@ -2,6 +2,8 @@ use crate::notebook::*;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use std::collections::HashMap;
 use std::io;
+use std::ops::Range;
+use crate::document::DocPos;
 
 enum CellType {
     Markdown,
@@ -48,7 +50,7 @@ struct NotebookWriter<I> {
 
 impl<'a, I> NotebookWriter<I>
 where
-    I: Iterator<Item = Event<'a>>,
+    I: Iterator<Item = (Event<'a>, DocPos)>,
 {
     fn new(iter: I) -> Self {
         NotebookWriter {
@@ -156,7 +158,7 @@ where
     }
 
     fn run(mut self) -> io::Result<Notebook> {
-        while let Some(event) = self.iter.next() {
+        while let Some((event, range)) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag)?,
                 Event::End(tag) => self.end_tag(tag)?,
@@ -186,7 +188,7 @@ where
 
 pub fn render_notebook<'a, I>(iter: I) -> io::Result<Notebook>
 where
-    I: Iterator<Item = Event<'a>>,
+    I: Iterator<Item = (Event<'a>, DocPos)>,
 {
     NotebookWriter::new(iter).run()
 }
@@ -199,7 +201,7 @@ struct MarkdownWriter<I> {
 
 impl<'a, I> MarkdownWriter<I>
 where
-    I: Iterator<Item = Event<'a>>,
+    I: Iterator<Item = (Event<'a>, DocPos)>,
 {
     fn new(iter: I) -> Self {
         MarkdownWriter {
@@ -277,7 +279,7 @@ where
     }
 
     fn run(mut self) -> io::Result<String> {
-        while let Some(event) = self.iter.next() {
+        while let Some((event, range)) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag)?,
                 Event::End(tag) => self.end_tag(tag)?,
@@ -298,7 +300,7 @@ where
 
 pub fn render_markdown<'a, I>(iter: I) -> io::Result<String>
 where
-    I: Iterator<Item = Event<'a>>,
+    I: Iterator<Item = (Event<'a>, DocPos)>,
 {
     MarkdownWriter::new(iter).run()
 }

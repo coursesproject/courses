@@ -189,14 +189,15 @@ pub fn parse_code_string(content: &str) -> Result<CodeTaskDefinition, pest::erro
     Ok(CodeTaskDefinition { blocks: vals })
 }
 
-fn human_errors(error: pest::error::Error<Rule>) -> pest::error::Error<Rule> {
+pub fn human_errors(error: pest::error::Error<Rule>) -> pest::error::Error<Rule> {
     error.renamed_rules(|rule| match *rule {
-        Rule::source_code_block => "Placeholder/solution parsers block".to_owned(),
-        Rule::block => "Block".to_owned(),
-        Rule::attr => "Block attributes".to_owned(),
-        Rule::source_comment => "Code comment".to_owned(),
-        Rule::source_comment_block => "Code comment".to_owned(),
-        Rule::markup_block => "Markup".to_owned(),
+        Rule::source_code_block => "code".to_owned(),
+        Rule::code_block => "placeholder/solution block".to_owned(),
+        Rule::block => "arbitrary block".to_owned(),
+        Rule::attr => "block attributes".to_owned(),
+        Rule::source_comment => "code comment".to_owned(),
+        Rule::source_comment_block => "code comment".to_owned(),
+        Rule::markup_block => "markup lines".to_owned(),
         _ => "Unknown".to_owned(),
     })
 }
