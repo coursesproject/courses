@@ -1,4 +1,4 @@
-use crate::cfg::{section_id, Config, ConfigItem, DocumentSpec, Part};
+use crate::cfg::{section_id, Config, ConfigItem, DocumentSpec, Part, ProjectConfig};
 use crate::parser::{DocParser, DocumentParsed, FrontMatter, ParserError};
 use crate::render::{HtmlRenderError, HtmlRenderer};
 use anyhow::Context;
@@ -6,13 +6,14 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::render::HtmlRenderError::TemplateError;
 use indicatif::ProgressBar;
+use katex::OptsBuilder;
 use termion::{color, style};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -25,21 +26,27 @@ pub struct DocumentConfig {
 
 pub struct Pipeline {
     project_path: PathBuf,
-    parser: DocParser,
+    project_config: ProjectConfig,
     renderer: HtmlRenderer,
 }
 
 impl Pipeline {
     pub fn new<P: AsRef<Path>>(project_path: P) -> anyhow::Result<Self> {
+        let config_path = project_path.as_ref().join("config.yml");
+        let config_reader = BufReader::new(File::open(config_path)?);
+
+        let config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
+
         Ok(Pipeline {
             project_path: project_path.as_ref().to_path_buf(),
-            parser: DocParser::new(project_path.as_ref(), vec![])?,
             renderer: HtmlRenderer::new(project_path.as_ref())?,
+            project_config: config,
         })
     }
 
-    fn parse(project_path: PathBuf, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
-        let mut parser = DocParser::new(project_path, vec![])?;
+    fn parse(&self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
+        let opts = OptsBuilder::default().build().unwrap();
+        let mut parser = DocParser::new(self.project_path.clone(), vec![], opts, self.project_config.katex_output)?;
         parser.parse(doc)
     }
 
@@ -89,7 +96,7 @@ impl Pipeline {
             }
         };
 
-        let parsed = Pipeline::parse(self.project_path.clone(), doc); // TODO: Error message
+        let parsed = self.parse(doc); // TODO: Error message
         match parsed {
             Ok(parsed) => {
                 let parsed_doc = DocumentSpec {
@@ -145,7 +152,7 @@ impl Pipeline {
         let parsed: Config<DocumentParsed> = config
             .into_iter()
             .map(|item| {
-                let res = item.map_doc(|doc| Pipeline::parse(self.project_path.clone(), &doc));
+                let res = item.map_doc(|doc| self.parse(&doc));
                 let res = match res {
                     Ok(i) => Some(i),
                     Err(e) => {

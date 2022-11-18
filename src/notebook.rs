@@ -51,7 +51,7 @@ where
 {
     let base: Vec<String> = Deserialize::deserialize(input)?;
     let source = base.into_iter().collect();
-    Ok(escape_string_deserialize(source))
+    Ok(source)
 }
 
 fn concatenate_serialize<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>

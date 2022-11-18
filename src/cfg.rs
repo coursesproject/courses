@@ -1,3 +1,5 @@
+//! Types for describing project configurations.
+
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::fs::DirEntry;
@@ -5,31 +7,25 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
 
+
+/// This is a custom map trait meant for configurations. The structure is preserved and each document
+/// is transformed.
 pub trait Transform<T, I, O> {
+
+    /// Like map but for a configuration.
     fn transform<F>(&self, f: &F) -> T
     where
         F: Fn(&DocumentSpec<I>) -> O;
 }
 
+/// Convenience trait for a map-function that also has access to the possible parents of a document.
 pub trait TransformParents<T, I, O> {
+
+    /// The inner function receives the parents which are omitted if they don't exist.
     fn transform_parents<F>(&self, f: &F) -> T
     where
         F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
 }
-
-// impl<'a, D> IntoIterator for &'a Config<D> where D: Clone {
-//     type Item = ConfigItem<&'a D>;
-//     type IntoIter = ConfigIterator<D>;
-//
-//     fn into_iter(self) -> Self::IntoIter {
-//         ConfigIteratorRef {
-//             part_pos: 0,
-//             chapter_pos: 0,
-//             doc_pos: 0,
-//             config: self,
-//         }
-//     }
-// }
 
 impl<D> IntoIterator for Config<D>
 where
@@ -48,24 +44,8 @@ where
     }
 }
 
-// impl<'a, D> IntoIterator for &'a Config<D> where D: Clone {
-//     type Item = ConfigItem<&'a D>;
-//     type IntoIter = ConfigIterator<&'a D>;
-//
-//     fn into_iter(self) -> Self::IntoIter {
-//         ConfigIterator {
-//             part_pos: 0,
-//             chapter_pos: 0,
-//             doc_pos: 0,
-//             config: self,
-//         }
-//     }
-// }
 
-pub struct PartDescriptor {
-    id: String,
-}
-
+/// Iterates a Config.
 pub struct ConfigIterator<D> {
     part_pos: usize,
     chapter_pos: usize,
@@ -73,27 +53,13 @@ pub struct ConfigIterator<D> {
     config: Config<D>,
 }
 
-// pub struct ConfigIteratorRef<'a, D> {
-//     part_pos: usize,
-//     chapter_pos: usize,
-//     doc_pos: usize,
-//     config: Config<&'a D>,
-// }
-
+/// Contains necessary information for reconstructing a Config from an iterator.
 pub struct ConfigItem<D> {
     pub part_id: Option<String>,
     pub chapter_id: Option<String>,
     pub part_idx: Option<usize>,
     pub chapter_idx: Option<usize>,
     pub doc: DocumentSpec<D>,
-}
-
-pub struct ConfigItemRef<'a, D> {
-    pub part_id: Option<String>,
-    pub chapter_id: Option<String>,
-    pub part_idx: Option<usize>,
-    pub chapter_idx: Option<usize>,
-    pub doc: &'a DocumentSpec<D>,
 }
 
 impl<D> ConfigItem<D> {
@@ -113,6 +79,7 @@ impl<D> ConfigItem<D> {
         }
     }
 
+    /// Perform operation on the inner document, then return the result wrapped in a ConfigItem.
     pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
     where
         F: Fn(&D) -> anyhow::Result<O>,
@@ -132,6 +99,7 @@ impl<D> ConfigItem<D> {
         ))
     }
 
+    /// Perform operation on the whole DocumentSpec.
     pub fn map_doc<O, F, E>(self, f: F) -> Result<ConfigItem<O>, E>
     where
         F: Fn(DocumentSpec<D>) -> Result<O, E>,
@@ -152,38 +120,7 @@ impl<D> ConfigItem<D> {
     }
 }
 
-// impl<'a, D> ConfigItemRef<'a, D> {
-//     fn new(part_id: Option<String>, chapter_id: Option<String>, part_idx: Option<usize>, chapter_idx: Option<usize>, doc: &Document<D>) -> Self {
-//         ConfigItemRef {
-//             part_id,
-//             chapter_id,
-//             part_idx,
-//             chapter_idx,
-//             doc,
-//         }
-//     }
-//
-//     pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItemRef<'a, O>> where F: Fn(D) -> anyhow::Result<O> {
-//         let doc = Document {
-//             id: self.doc.id.clone(),
-//             format: self.doc.format.clone(),
-//             path: self.doc.path.clone(),
-//             content: f(&self.doc.content)?,
-//         };
-//         Ok(ConfigItemRef::new(self.part_id, self.chapter_id, self.part_idx, self.chapter_idx, &doc))
-//     }
-//
-//     pub fn map_doc<O, F>(self, f: F) -> anyhow::Result<ConfigItemRef<'a, O>> where F: Fn(&Document<D>) -> anyhow::Result<O> {
-//         let doc = Document {
-//             id: self.doc.id.clone(),
-//             format: self.doc.format.clone(),
-//             path: self.doc.path.clone(),
-//             content: f(self.doc)?,
-//         };
-//         Ok(ConfigItem::new(self.part_id, self.chapter_id, self.part_idx, self.chapter_idx, &doc))
-//     }
-// }
-
+/// Collect iterator of ConfigItem into Config (tree structure).
 impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
     fn from_iter<T: IntoIterator<Item = ConfigItem<D>>>(iter: T) -> Self {
         // let mut index = it.next().unwrap().doc;
@@ -328,34 +265,51 @@ where
     }
 }
 
+/// Specifies the document format. Currently, only Markdown and Notebooks (ipynb) are supported.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Format {
     Markdown,
     Notebook,
 }
 
+/// A part is the highest level of content division. Each project has a series of parts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Part<C> {
-    pub(crate) id: String,
-    pub(crate) index: DocumentSpec<C>,
-    pub(crate) chapters: Vec<Chapter<C>>,
+    /// Part id (folder name)
+    pub id: String,
+    /// Index document
+    pub index: DocumentSpec<C>,
+    /// Chapters (in order)
+    pub chapters: Vec<Chapter<C>>,
 }
 
+/// Parts contain chapters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chapter<C> {
-    pub(crate) id: String,
-    pub(crate) index: DocumentSpec<C>,
-    pub(crate) documents: Vec<DocumentSpec<C>>,
+    /// Chapter id (folder name)
+    pub id: String,
+    /// Index document
+    pub index: DocumentSpec<C>,
+    /// Individual documents
+    pub documents: Vec<DocumentSpec<C>>,
 }
 
+/// Chapters contain documents. Their configuration container is called DocumentSpec. It is a generic
+/// type over the inner "document". This is useful for using the configuration as a datastructure
+/// for content throughout the build process.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentSpec<C> {
-    pub(crate) id: String,
-    pub(crate) format: Format,
-    pub(crate) path: PathBuf,
-    pub(crate) content: Arc<C>,
+    /// Document id (filename excluding extension)
+    pub id: String,
+    /// Document source format
+    pub format: Format,
+    /// Location
+    pub path: PathBuf,
+    /// Content. It is wrapped in Arc to minimise unnecessary memory copying.
+    pub content: Arc<C>,
 }
 
+/// The top-level configuration of a project's content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config<C> {
     pub project_path: PathBuf,
@@ -363,10 +317,13 @@ pub struct Config<C> {
     pub(crate) content: Vec<Part<C>>,
 }
 
+/// Refers to a configuration.yml file in the project that specifies a variety
+/// of options for the project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
     #[serde(default)]
     pub url_prefix: String,
+    pub katex_output: bool
 }
 
 impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
@@ -495,6 +452,7 @@ impl<I> DocumentSpec<I> {
 }
 
 impl Format {
+    /// Get format from path (md/ipynb).
     pub fn from_path<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         match path.as_ref().extension().unwrap().to_str().unwrap() {
             "md" => Ok(Format::Markdown),
@@ -504,6 +462,7 @@ impl Format {
     }
 }
 
+/// Extract a section_id (folder name) from a full path.
 pub fn section_id<P: AsRef<Path>>(path: P) -> Option<String> {
     Some(
         path.as_ref()
@@ -516,6 +475,7 @@ pub fn section_id<P: AsRef<Path>>(path: P) -> Option<String> {
     )
 }
 
+/// Extract a chapter_id (folder name) from a full path.
 fn chapter_id<P: AsRef<Path>>(path: P) -> Option<String> {
     Some(path.as_ref().file_name()?.to_str().unwrap().to_string())
 }
@@ -611,6 +571,8 @@ fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
 }
 
 impl Config<()> {
+    /// Construct configuration from a directory (generally the project directory). The function
+    /// finds and verifies the structure of the project.
     pub fn generate_from_directory<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let content_path = path.as_ref().join("content");
 

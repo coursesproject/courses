@@ -1,4 +1,5 @@
 pub mod shortcode_extender;
+pub mod katex;
 
 use crate::parsers::split::{format_pest_err, human_errors, parse_code_string, Rule};
 use crate::parsers::split_types::CodeTaskDefinition;
@@ -8,6 +9,12 @@ use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
 use thiserror::Error;
 use crate::document::DocPos;
 use crate::extensions::Error::CodeParseError;
+
+
+pub trait Preprocessor<E: std::error::Error> {
+    fn process(&self, input: &str) -> Result<String, E>;
+}
+
 
 pub trait ExtensionFactory {
     fn build<'a>(&self) -> Box<dyn Extension<'a>>;

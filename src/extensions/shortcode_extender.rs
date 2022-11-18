@@ -6,6 +6,7 @@ use pulldown_cmark::{Options, Parser};
 use std::fmt::{Debug, Display, Formatter};
 use tera::Tera;
 use thiserror::Error;
+use crate::extensions::Preprocessor;
 
 pub enum OutputFormat {
     Markdown,
@@ -124,17 +125,18 @@ impl Display for ShortCodeProcessError {
 
 pub struct ShortCodeProcessor<'a> {
     tera: &'a Tera,
+    file_ext: String,
 }
 
 impl<'a> ShortCodeProcessor<'a> {
-    pub fn new(tera: &'a Tera) -> Self {
-        ShortCodeProcessor { tera }
+    pub fn new(tera: &'a Tera, file_ext: String) -> Self {
+        ShortCodeProcessor { tera, file_ext }
     }
 
     fn render_inline_template(&self, shortcode: &str) -> Result<String, ShortCodeProcessError> {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
-        let name = format!("{}.tera.md", code.name);
+        let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
         for (k, v) in code.parameters {
             context.insert(k, &v);
         }
@@ -148,21 +150,31 @@ impl<'a> ShortCodeProcessor<'a> {
     ) -> Result<String, ShortCodeProcessError> {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
-        let name = format!("{}.tera.md", code.name);
+        let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
         for (k, v) in code.parameters {
             context.insert(k, &v);
         }
 
-        let processed = ShortCodeProcessor::new(self.tera).process(&body)?;
-        let parser = Parser::new_ext(&processed, Options::all());
-        let mut html = String::new();
-        push_html(&mut html, parser);
+        let processed = ShortCodeProcessor::new(self.tera, self.file_ext.clone()).process(&body)?;
+        let body_final = if self.file_ext == "html" {
+            let parser = Parser::new_ext(&processed, Options::all());
+            let mut html = String::new();
+            push_html(&mut html, parser);
+            html
+        } else {
+            processed
+        };
 
-        context.insert("body", &html);
+
+        context.insert("body", &body_final);
         Ok(self.tera.render(&name, &context)?)
     }
 
-    pub fn process(&self, input: &str) -> Result<String, ShortCodeProcessError> {
+
+}
+
+impl<'a> Preprocessor<ShortCodeProcessError> for ShortCodeProcessor<'a> {
+    fn process(&self, input: &str) -> Result<String, ShortCodeProcessError> {
         let mut rest = input;
         let mut offset = 0;
 

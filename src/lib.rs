@@ -1,3 +1,6 @@
+//! This is the module docs
+
+
 #[macro_use]
 extern crate pest_derive;
 

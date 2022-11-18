@@ -7,6 +7,7 @@ use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use std::vec::IntoIter;
 use thiserror::Error;
+use crate::extensions::Preprocessor;
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -63,7 +64,7 @@ pub enum PreprocessError {
 }
 
 impl Document {
-    pub fn preprocess(&self, processor: &ShortCodeProcessor) -> Result<Document, PreprocessError> {
+    pub fn preprocess<E: std::error::Error>(&self, processor: &impl Preprocessor<E>) -> Result<Document, E> {
         let elements = self
             .elements
             .iter()
@@ -73,7 +74,7 @@ impl Document {
                 }),
                 _ => Ok(e.clone()),
             })
-            .collect::<Result<Vec<Element>, ShortCodeProcessError>>()?;
+            .collect::<Result<Vec<Element>, E>>()?;
         Ok(Document { elements })
     }
 }
