@@ -1,13 +1,13 @@
-use std::fmt::{Display, Formatter};
-use std::ops::Range;
 use crate::extensions::shortcode_extender::{ShortCodeProcessError, ShortCodeProcessor};
+use crate::extensions::Preprocessor;
 use crate::notebook::{Cell, CellEventIterator, CellOutput, Notebook};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
+use std::fmt::{Display, Formatter};
+use std::ops::Range;
 use std::vec::IntoIter;
 use thiserror::Error;
-use crate::extensions::Preprocessor;
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -31,23 +31,30 @@ pub struct DocPos {
     cell_number: Option<usize>,
     global_offset: usize,
     line: usize,
-    local_position: Range<usize>
+    local_position: Range<usize>,
 }
 
 impl Display for DocPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.cell_number {
             None => write!(f, "line: {}", self.line),
-            Some(n) => write!(f, "cell: {}, local position: {}", n, self.line)
+            Some(n) => write!(f, "cell: {}, local position: {}", n, self.line),
         }
-
     }
 }
 
 impl DocPos {
-    pub fn new(cell_number: Option<usize>, global_offset: usize, line: usize, local_position: Range<usize>) -> Self {
+    pub fn new(
+        cell_number: Option<usize>,
+        global_offset: usize,
+        line: usize,
+        local_position: Range<usize>,
+    ) -> Self {
         DocPos {
-            cell_number, global_offset, line, local_position
+            cell_number,
+            global_offset,
+            line,
+            local_position,
         }
     }
 }
@@ -64,7 +71,10 @@ pub enum PreprocessError {
 }
 
 impl Document {
-    pub fn preprocess<E: std::error::Error>(&self, processor: &impl Preprocessor<E>) -> Result<Document, E> {
+    pub fn preprocess(
+        &self,
+        processor: &Box<dyn Preprocessor>,
+    ) -> Result<Document, Box<dyn std::error::Error>> {
         let elements = self
             .elements
             .iter()
@@ -74,7 +84,7 @@ impl Document {
                 }),
                 _ => Ok(e.clone()),
             })
-            .collect::<Result<Vec<Element>, E>>()?;
+            .collect::<Result<Vec<Element>, Box<dyn std::error::Error>>>()?;
         Ok(Document { elements })
     }
 }
@@ -92,14 +102,16 @@ impl From<Notebook> for Document {
         let elements = n
             .cells
             .into_iter()
-            .fold((1, Vec::new()) , |(num, mut acc), cell| {
+            .fold((1, Vec::new()), |(num, mut acc), cell| {
                 let next = match &cell {
-                    Cell::Code { .. } => num+1,
-                    _ => num
+                    Cell::Code { .. } => num + 1,
+                    _ => num,
                 };
                 acc.push((next, cell));
                 (next, acc)
-            }).1.into_iter()
+            })
+            .1
+            .into_iter()
             .map(|(i, cell)| match cell {
                 Cell::Markdown { common } => Element::Markdown {
                     content: common.source,
@@ -124,12 +136,17 @@ impl From<Notebook> for Document {
 pub struct ElementIterator<'a, 'b> {
     global_offset: usize,
     source: String,
-    cell_iter: ElementIteratorCell<'a, 'b>
+    cell_iter: ElementIteratorCell<'a, 'b>,
 }
 
 pub enum ElementIteratorCell<'a, 'b> {
-    Markdown { parser: OffsetIter<'a, 'b> },
-    Code { cell_number: usize, events: IntoIter<(Event<'a>, Range<usize>)> },
+    Markdown {
+        parser: OffsetIter<'a, 'b>,
+    },
+    Code {
+        cell_number: usize,
+        events: IntoIter<(Event<'a>, Range<usize>)>,
+    },
     Raw {},
 }
 
@@ -139,9 +156,12 @@ impl<'a, 'b> ElementIterator<'a, 'b> {
             ElementIteratorCell::Code { cell_number, .. } => Some(*cell_number),
             _ => None,
         };
-        let line = &self.source[elem.1.start .. elem.1.end].lines().count();
+        let line = &self.source[elem.1.start..elem.1.end].lines().count();
 
-        (elem.0, DocPos::new(cell_num, self.global_offset, *line, elem.1))
+        (
+            elem.0,
+            DocPos::new(cell_num, self.global_offset, *line, elem.1),
+        )
     }
 }
 
@@ -150,7 +170,9 @@ impl<'a, 'b> Iterator for ElementIterator<'a, 'b> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.cell_iter {
-            ElementIteratorCell::Markdown { parser, .. } => parser.next().map(|e| self.map_doc_pos(e)),
+            ElementIteratorCell::Markdown { parser, .. } => {
+                parser.next().map(|e| self.map_doc_pos(e))
+            }
             ElementIteratorCell::Code { events, .. } => events.next().map(|e| self.map_doc_pos(e)),
             ElementIteratorCell::Raw { .. } => None,
         }
@@ -203,9 +225,12 @@ impl<'a> ConfigureIterator for &'a Element {
 
     fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {
         let (cell, content) = match self {
-            Element::Markdown { content } => (ElementIteratorCell::Markdown {
-                parser: Parser::new_ext(&content, Options::all()).into_offset_iter(),
-            }, content.clone()),
+            Element::Markdown { content } => (
+                ElementIteratorCell::Markdown {
+                    parser: Parser::new_ext(&content, Options::all()).into_offset_iter(),
+                },
+                content.clone(),
+            ),
 
             Element::Code {
                 cell_number,
@@ -220,17 +245,19 @@ impl<'a> ConfigureIterator for &'a Element {
                 ];
                 if config.include_output {
                     if let Some(os) = outputs {
-
                         for o in os {
                             events.append(&mut o.to_events());
                         }
                     }
                 }
 
-                (ElementIteratorCell::Code {
-                    cell_number: *cell_number,
-                    events: events.into_iter(),
-                }, content.clone())
+                (
+                    ElementIteratorCell::Code {
+                        cell_number: *cell_number,
+                        events: events.into_iter(),
+                    },
+                    content.clone(),
+                )
             }
             Element::Raw { content } => (ElementIteratorCell::Raw {}, content.clone()),
             _ => (ElementIteratorCell::Raw {}, "".to_string()),
@@ -238,7 +265,7 @@ impl<'a> ConfigureIterator for &'a Element {
         ElementIterator {
             source: content,
             global_offset: 0,
-            cell_iter: cell
+            cell_iter: cell,
         }
     }
 }
@@ -251,7 +278,7 @@ impl<'a> ConfigureIterator for &'a Document {
         Box::new(
             self.elements
                 .iter()
-                .flat_map(move |elem: &Element| elem.configure_iterator( config)),
+                .flat_map(move |elem: &Element| elem.configure_iterator(config)),
         )
     }
 }

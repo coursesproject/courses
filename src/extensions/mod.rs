@@ -1,20 +1,18 @@
-pub mod shortcode_extender;
 pub mod katex;
+pub mod shortcode_extender;
 
+use crate::document::DocPos;
+use crate::extensions::Error::CodeParseError;
 use crate::parsers::split::{format_pest_err, human_errors, parse_code_string, Rule};
 use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
 use pest::error::InputLocation;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
 use thiserror::Error;
-use crate::document::DocPos;
-use crate::extensions::Error::CodeParseError;
 
-
-pub trait Preprocessor<E: std::error::Error> {
-    fn process(&self, input: &str) -> Result<String, E>;
+pub trait Preprocessor {
+    fn process(&self, input: &str) -> Result<String, Box<dyn std::error::Error>>;
 }
-
 
 pub trait ExtensionFactory {
     fn build<'a>(&self) -> Box<dyn Extension<'a>>;
@@ -32,13 +30,11 @@ impl ExtensionFactory for CodeSplitFactory {
     }
 }
 
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("code split syntax error at {}: {}", .1, .0)]
-    CodeParseError(#[source] pest::error::Error<Rule>, DocPos)
+    CodeParseError(#[source] pest::error::Error<Rule>, DocPos),
 }
-
 
 #[derive(Debug, Default)]
 pub struct CodeSplit {
@@ -79,13 +75,19 @@ impl<'a> Extension<'a> for CodeSplit {
             Event::Text(txt) => {
                 if self.code_started {
                     let res = parse_code_string(txt.as_ref());
-                    Ok(res.map(|mut doc| {
-                        let (placeholder, solution) = doc.split();
-                        self.solution_string.push_str(&solution);
-                        self.source_def.blocks.append(&mut doc.blocks);
+                    Ok(res
+                        .map(|mut doc| {
+                            let (placeholder, solution) = doc.split();
+                            self.solution_string.push_str(&solution);
+                            self.source_def.blocks.append(&mut doc.blocks);
 
-                        (Event::Text(CowStr::Boxed(placeholder.into_boxed_str())), event.1.clone())
-                    }).map_err(|e| human_errors(e)).map_err(|e| CodeParseError(e, event.1))?)
+                            (
+                                Event::Text(CowStr::Boxed(placeholder.into_boxed_str())),
+                                event.1.clone(),
+                            )
+                        })
+                        .map_err(|e| human_errors(e))
+                        .map_err(|e| CodeParseError(e, event.1))?)
                     // match res {
                     //     Ok(mut doc) => {
                     //         let (placeholder, solution) = doc.split();

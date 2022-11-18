@@ -1,5 +1,5 @@
-use katex::Opts;
 use crate::extensions::Preprocessor;
+use katex::Opts;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -11,23 +11,25 @@ pub struct KaTeXPreprocessor {
 
 impl KaTeXPreprocessor {
     pub fn new(opts: Opts) -> Self {
-        KaTeXPreprocessor {
-            opts
-        }
+        KaTeXPreprocessor { opts }
     }
 }
 
 fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     let begin = input.find("$")?;
-    let end_delim = if &input[(begin + 1)..(begin + 2)] == "$" { "$$" } else { "$" };
+    let end_delim = if &input[(begin + 1)..(begin + 2)] == "$" {
+        "$$"
+    } else {
+        "$"
+    };
 
     let end = begin + end_delim.len() + input[begin + end_delim.len()..].find(end_delim)?;
 
     Some((begin, end, end_delim.len()))
 }
 
-impl Preprocessor<katex::Error> for KaTeXPreprocessor {
-    fn process(&self, input: &str) -> Result<String, katex::Error> {
+impl Preprocessor for KaTeXPreprocessor {
+    fn process(&self, input: &str) -> Result<String, Box<dyn std::error::Error>> {
         let mut rest = input;
         let mut res = String::new();
 

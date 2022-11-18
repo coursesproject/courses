@@ -1,11 +1,13 @@
 use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, DocPos, Document, IteratorConfig, PreprocessError};
+use crate::extensions::katex::{KaTeXPreprocessor, KaTeXPreprocessorError};
 use crate::extensions::shortcode_extender::{ShortCodeProcessError, ShortCodeProcessor};
-use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory};
+use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory, Preprocessor};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
 use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
+use katex::{Opts, OptsBuilder};
 use pulldown_cmark::HeadingLevel::H1;
 use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use serde::{Deserialize, Serialize};
@@ -14,11 +16,9 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use katex::{Opts, OptsBuilder};
 use tera::Tera;
 use thiserror::Error;
 use yaml_front_matter::YamlFrontMatter;
-use crate::extensions::katex::{KaTeXPreprocessor, KaTeXPreprocessorError};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FrontMatter {
@@ -47,9 +47,8 @@ pub struct DocumentParsed {
 pub struct DocParser {
     project_path: PathBuf,
     code_split: CodeSplitFactory,
-    extensions: Vec<Box<dyn ExtensionFactory>>,
-    katex_opts: Opts,
-    katex_output: bool,
+    html_preprocessors: Vec<Box<dyn Preprocessor>>,
+    md_preprocessors: Vec<Box<dyn Preprocessor>>,
     tera: Tera,
 }
 
@@ -77,15 +76,17 @@ pub enum ParserError {
     ShortCode(#[from] ShortCodeProcessError),
 
     #[error(transparent)]
-    KaTeX(#[from] katex::Error)
+    KaTeX(#[from] katex::Error),
+
+    #[error(transparent)]
+    Std(#[from] Box<dyn std::error::Error>),
 }
 
 impl DocParser {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
-        extensions: Vec<Box<dyn ExtensionFactory>>,
-        katex_opts: Opts,
-        katex_output: bool,
+        html_preprocessors: Vec<Box<dyn Preprocessor>>,
+        md_preprocessors: Vec<Box<dyn Preprocessor>>,
     ) -> Result<Self, tera::Error> {
         let pattern = project_path.as_ref().to_str().unwrap().to_string()
             + &format!("/templates/shortcodes/**/*");
@@ -93,10 +94,9 @@ impl DocParser {
         Ok(DocParser {
             project_path: project_path.as_ref().to_path_buf(),
             code_split: CodeSplitFactory {},
-            extensions,
             tera: Tera::new(&pattern)?,
-            katex_opts,
-            katex_output,
+            html_preprocessors,
+            md_preprocessors,
         })
     }
 
@@ -111,33 +111,30 @@ impl DocParser {
                 // let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_str(&buf)?;
                 let meta = nb.get_front_matter()?;
-                self.process(
-                    doc,
-                    Document::from(nb.clone()),
-                    meta,
-                )
+                self.process(doc, Document::from(nb.clone()), meta)
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap(); // TODO: HELP!
                 let parser = Parser::new_ext(&yml.content, options);
-                self.process(
-                    doc,
-                    Document::from(yml.content.clone()),
-                    yml.metadata,
-                )
+                self.process(doc, Document::from(yml.content.clone()), yml.metadata)
             }
         };
 
         res
     }
 
-    fn process_single<'a>(&'a self, config: IteratorConfig, doc: &'a Document) -> Result<(CodeSplit, Vec<(Event, DocPos)>), crate::extensions::Error> {
+    fn process_single<'a>(
+        &'a self,
+        config: IteratorConfig,
+        doc: &'a Document,
+    ) -> Result<(CodeSplit, Vec<(Event, DocPos)>), crate::extensions::Error> {
         let mut code_ext = CodeSplit::default();
         let iter = doc.configure_iterator(config);
         let iter = iter.map(|v| code_ext.each(v));
-        let v: Vec<(Event, DocPos)> = iter.collect::<Result<Vec<(Event, DocPos)>, crate::extensions::Error>>()?;
+        let v: Vec<(Event, DocPos)> =
+            iter.collect::<Result<Vec<(Event, DocPos)>, crate::extensions::Error>>()?;
         Ok((code_ext, v))
     }
 
@@ -146,30 +143,41 @@ impl DocParser {
         doc: &DocumentSpec<()>,
         content: Document,
         meta: FrontMatter,
-    ) -> Result<DocumentParsed, ParserError>
-    {
-        let processor_html_katex = KaTeXPreprocessor::new(self.katex_opts.clone());
-        let processor_html = ShortCodeProcessor::new(&self.tera, "html".to_string());
-        let processor_export = ShortCodeProcessor::new(&self.tera, "md".to_string());
+    ) -> Result<DocumentParsed, ParserError> {
+        let content_html = self
+            .html_preprocessors
+            .iter()
+            .fold(Ok(content.clone()), |content, preprocessor| {
+                content.and_then(|c| c.preprocess(preprocessor))
+            })?;
+        let content_md = self
+            .md_preprocessors
+            .iter()
+            .fold(Ok(content), |content, preprocessor| {
+                content.and_then(|c| c.preprocess(preprocessor))
+            })?;
 
-        let mut content_html = content.preprocess(&processor_html)?;
-        if self.katex_output {
-            content_html = content_html.preprocess(&processor_html_katex)?;
-        }
+        // let mut content_html = content.preprocess(&processor_html)?;
+        // if self.katex_output {
+        //     content_html = content_html.preprocess(&processor_html_katex)?;
+        // }
+        //
+        // let content_md = content.preprocess(&processor_export)?;
 
-        let content_md = content.preprocess(&processor_export)?;
-
-        let (code_html, vec_html) = self.process_single(IteratorConfig::default().include_output(), &content_html)?;
+        let (code_html, vec_html) =
+            self.process_single(IteratorConfig::default().include_output(), &content_html)?;
         let (code_md, vec_md) = self.process_single(IteratorConfig::default(), &content_md)?;
 
         let heading = Self::find_header(&vec_html.clone());
-
 
         let nb = render_notebook(vec_md.clone().into_iter())?;
         let md = render_markdown(vec_md.into_iter())?;
 
         let mut html_output = String::new();
-        html::push_html(&mut html_output, vec_html.into_iter().into_iter().map(|(event, _)| event));
+        html::push_html(
+            &mut html_output,
+            vec_html.into_iter().into_iter().map(|(event, _)| event),
+        );
 
         // html_output = ShortCodeProcessor::new(&self.tera).process(&html_output);
 
@@ -182,7 +190,7 @@ impl DocParser {
             raw_solution: code_html.solution_string,
             split_meta: code_html.source_def,
             frontmatter: meta,
-            doc_export: content_md
+            doc_export: content_md,
         })
     }
 

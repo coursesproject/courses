@@ -1,12 +1,11 @@
-use std::backtrace::Backtrace;
-use std::error::Error;
+use crate::extensions::Preprocessor;
 use crate::parsers::shortcodes::{parse_shortcode, Rule};
 use pulldown_cmark::html::push_html;
 use pulldown_cmark::{Options, Parser};
+use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use tera::Tera;
 use thiserror::Error;
-use crate::extensions::Preprocessor;
 
 pub enum OutputFormat {
     Markdown,
@@ -64,10 +63,13 @@ fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
     }
 }
 
-
 fn find_next_block(input: &str) -> Option<(usize, usize)> {
     let start = input.find("`")?;
-    let end_delim = if input[(start + 1)..].len() > 2 && &input[(start + 1)..(start + 3)] == "``" { "```" } else { "`" };
+    let end_delim = if input[(start + 1)..].len() > 2 && &input[(start + 1)..(start + 3)] == "``" {
+        "```"
+    } else {
+        "`"
+    };
 
     let end = start + 1 + input[(start + 1)..].find(end_delim)? + end_delim.len();
     Some((start, end))
@@ -76,7 +78,6 @@ fn find_next_block(input: &str) -> Option<(usize, usize)> {
 fn find_shortcode(input: &str) -> Option<ShortcodeInfo> {
     let start_inline = input.find("{{");
     let start_block = input.find("{%");
-
 
     match start_inline {
         None => start_block.and_then(|start| extract_block(start, input)),
@@ -96,10 +97,9 @@ fn find_shortcode(input: &str) -> Option<ShortcodeInfo> {
 #[derive(Error, Debug)]
 pub enum ShortCodeProcessError {
     // #[error("shortcode template error: {:#}", .source)]
-    Tera{
+    Tera {
         #[from]
-        source:  tera::Error,
-
+        source: tera::Error,
     },
     // #[error("shortcode syntax error: {}", .0)]
     Pest(#[from] pest::error::Error<Rule>),
@@ -118,18 +118,18 @@ impl Display for ShortCodeProcessError {
                 }
                 Ok(())
             }
-            ShortCodeProcessError::Pest(inner) => { Display::fmt(&inner, f) }
+            ShortCodeProcessError::Pest(inner) => Display::fmt(&inner, f),
         }
     }
 }
 
-pub struct ShortCodeProcessor<'a> {
-    tera: &'a Tera,
+pub struct ShortCodeProcessor {
+    tera: Tera,
     file_ext: String,
 }
 
-impl<'a> ShortCodeProcessor<'a> {
-    pub fn new(tera: &'a Tera, file_ext: String) -> Self {
+impl ShortCodeProcessor {
+    pub fn new(tera: Tera, file_ext: String) -> Self {
         ShortCodeProcessor { tera, file_ext }
     }
 
@@ -147,7 +147,7 @@ impl<'a> ShortCodeProcessor<'a> {
         &self,
         shortcode: &str,
         body: &str,
-    ) -> Result<String, ShortCodeProcessError> {
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
         let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
@@ -155,7 +155,8 @@ impl<'a> ShortCodeProcessor<'a> {
             context.insert(k, &v);
         }
 
-        let processed = ShortCodeProcessor::new(self.tera, self.file_ext.clone()).process(&body)?;
+        let processed =
+            ShortCodeProcessor::new(self.tera.clone(), self.file_ext.clone()).process(&body)?;
         let body_final = if self.file_ext == "html" {
             let parser = Parser::new_ext(&processed, Options::all());
             let mut html = String::new();
@@ -165,16 +166,13 @@ impl<'a> ShortCodeProcessor<'a> {
             processed
         };
 
-
         context.insert("body", &body_final);
         Ok(self.tera.render(&name, &context)?)
     }
-
-
 }
 
-impl<'a> Preprocessor<ShortCodeProcessError> for ShortCodeProcessor<'a> {
-    fn process(&self, input: &str) -> Result<String, ShortCodeProcessError> {
+impl Preprocessor for ShortCodeProcessor {
+    fn process(&self, input: &str) -> Result<String, Box<dyn std::error::Error>> {
         let mut rest = input;
         let mut offset = 0;
 
@@ -192,12 +190,15 @@ impl<'a> Preprocessor<ShortCodeProcessError> for ShortCodeProcessor<'a> {
                 Some(info) => {
                     match info {
                         ShortcodeInfo::Inline(start, end) => {
-                            match (&blocks).into_iter().filter(|(bs, be)| bs < &(start + offset) && be > &(end + offset)).next() {
+                            match (&blocks)
+                                .into_iter()
+                                .filter(|(bs, be)| bs < &(start + offset) && be > &(end + offset))
+                                .next()
+                            {
                                 None => {
                                     let pre = &rest[..start];
                                     let post = &rest[end..];
                                     let tmp_name = (&rest[(start + 2)..(end - 2)]).trim();
-
 
                                     let res = self.render_inline_template(tmp_name)?;
 
@@ -217,7 +218,11 @@ impl<'a> Preprocessor<ShortCodeProcessError> for ShortCodeProcessor<'a> {
                             }
                         }
                         ShortcodeInfo::Block { def, end } => {
-                            match (&blocks).into_iter().filter(|(bs, be)| bs < &(def.1 + offset) && be > &(end.0 + offset)).next() {
+                            match (&blocks)
+                                .into_iter()
+                                .filter(|(bs, be)| bs < &(def.1 + offset) && be > &(end.0 + offset))
+                                .next()
+                            {
                                 None => {
                                     let pre = &rest[..def.0];
                                     let post = &rest[(end.1)..];

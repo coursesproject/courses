@@ -11,9 +11,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::extensions::katex::KaTeXPreprocessor;
+use crate::extensions::shortcode_extender::ShortCodeProcessor;
+use crate::extensions::Preprocessor;
 use crate::render::HtmlRenderError::TemplateError;
 use indicatif::ProgressBar;
-use katex::OptsBuilder;
+use katex::{Opts, OptsBuilder};
+use tera::Tera;
 use termion::{color, style};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -46,7 +50,23 @@ impl Pipeline {
 
     fn parse(&self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
         let opts = OptsBuilder::default().build().unwrap();
-        let mut parser = DocParser::new(self.project_path.clone(), vec![], opts, self.project_config.katex_output)?;
+
+        let pattern = self.project_path.as_path().to_str().unwrap().to_string()
+            + &format!("/templates/shortcodes/**/*");
+        let tera = Tera::new(&pattern)?;
+
+        let html_preprocessors: Vec<Box<dyn Preprocessor>> = vec![
+            Box::new(KaTeXPreprocessor::new(Opts::default())),
+            Box::new(ShortCodeProcessor::new(tera.clone(), "html".to_string())),
+        ];
+        let md_preprocessors: Vec<Box<dyn Preprocessor>> =
+            vec![Box::new(ShortCodeProcessor::new(tera, "md".to_string()))];
+
+        let mut parser = DocParser::new(
+            self.project_path.clone(),
+            html_preprocessors,
+            md_preprocessors,
+        )?;
         parser.parse(doc)
     }
 
@@ -130,7 +150,6 @@ impl Pipeline {
                 println!("Error {}", e);
             }
         }
-
     }
 
     pub fn build_everything(
@@ -158,7 +177,14 @@ impl Pipeline {
                     Err(e) => {
                         let mut ei: &dyn Error = &e;
                         // bar.println(format!("{}{}error: {}{}{}\n", style::Bold, color::Fg(color::Red), style::Reset, color::Fg(color::Reset), ei));
-                        println!("{}{}error: {}{}{}", style::Bold, color::Fg(color::Red), style::Reset, color::Fg(color::Reset), ei);
+                        println!(
+                            "{}{}error: {}{}{}",
+                            style::Bold,
+                            color::Fg(color::Red),
+                            style::Reset,
+                            color::Fg(color::Reset),
+                            ei
+                        );
                         // while let Some(inner) = ei.source() {
                         //     // bar.println(format!("Caused by: {}\n", inner));
                         //     println!("{}cause: {}{}", style::Bold, style::Reset, inner);
