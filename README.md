@@ -3,6 +3,10 @@
 Courses is a publishing system for interactive content written in `rust`. Its aimed primarily at code-related learning 
 resources, including books, course materials, and blogs.
 
+*This project is very early in its development process and may change significantly in scope or function before an 
+initial stable version is released.* 
+
+
 Features:
 - Supports interactive source files (Jupyter Notebooks) as well as regular markup(Markdown).
 - Define tasks and their solutions directly in source files. Courses is made specifically with learning resources in mind.
@@ -12,7 +16,7 @@ Features:
 
 Courses was created to solve a specific set of problems not covered by similar tools like Jupyterbook and Quarto. 
 These tools are based on large ecosystems for performing the publishing process. In contrast, `courses` is 
-light-weight, self-contained and is very easy to extend in fundamental ways from both a developer and user perspective.
+light-weight, self-contained and is highly customizable and extendable.
 
 ## An integrated format for defining exercises. 
 Most modern learning materials use exercises or tasks in some capacity. For technical materials involving code, 
@@ -41,6 +45,9 @@ implementation language. The solution is the only part that is not commented and
 development.*
 
 ### Shortcodes
+This is a simple and generic syntax for extending the functionality of the basic Markdown format.
+
+These are heavily inspired by Hugo and even moreso by Zola (which uses the same templating engine, Tera, as Courses). 
 
 ``` ```
 
@@ -62,6 +69,7 @@ Choose `courses` if you
 - Write material that contains exercises that will benefit from automated testing and handling of solutions.
 - Want a simple binary that just work and has no dependency on environment setup or other tools.
 - Want an all-in-one tool for publishing your work. `courses` is not 
+- Want a tool that is extensible
 - Can accept using a very new, likely unstable and definitely unsupported project.
 
 Choose Jupyterbook or Quarto if you

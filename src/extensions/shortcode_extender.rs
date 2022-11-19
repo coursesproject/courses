@@ -42,7 +42,7 @@ fn extract_block(start: usize, input: &str) -> Option<ShortcodeInfo> {
 
 fn extract_inline(start: usize, input: &str) -> Option<ShortcodeInfo> {
     let end = start + 2 + input[start..].find("}}")?;
-    Some(ShortcodeInfo::Inline(start, end))
+    Some(ShortcodeInfo::Inline(start, end + 1))
 }
 
 fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
@@ -192,7 +192,7 @@ impl Preprocessor for ShortCodeProcessor {
                         ShortcodeInfo::Inline(start, end) => {
                             match (&blocks)
                                 .into_iter()
-                                .filter(|(bs, be)| bs < &(start + offset) && be > &(end + offset))
+                                .filter(|(bs, be)| bs < &(start + offset) && be >= &(end + offset))
                                 .next()
                             {
                                 None => {

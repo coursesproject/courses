@@ -7,7 +7,9 @@ use crate::parsers::split::{format_pest_err, human_errors, parse_code_string, Ru
 use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
 use pest::error::InputLocation;
+use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub trait Preprocessor {
@@ -34,6 +36,8 @@ impl ExtensionFactory for CodeSplitFactory {
 pub enum Error {
     #[error("code split syntax error at {}: {}", .1, .0)]
     CodeParseError(#[source] pest::error::Error<Rule>, DocPos),
+    #[error("could not parse attributes: {}", .0)]
+    AttrParseError(#[from] toml::de::Error),
 }
 
 #[derive(Debug, Default)]
@@ -49,6 +53,17 @@ impl CodeSplit {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct CodeAttrs {
+    lang: String,
+    #[serde(default = "default_split")]
+    perform_split: bool,
+}
+
+fn default_split() -> bool {
+    false
+}
+
 impl<'a> Extension<'a> for CodeSplit {
     fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error> {
         match event.0 {
@@ -57,9 +72,21 @@ impl<'a> Extension<'a> for CodeSplit {
                     // self.code_started = true;
                     // TODO: Find other way to test the attribute string (possibly parse it)
                     if let CodeBlockKind::Fenced(attr_str) = attribute_string {
-                        if attr_str.to_string() == "python".to_string() {
+                        let res = if attr_str.find(",").is_some() {
+                            let formatted = attr_str.replace(",", "\n");
+                            let attrs: CodeAttrs = toml::from_str(&formatted)?;
+                            self.code_started = attrs.perform_split;
+                            Ok((
+                                Event::Start(Tag::CodeBlock(Fenced(CowStr::Boxed(
+                                    attrs.lang.into_boxed_str(),
+                                )))),
+                                event.1,
+                            ))
+                        } else {
                             self.code_started = true;
-                        }
+                            Ok((Event::Start(tag), event.1))
+                        };
+                        return res;
                     }
                     Ok((Event::Start(tag), event.1))
                 }

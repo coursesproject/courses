@@ -1,0 +1,15 @@
+WHITESPACE = _{(" "|"\n"|"\t")}
+
+
+string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "." | ":")*}
+string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
+basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "." | ":")+}
+
+name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_")*}
+key = {(ASCII_ALPHA|"_")+}
+value = {string|basic_val}
+param = {key ~ "=" ~ value?}
+
+parameters = { "{" ~ param ~ ("," ~ param)* ~ "}"}
+
+p = _{ parameters }
