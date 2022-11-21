@@ -2,7 +2,7 @@ use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, DocPos, Document, IteratorConfig, PreprocessError};
 use crate::extensions::katex::{KaTeXPreprocessor, KaTeXPreprocessorError};
 use crate::extensions::shortcode_extender::{ShortCodeProcessError, ShortCodeProcessor};
-use crate::extensions::{CodeSplit, CodeSplitFactory, Extension, ExtensionFactory, Preprocessor};
+use crate::extensions::{CodeSplit, Extension, Preprocessor};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
 use crate::parsers::split_types::CodeTaskDefinition;
@@ -25,6 +25,8 @@ pub struct FrontMatter {
     pub title: Option<String>,
     #[serde(rename = "type", default = "default_doc_type")]
     pub doc_type: String,
+    #[serde(default)]
+    pub code_split: bool,
 }
 
 fn default_doc_type() -> String {
@@ -46,7 +48,6 @@ pub struct DocumentParsed {
 
 pub struct DocParser {
     project_path: PathBuf,
-    code_split: CodeSplitFactory,
     html_preprocessors: Vec<Box<dyn Preprocessor>>,
     md_preprocessors: Vec<Box<dyn Preprocessor>>,
     tera: Tera,
@@ -93,7 +94,6 @@ impl DocParser {
 
         Ok(DocParser {
             project_path: project_path.as_ref().to_path_buf(),
-            code_split: CodeSplitFactory {},
             tera: Tera::new(&pattern)?,
             html_preprocessors,
             md_preprocessors,
@@ -129,8 +129,9 @@ impl DocParser {
         &'a self,
         config: IteratorConfig,
         doc: &'a Document,
+        meta: FrontMatter,
     ) -> Result<(CodeSplit, Vec<(Event, DocPos)>), crate::extensions::Error> {
-        let mut code_ext = CodeSplit::default();
+        let mut code_ext = CodeSplit::new(meta.clone());
         let iter = doc.configure_iterator(config);
         let iter = iter.map(|v| code_ext.each(v));
         let v: Vec<(Event, DocPos)> =
@@ -164,9 +165,13 @@ impl DocParser {
         //
         // let content_md = content.preprocess(&processor_export)?;
 
-        let (code_html, vec_html) =
-            self.process_single(IteratorConfig::default().include_output(), &content_html)?;
-        let (code_md, vec_md) = self.process_single(IteratorConfig::default(), &content_md)?;
+        let (code_html, vec_html) = self.process_single(
+            IteratorConfig::default().include_output(),
+            &content_html,
+            meta.clone(),
+        )?;
+        let (code_md, vec_md) =
+            self.process_single(IteratorConfig::default(), &content_md, meta.clone())?;
 
         let heading = Self::find_header(&vec_html.clone());
 

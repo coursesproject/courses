@@ -36,13 +36,13 @@ fn extract_block(start: usize, input: &str) -> Option<ShortcodeInfo> {
 
     Some(ShortcodeInfo::Block {
         def: (start, end),
-        end: (end_block, end_block + 9),
+        end: (end_block, end_block + 7),
     })
 }
 
 fn extract_inline(start: usize, input: &str) -> Option<ShortcodeInfo> {
-    let end = start + 2 + input[start..].find("}}")?;
-    Some(ShortcodeInfo::Inline(start, end + 1))
+    let end = start + 2 + input[(start + 2)..].find("}}")?;
+    Some(ShortcodeInfo::Inline(start, end))
 }
 
 fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
@@ -197,8 +197,8 @@ impl Preprocessor for ShortCodeProcessor {
                             {
                                 None => {
                                     let pre = &rest[..start];
-                                    let post = &rest[end..];
-                                    let tmp_name = (&rest[(start + 2)..(end - 2)]).trim();
+                                    let post = &rest[(end + 2)..];
+                                    let tmp_name = (&rest[(start + 2)..(end - 1)]).trim();
 
                                     let res = self.render_inline_template(tmp_name)?;
 
@@ -206,7 +206,7 @@ impl Preprocessor for ShortCodeProcessor {
                                     result.push_str(&res);
 
                                     rest = post; // Start next round after the current shortcode position
-                                    offset += end;
+                                    offset += end + 2;
                                 }
                                 Some((_, block_end)) => {
                                     let relative = *block_end - offset;
@@ -225,10 +225,10 @@ impl Preprocessor for ShortCodeProcessor {
                             {
                                 None => {
                                     let pre = &rest[..def.0];
-                                    let post = &rest[(end.1)..];
+                                    let post = &rest[(end.1 + 2)..];
 
-                                    let tmp_name = (&rest[(def.0 + 2)..(def.1)]).trim();
-                                    let body = (&rest[(def.1 + 2)..(end.0) - 1]).trim();
+                                    let tmp_name = (&rest[(def.0 + 2)..(def.1 - 1)]).trim();
+                                    let body = (&rest[(def.1 + 2)..end.0]).trim();
 
                                     let res = self.render_block_template(tmp_name, body)?;
 
@@ -237,7 +237,7 @@ impl Preprocessor for ShortCodeProcessor {
                                     result.push('\n');
 
                                     rest = post; // Start next round after the current shortcode position
-                                    offset += end.1;
+                                    offset += end.1 + 2;
                                 }
 
                                 Some((_, block_end)) => {
