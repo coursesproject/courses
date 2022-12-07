@@ -1,203 +1,164 @@
 <!DOCTYPE html>
 <html>
-    <head>
-      <meta charset="utf-8">
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+  <head>
+    <meta charset="utf-8" />
 
-      <style>
-        
+    <style>
+      @import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+      @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css");
 
-        .bd-placeholder-img {
-          font-size: 1.125rem;
-          text-anchor: middle;
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          user-select: none;
-        }
-  
-        @media (min-width: 768px) {
-          .bd-placeholder-img-lg {
-            font-size: 3.5rem;
-          }
-        }
-  
-        .b-example-divider {
-          height: 3rem;
-          background-color: rgba(0, 0, 0, .1);
-          border: solid rgba(0, 0, 0, .15);
-          border-width: 1px 0;
-          box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
-        }
-  
-        .b-example-vr {
-          flex-shrink: 0;
-          width: 1.5rem;
-          height: 100vh;
-        }
-  
-        .bi {
-          vertical-align: -.125em;
-          fill: currentColor;
-        }
-  
-        
+      :root {
+        --primary: hsl(171, 100%, 41%);
+        --link: hsl(217, 71%, 53%);
+        --info: hsl(204, 86%, 53%);
+        --success: hsl(141, 53%, 53%);
+        --warning: hsl(48, 100%, 67%);
+        --danger: hsl(348, 100%, 61%);
+        --light: hsl(0, 0%, 96%);
+        --dark: hsl(0, 0%, 21%);
+        --white: hsl(0, 0%, 100%);
+        --black: hsl(0, 0%, 4%);
 
-        body {
-          min-height: 100vh;
-          min-height: -webkit-fill-available;
-        }
+        --sidebar-width: 300px;
+      }
 
-        html {
-          height: -webkit-fill-available;
-        }
+      pre {
+        border-radius: 10px;
+      }
 
-        main {
-          height: 100vh;
-          height: -webkit-fill-available;
-          max-height: 100vh;
-          overflow-x: auto;
-          overflow-y: hidden;
-        }
+      .important {
+        color: red;
+      }
 
-        .dropdown-toggle { outline: 0; }
+      .optional {
+        color: blue;
+      }
 
-        
+      .mandatory-bg {
+        background-color: red;
+      }
 
-        .btn-toggle-nav a {
-          padding: .1875rem .5rem;
-          margin-top: .125rem;
-          margin-left: 1.25rem;
-        }
-        .btn-toggle-nav a:hover,
-        .btn-toggle-nav a:focus {
-          color: #f3f300;
-        }
+      .regular-bg {
+        background-color: orange;
+      }
 
-        .scrollarea {
-          overflow-y: auto;
-        }
+      .optional-bg {
+        background-color: blue;
+      }
 
-      </style>
+      .color-info {
+        color: var(--success);
+      }
 
-      <style>
-        .important {
-          color: red;
-        }
+      .color-tip {
+        color: var(--warning);
+      }
 
-        .optional {
-          color: blue;
-        }
+      .color-important {
+        color: var(--danger);
+      }
 
-        .mandatory-bg {
-          background-color: red;
-        }
+      .sidebar {
+        width: var(--sidebar-width);
+        position: fixed;
+        height: 100%;
+        top: 56px;
+        overflow-y: auto;
+        bottom: 0;
+      }
 
-        .regular-bg {
-          background-color: orange;
-        }
+      .page-container {
+        transition: 200ms;
+      }
 
-        .optional-bg {
-          background-color: blue;
-        }
-      </style>
+      .sidebar_active {
+        margin-left: var(--sidebar-width);
+      }
+    </style>
 
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.css" integrity="sha384-bYdxxUwYipFNohQlHt0bjN/LCpueqWz13HufFEV1SUatKs1cm4L6fFgCi1jT643X" crossorigin="anonymous">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.css"
+      integrity="sha384-bYdxxUwYipFNohQlHt0bjN/LCpueqWz13HufFEV1SUatKs1cm4L6fFgCi1jT643X"
+      crossorigin="anonymous"
+    />
 
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
+    {#
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
+    />
+    #}
 
-      <!-- The loading of KaTeX is deferred to speed up page rendering -->
-      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.js" integrity="sha384-Qsn9KnoKISj6dI8g7p1HBlNpVx0I8p1SvlwOldgi3IorMle61nQy4zEahWYtljaz" crossorigin="anonymous"></script>
+    <!-- The loading of KaTeX is deferred to speed up page rendering -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.js"
+      integrity="sha384-Qsn9KnoKISj6dI8g7p1HBlNpVx0I8p1SvlwOldgi3IorMle61nQy4zEahWYtljaz"
+      crossorigin="anonymous"
+    ></script>
 
-      <!-- To automatically render math in text elements, include the auto-render extension: -->
-      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
-      <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            renderMathInElement(document.body, {
-              // customised options
-              // • auto-render specific keys, e.g.:
-              delimiters: [
-                  {left: '$$', right: '$$', display: true},
-                  {left: '$', right: '$', display: false},
-                  {left: '\\(', right: '\\)', display: false},
-                  {left: '\\[', right: '\\]', display: true}
-              ],
-              // • rendering keys, e.g.:
-              throwOnError : false
-            });
+    <!-- To automatically render math in text elements, include the auto-render extension: -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/contrib/auto-render.min.js"
+      integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+          // customised options
+          // • auto-render specific keys, e.g.:
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false },
+            { left: "\\(", right: "\\)", display: false },
+            { left: "\\[", right: "\\]", display: true },
+          ],
+          // • rendering keys, e.g.:
+          throwOnError: false,
         });
+      });
     </script>
 
-    <link rel="stylesheet"
-    href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css">
+    <link
+      rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css"
+    />
 
     <title>{{meta.title}}</title>
-    </head>
-    <body>
 
-       <!-- <div class="columns">
-        <div class="column is-2">
-            <aside class="menu">
-                <p class="menu-label">
-                  General
-                </p>
-                <ul class="menu-list">
-                  <li><a>Dashboard</a></li>
-                  <li><a>Customers</a></li>
-                </ul>
-                <p class="menu-label">
-                  Administration
-                </p>
-                <ul class="menu-list">
-                  <li><a>Team Settings</a></li>
-                  <li x-data="{ open: false }">
-                    <a class="is-active" @click="open = !open">Manage Your Team</a>
-                    <ul x-show="open">
-                      <li><a>Members</a></li>
-                      <li><a>Plugins</a></li>
-                      <li><a>Add a member</a></li>
-                    </ul>
-                  </li>
-                  <li><a>Invitations</a></li>
-                  <li><a>Cloud Storage Environment Settings</a></li>
-                  <li><a>Authentication</a></li>
-                </ul>
-                <p class="menu-label">
-                  Transactions
-                </p>
-                <ul class="menu-list">
-                  <li><a>Payments</a></li>
-                  <li><a>Transfers</a></li>
-                  <li><a>Balance</a></li>
-                </ul>
-              </aside>
-        </div> -->
+    <script
+      defer
+      src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+  </head>
+  <body x-data="{ sidebar_open: {{ not meta.layout.hide_sidebar }} }">
+    {% include "bar.tera.html" %} 
+    {% if not meta.layout.hide_sidebar %} 
+      {% include "nav.tera.html" %} 
+    {% endif %}
 
-        <div class="container-xxl">
-          <div class="row">
-            <div class="col-3">
-              {% include "nav.tera.html" %}
-
-            </div>
-            <div class="col-9">
-              <div class="column">
-                
-                
-                {% block content %}
-                {% endblock %}
-              </div>
+    <div
+      class="page-container {% if not meta.layout.hide_sidebar %}sidebar_active{% endif %}"
+      :class="{ 'sidebar_active': sidebar_open }"
+    >
+      <section class="section">
+        <div class="container">
+        
+          <div class="columns">
+            <div class="column">
+              <div class="content mt-2">{% block content %} {% endblock %}</div>
             </div>
           </div>
         </div>
+      </section>
+    </div>
 
-        
-
-        
-       </div>
-
-       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
-       
-       <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
-       <script>hljs.highlightAll();</script>
-
-    </body>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
+    <script>
+      hljs.highlightAll();
+    </script>
+  </body>
 </html>

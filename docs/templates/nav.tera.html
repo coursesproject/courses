@@ -1,42 +1,82 @@
-<div class="flex-shrink-0 pt-3 ps-1 bg-white">
-  <a
-    href="{{project.url_prefix}}/"
-    class="d-flex align-items-center pb-3 mb-3 link-dark text-decoration-none"
-  >
-    <span class="fs-6 fw-semibold">BRAND</span>
-  </a>
+{# 
+<div>
   {% for part in config.content %}
-  <a
-    href="{{project.url_prefix}}/{{ part.id }}/index.html"
-    class="d-flex align-items-center pb-3 link-dark text-decoration-none border-top fw-bold"
-  >
-    {{part.index.content.title}}
-  </a>
-  {% if part.chapters %}
-  <ul class="list-unstyled ps-0">
-    {% for chapter in part.chapters %}
+   
+    {% if part.chapters %}
+    
+      {% for chapter in part.chapters %}
+      <p class="title is-5">
+        {% if current_chapter == chapter.id %}
+          <a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{ chapter.index.content.title }}</a>
+        {% endif %}
+      </p>
+      {% endfor %}
 
-    <li class="ps-0 ms-0 mb-2">
-      <a
-        href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html"
-        class="link-dark text-decoration-none lh-sm"
-        >{{chapter.index.content.title}}</a
-      >
+    {% endif %}
 
-      <ul class="list-unstyled  ms-3">
+  {% endfor %}
 
-        {% for doc in chapter.documents %}
+  <aside class="menu">
+    {% for part in config.content %}
+   
+    {% if part.chapters %}
+    
+      {% for chapter in part.chapters %}
+
+        {% if chapter.id == current_chapter  %}
+        <ol class="menu-list">
+          
+          {% if chapter.documents %}
+          {% for doc in chapter.documents %}
+          <li>
+            <a
+              href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
+              class="{% if doc.id == current_doc %}is-active{% endif %}"
+              >{{doc.content.title | safe}}</a
+            >
+          </li>
+          {% endfor %}
+          {% endif %}
+        </ol>
+        {% endif %}
+      
+      {% endfor %}
+    
+    {% endif %} {% endfor %}
+  </aside>
+</div> #}
+
+
+
+<div class="sidebar p-2" x-show="sidebar_open" x-transition>
+
+  <aside class="menu">
+    {% for part in config.content %}
+   
+    {% if part.chapters and current_part == part.id %}
+    <ul class="menu-list">
+      {% for chapter in part.chapters %}
+
         <li>
-          <a
-            href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
-            class="link-primary text-decoration-none fw-light lh-sm"
-            >{{doc.content.title}}</a
-          >
-        </li>
-        {% endfor %}
-      </ul>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %} {% endfor %}
+          <a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{loop.index}}. {{ chapter.index.content.title }}</a>
+        <ul class="menu-list">
+          
+          {% if chapter.documents %}
+          {% for doc in chapter.documents %}
+          <li>
+            <a
+              href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
+              class="{% if doc.id == current_doc %}is-active{% endif %}"
+              >{{loop.index}}. {{doc.content.title | safe}}</a
+            >
+          </li>
+          {% endfor %}
+          {% endif %}
+        </ul>
+      </li>
+      
+      {% endfor %}
+    </ul>
+    {% endif %} {% endfor %}
+  </aside>
 </div>

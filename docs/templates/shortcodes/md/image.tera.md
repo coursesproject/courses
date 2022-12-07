@@ -1,1 +1,1 @@
-\![{{caption}}]({{url}})
+\![{{caption}}]({{project.url_prefix}}/resources/{{url}})

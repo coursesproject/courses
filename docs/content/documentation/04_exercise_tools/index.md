@@ -1,5 +1,6 @@
 ---
-title: Project organisation
+title: Exercise definitions
+code_split: false
 ---
 
 # Code tools
@@ -8,4 +9,13 @@ Courses allows you to write solutions to code exercises inline with the same exe
 It allows you to focus on writing content instead of managing and setting up individual tools.
 
 
+## Exercise definitions
 
+hello
+```
+#| << CODE
+# print("hello")
+#| >> SOLUTION <<
+print("solution")
+#| >> END_CODE
+```

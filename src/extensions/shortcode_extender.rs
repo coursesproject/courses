@@ -155,6 +155,7 @@ impl ShortCodeProcessor {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
         let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
+        context.insert("project", &self.project_config);
         for (k, v) in code.parameters {
             context.insert(k, &v);
         }

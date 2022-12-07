@@ -1,0 +1,4 @@
+<article class="message is-{{color}}">
+  <div class="message-header">{{ title | default(value=color) | capitalize }}</div>
+  <div class="message-body">{{ body|safe }}</div>
+</article>
