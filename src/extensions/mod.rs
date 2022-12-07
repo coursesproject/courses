@@ -33,6 +33,7 @@ pub enum Error {
 pub struct CodeSplit {
     frontmatter: FrontMatter,
     code_started: bool,
+    pub source_buf: Vec<String>,
     pub solution_string: String,
     pub source_def: CodeTaskDefinition,
 }
@@ -46,6 +47,7 @@ impl CodeSplit {
         CodeSplit {
             frontmatter,
             code_started: false,
+            source_buf: Vec::new(),
             solution_string: String::new(),
             source_def: CodeTaskDefinition::default(),
         }
@@ -75,7 +77,7 @@ impl<'a> Extension<'a> for CodeSplit {
                         // TODO: Find other way to test the attribute string (possibly parse it)
                         if let CodeBlockKind::Fenced(attr_str) = attribute_string {
                             let res = if attr_str.find(",").is_some() {
-                                let formatted = attr_str.replace(",", "\n");
+                                let formatted = attr_str.clone().replace(",", "\n");
                                 let attrs: CodeAttrs = toml::from_str(&formatted)?;
                                 self.code_started = attrs.perform_split;
                                 Ok((
@@ -103,6 +105,7 @@ impl<'a> Extension<'a> for CodeSplit {
                 },
                 Event::Text(txt) => {
                     if self.code_started {
+                        self.source_buf.push(txt.to_string());
                         let res = parse_code_string(txt.as_ref());
                         Ok(res
                             .map(|mut doc| {
@@ -117,19 +120,7 @@ impl<'a> Extension<'a> for CodeSplit {
                             })
                             .map_err(|e| human_errors(e))
                             .map_err(|e| CodeParseError(e, event.1))?)
-                        // match res {
-                        //     Ok(mut doc) => {
-                        //         let (placeholder, solution) = doc.split();
-                        //         self.solution_string.push_str(&solution);
-                        //         self.source_def.blocks.append(&mut doc.blocks);
-                        //
-                        //         Event::Text(CowStr::Boxed(placeholder.into_boxed_str()))
-                        //     }
-                        //     Err(e) => Event::Html(CowStr::Boxed(
-                        //         format!(r#"<div class="alert alert-warning">Split parsing failed: {}</div>"#, format_pest_err(e))
-                        //             .into_boxed_str(),
-                        //     )),
-                        // }
+
                     } else {
                         Ok((Event::Text(txt), event.1))
                     }

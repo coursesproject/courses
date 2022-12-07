@@ -37,13 +37,17 @@ impl HtmlRenderer {
     pub fn render_document(
         &self,
         doc: &DocumentParsed,
+        doc_id: &str,
+        part_id: &Option<String>,
+        chapter_id: &Option<String>,
         config: &Config<DocumentConfig>,
     ) -> tera::Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);
         context.insert("project", &self.project_config);
-        context.insert("current_section", "hej");
-        context.insert("current_chapter", "hej");
+        context.insert("current_part", part_id);
+        context.insert("current_chapter", chapter_id);
+        context.insert("current_doc", doc_id);
         context.insert("html", &doc.html);
         context.insert("title", "Test");
         context.insert("meta", &doc.frontmatter);

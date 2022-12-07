@@ -162,7 +162,14 @@ where
             match event {
                 Event::Start(tag) => self.start_tag(tag)?,
                 Event::End(tag) => self.end_tag(tag)?,
-                Event::Text(text) => self.cell_source.push_str(&text.into_string()),
+                Event::Text(text) => {
+                    let ts = text.into_string();
+                    if &ts == "\\" {
+                        self.cell_source.push_str("\\\\");
+                    } else {
+                        self.cell_source.push_str(&ts)
+                    }
+                },
                 Event::Code(_) => {}
                 Event::Html(text) => self.cell_source.push_str(&text.into_string()),
                 Event::FootnoteReference(_) => {}
@@ -283,7 +290,14 @@ where
             match event {
                 Event::Start(tag) => self.start_tag(tag)?,
                 Event::End(tag) => self.end_tag(tag)?,
-                Event::Text(text) => self.source.push_str(&text.into_string()),
+                Event::Text(text) => {
+                    let ts = text.into_string();
+                    if &ts == "\\" {
+                        self.source.push_str("\\\\");
+                    } else {
+                        self.source.push_str(&ts)
+                    }
+                },
                 Event::Code(_) => {}
                 Event::Html(text) => self.source.push_str(&text.into_string()),
                 Event::FootnoteReference(_) => {}

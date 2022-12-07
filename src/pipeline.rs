@@ -19,6 +19,8 @@ use indicatif::ProgressBar;
 use katex::{Opts, OptsBuilder};
 use tera::Tera;
 use termion::{color, style};
+use crate::parsers::split::parse_code_string;
+use crate::parsers::split_types::Output;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DocumentConfig {
@@ -29,19 +31,21 @@ pub struct DocumentConfig {
 }
 
 pub struct Pipeline {
+    mode: String,
     project_path: PathBuf,
     project_config: ProjectConfig,
     renderer: HtmlRenderer,
 }
 
 impl Pipeline {
-    pub fn new<P: AsRef<Path>>(project_path: P) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(project_path: P, mode: String) -> anyhow::Result<Self> {
         let config_path = project_path.as_ref().join("config.yml");
         let config_reader = BufReader::new(File::open(config_path)?);
 
         let config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
 
         Ok(Pipeline {
+            mode,
             project_path: project_path.as_ref().to_path_buf(),
             renderer: HtmlRenderer::new(project_path.as_ref())?,
             project_config: config,
@@ -55,12 +59,16 @@ impl Pipeline {
             + &format!("/templates/shortcodes/**/*");
         let tera = Tera::new(&pattern)?;
 
-        let html_preprocessors: Vec<Box<dyn Preprocessor>> = vec![
-            Box::new(KaTeXPreprocessor::new(Opts::default())),
-            Box::new(ShortCodeProcessor::new(tera.clone(), "html".to_string())),
-        ];
+        let mut html_preprocessors: Vec<Box<dyn Preprocessor>> = Vec::new();
+        let build_config = self.project_config.build.get_config(&self.mode)?;
+
+        if build_config.katex_output {
+            html_preprocessors.push(Box::new(KaTeXPreprocessor::new(Opts::default())));
+        }
+        html_preprocessors.push(Box::new(ShortCodeProcessor::new(tera.clone(), "html".to_string(), self.project_config.clone())));
+
         let md_preprocessors: Vec<Box<dyn Preprocessor>> =
-            vec![Box::new(ShortCodeProcessor::new(tera, "md".to_string()))];
+            vec![Box::new(ShortCodeProcessor::new(tera, "md".to_string(), self.project_config.clone()))];
 
         let mut parser = DocParser::new(
             self.project_path.clone(),
@@ -80,6 +88,9 @@ impl Pipeline {
         // let doc_path = doc_base
         //     .strip_prefix(RelativePathBuf::from_path(&self.project_path)?)
         //     .unwrap();
+
+        let mut part_id = None;
+        let mut chapter_id = None;
 
         let doc_path = path
             .as_ref()
@@ -103,10 +114,12 @@ impl Pipeline {
                 .next()
                 .unwrap();
             let elem = part.chapters.iter().filter(|c| &c.id == first_elem).next();
+            part_id = Some(part.id.clone());
 
             match elem {
                 None => &part.index,
                 Some(c) => {
+                    chapter_id = Some(c.id.clone());
                     let doc = c.documents.iter().filter(|d| d.id == file_id).next();
                     match doc {
                         None => &c.index,
@@ -140,7 +153,7 @@ impl Pipeline {
                 // fs::create_dir_all(build_dir)?;
                 // fs::write(section_build_path, html).unwrap();
 
-                self.write_html(&parsed_doc, build_config, &basebuild_path)
+                self.write_html(&parsed_doc, &part_id, &chapter_id, build_config, &basebuild_path)
                     .unwrap(); // TODO: Error handling
                 self.write_notebook(&parsed_doc, &basebuild_path).unwrap(); // TODO: Error handling
 
@@ -166,17 +179,15 @@ impl Pipeline {
 
         println!("[2/4] 📖 Parsing source documents...");
 
-        // let bar = ProgressBar::new(len);
-
-        let parsed: Config<DocumentParsed> = config
+        let parsed: Config<DocumentParsed> = config.clone()
             .into_iter()
             .map(|item| {
+
                 let res = item.map_doc(|doc| self.parse(&doc));
                 let res = match res {
                     Ok(i) => Some(i),
                     Err(e) => {
                         let mut ei: &dyn Error = &e;
-                        // bar.println(format!("{}{}error: {}{}{}\n", style::Bold, color::Fg(color::Red), style::Reset, color::Fg(color::Reset), ei));
                         println!(
                             "{}{}error: {}{}{}",
                             style::Bold,
@@ -185,21 +196,18 @@ impl Pipeline {
                             color::Fg(color::Reset),
                             ei
                         );
-                        // while let Some(inner) = ei.source() {
-                        //     // bar.println(format!("Caused by: {}\n", inner));
-                        //     println!("{}cause: {}{}", style::Bold, style::Reset, inner);
-                        //     ei = inner;
-                        // }
+                        println!("\t{}", e);
+                        if let Some(source) = ei.source() {
+                            println!("\t\tCaused by: {}", source);
+                        }
 
                         None
                     }
                 };
-                // bar.inc(1);
                 res
             })
             .filter_map(|res| res)
             .collect::<Config<DocumentParsed>>();
-        // bar.finish();
 
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");
@@ -220,11 +228,20 @@ impl Pipeline {
 
         let build_path = self.project_path.join("build");
 
+        fs::remove_dir_all(build_path.as_path())?;
+        fs::create_dir(build_path.as_path())?;
+
         println!("[X/4] Writing notebooks...");
         let notebook_errors: Vec<()> = parsed
             .clone()
             .into_iter()
-            .map(|item| self.write_notebook(&item.doc, &build_path))
+            .map(|item| {
+                if item.doc.content.frontmatter.output.source {
+                    self.write_notebook(&item.doc, &build_path)
+                } else {
+                    Ok(())
+                }
+            })
             .collect::<anyhow::Result<Vec<()>>>()?;
 
         println!("[4/4] 🌼 Rendering output...");
@@ -232,8 +249,12 @@ impl Pipeline {
             .clone()
             .into_iter()
             .map(|item| {
-                self.write_html(&item.doc, &build_config, &build_path)
-                    .map(|_| item)
+                if item.doc.content.frontmatter.output.web { // Only output if active (TODO: Don't parse html if not necessary)
+                    self.write_html(&item.doc, &item.part_id, &item.chapter_id, &build_config, &build_path)
+                        .map(|_| item)
+                } else {
+                    Ok(item)
+                }
             })
             .filter_map(|result| match result {
                 Ok(i) => Some(i),
@@ -261,6 +282,7 @@ impl Pipeline {
             })
             .collect();
 
+
         let md_errors: Vec<ConfigItem<DocumentParsed>> = html_results_filtered
             // .clone()
             .into_iter()
@@ -273,6 +295,45 @@ impl Pipeline {
                 }
             })
             .collect();
+
+        println!("[5/4]  Copying resources...");
+        let resource_path = self.project_path.as_path().join("resources");
+        let path_web = build_path.as_path().join("web");
+        let resource_path_build_web = path_web.as_path().join("resources");
+
+        for part in config.content {
+            for chapter in part.chapters {
+                chapter.files.into_iter().map(|path| {
+                    let relative = path.strip_prefix(self.project_path.as_path().join("content"))?;
+                    // let web_path = build_path.as_path().join("web");
+                    let source_path = build_path.as_path().join("source");
+
+                    let to_path = source_path.join(relative);
+                    let mut to_dir = to_path.clone();
+                    to_dir.pop();
+
+                    fs::create_dir_all(to_dir)?;
+
+
+                    let content = fs::read_to_string(path.as_path())?;
+                    let task = parse_code_string(&content)?;
+                    let out = task.write_string(false);
+
+                    fs::write(to_path, out)?;
+
+                    // fs::copy(path.as_path(), to_path)?;
+                    Ok(())
+                }).collect::<anyhow::Result<Vec<()>>>()?;
+            }
+        }
+
+        let mut options = fs_extra::dir::CopyOptions::new();
+        options.overwrite = true;
+
+        fs::create_dir_all(resource_path_build_web.as_path())?;
+        fs_extra::copy_items(&[resource_path], path_web, &options)?;
+
+
 
         Ok(build_config)
     }
@@ -310,12 +371,14 @@ impl Pipeline {
     fn write_html<P: AsRef<Path>>(
         &self,
         doc: &DocumentSpec<DocumentParsed>,
+        part_id: &Option<String>,
+        chapter_id: &Option<String>,
         build_config: &Config<DocumentConfig>,
         build_path: P,
     ) -> Result<(), HtmlRenderError> {
         let output = self
             .renderer
-            .render_document(&doc.content, &build_config)
+            .render_document(&doc.content, &doc.id, part_id, chapter_id, &build_config)
             .map_err(|e| TemplateError(e, doc.path.to_str().unwrap().to_string()))?;
 
         let mut html_build_dir = build_path.as_ref().join("web").join(&doc.path);

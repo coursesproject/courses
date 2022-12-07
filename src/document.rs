@@ -181,8 +181,8 @@ impl<'a, 'b> Iterator for ElementIterator<'a, 'b> {
 
 #[derive(Default, Copy, Clone)]
 pub struct IteratorConfig {
-    include_output: bool,
-    include_solutions: bool,
+    pub include_output: bool,
+    pub include_solutions: bool,
 }
 
 pub struct IteratorConfigBuilder {

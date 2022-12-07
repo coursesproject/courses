@@ -60,6 +60,7 @@ pub struct ConfigItem<D> {
     pub part_idx: Option<usize>,
     pub chapter_idx: Option<usize>,
     pub doc: DocumentSpec<D>,
+    pub files: Option<Vec<PathBuf>>, // Temporary solution for carrying file info
 }
 
 impl<D> ConfigItem<D> {
@@ -69,6 +70,7 @@ impl<D> ConfigItem<D> {
         part_idx: Option<usize>,
         chapter_idx: Option<usize>,
         doc: DocumentSpec<D>,
+        files: Option<Vec<PathBuf>>,
     ) -> Self {
         ConfigItem {
             part_id,
@@ -76,6 +78,7 @@ impl<D> ConfigItem<D> {
             part_idx,
             chapter_idx,
             doc,
+            files,
         }
     }
 
@@ -96,6 +99,7 @@ impl<D> ConfigItem<D> {
             self.part_idx,
             self.chapter_idx,
             doc,
+            self.files,
         ))
     }
 
@@ -116,8 +120,13 @@ impl<D> ConfigItem<D> {
             self.part_idx,
             self.chapter_idx,
             doc,
+            self.files,
         ))
     }
+
+    // pub fn get_chapter<T>(&self, config: Config<T>) -> Option<Chapter<T>> {
+    //     config.content[self.par]
+    // }
 }
 
 /// Collect iterator of ConfigItem into Config (tree structure).
@@ -141,11 +150,14 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
                 part_idx => {
                     let part_id = item.part_id.unwrap();
                     match item.chapter_idx.unwrap() {
-                        0 => parts.push(Part {
-                            id: part_id,
-                            index: item.doc,
-                            chapters: vec![],
-                        }),
+                        0 => {
+                            last_chapter = 0;
+                            parts.push(Part {
+                                id: part_id,
+                                index: item.doc,
+                                chapters: vec![],
+                            })
+                        },
                         chapter_idx => {
                             let chapter_id = item.chapter_id.unwrap();
 
@@ -163,6 +175,7 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
                                     id: chapter_id,
                                     index: item.doc,
                                     documents: vec![],
+                                    files: item.files.expect("No files"),
                                 });
                                 last_chapter = chapter_idx;
                             }
@@ -197,6 +210,7 @@ where
                     Some(0),
                     None,
                     self.config.index.clone(),
+                    None,
                 ))
             }
             part_idx if part_idx <= self.config.content.len() => {
@@ -218,6 +232,7 @@ where
                             Some(part_idx),
                             Some(0),
                             part.index.clone(),
+                            None,
                         ))
                     }
 
@@ -247,6 +262,7 @@ where
                                     Some(part_idx),
                                     Some(chapter_idx),
                                     chapter.index.clone(),
+                                    Some(chapter.files.clone()),
                                 ))
                             }
                             doc_pos => Some(ConfigItem::new(
@@ -255,6 +271,7 @@ where
                                 Some(part_idx),
                                 Some(chapter_idx),
                                 chapter.documents[doc_pos - 1].clone(),
+                                Some(chapter.files.clone()),
                             )),
                         }
                     }
@@ -292,6 +309,8 @@ pub struct Chapter<C> {
     pub index: DocumentSpec<C>,
     /// Individual documents
     pub documents: Vec<DocumentSpec<C>>,
+    /// Other files
+    pub files: Vec<PathBuf>,
 }
 
 /// Chapters contain documents. Their configuration container is called DocumentSpec. It is a generic
@@ -309,7 +328,7 @@ pub struct DocumentSpec<C> {
     pub content: Arc<C>,
 }
 
-/// The top-level configuration of a project's content.
+/// The top-level configuration of a project's content.TTT
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config<C> {
     pub project_path: PathBuf,
@@ -323,6 +342,41 @@ pub struct Config<C> {
 pub struct ProjectConfig {
     #[serde(default)]
     pub url_prefix: String,
+    #[serde(default)]
+    pub build: BuildConfigSet,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildConfigSet {
+    pub dev: BuildConfig,
+    pub release: BuildConfig,
+}
+
+impl BuildConfigSet {
+    pub fn get_config(&self, mode: &str) -> anyhow::Result<BuildConfig> {
+        match mode {
+            "dev" => Ok(self.dev.clone()),
+            "release" => Ok(self.release.clone()),
+            _ => Err(anyhow!("Invalid build mode"))
+        }
+    }
+}
+
+impl Default for BuildConfigSet {
+    fn default() -> Self {
+        BuildConfigSet {
+            dev: BuildConfig {
+                katex_output: false
+            },
+            release: BuildConfig {
+                katex_output: true
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildConfig {
     pub katex_output: bool
 }
 
@@ -335,6 +389,7 @@ impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
             id: self.id.clone(),
             index: self.index.transform(f),
             documents: self.documents.iter().map(|d| d.transform(f)).collect(),
+            files: self.files.clone(),
         }
     }
 }
@@ -354,6 +409,7 @@ impl<I> Chapter<I> {
                 .iter()
                 .map(|d| d.transform_parents_helper(Some(part), Some(&self), f))
                 .collect(),
+            files: self.files.clone(),
         }
     }
 }
@@ -531,6 +587,19 @@ impl Chapter<()> {
             .filter(|entry| !entry.file_name().to_str().unwrap().contains("index"))
             .filter(|entry| entry.metadata().map(|meta| meta.is_file()).is_ok());
 
+        let file_paths = get_sorted_paths(section_dir)?
+            .into_iter()
+            .filter(|entry| {
+                entry
+                    .path()
+                    .extension()
+                    .filter(|e| extension_in(e.to_str().unwrap()))
+                    .is_none()
+            })
+            .filter(|entry| !entry.file_name().to_str().unwrap().contains("index"))
+            .filter(|entry| entry.metadata().map(|meta| meta.is_file()).is_ok())
+            .map(|entry| entry.path()).collect();
+
         let documents: Vec<DocumentSpec<()>> = paths
             .map(|entry| DocumentSpec::new(entry.path().strip_prefix(content_path.as_ref())?))
             .collect::<anyhow::Result<Vec<DocumentSpec<()>>>>()?;
@@ -541,6 +610,7 @@ impl Chapter<()> {
             id: chapter_id(chapter_dir).ok_or(anyhow!("Can't get chapter id"))?,
             index: index_doc?,
             documents,
+            files: file_paths,
         })
     }
 }

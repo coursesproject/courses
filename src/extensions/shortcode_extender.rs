@@ -6,6 +6,7 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use tera::Tera;
 use thiserror::Error;
+use crate::cfg::ProjectConfig;
 
 pub enum OutputFormat {
     Markdown,
@@ -125,18 +126,21 @@ impl Display for ShortCodeProcessError {
 
 pub struct ShortCodeProcessor {
     tera: Tera,
+    project_config: ProjectConfig,
     file_ext: String,
 }
 
 impl ShortCodeProcessor {
-    pub fn new(tera: Tera, file_ext: String) -> Self {
-        ShortCodeProcessor { tera, file_ext }
+    pub fn new(tera: Tera, file_ext: String, project_config: ProjectConfig) -> Self {
+        ShortCodeProcessor { tera, file_ext, project_config }
     }
 
     fn render_inline_template(&self, shortcode: &str) -> Result<String, ShortCodeProcessError> {
         let code = parse_shortcode(shortcode)?;
         let mut context = tera::Context::new();
         let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
+
+        context.insert("project", &self.project_config);
         for (k, v) in code.parameters {
             context.insert(k, &v);
         }
@@ -156,7 +160,7 @@ impl ShortCodeProcessor {
         }
 
         let processed =
-            ShortCodeProcessor::new(self.tera.clone(), self.file_ext.clone()).process(&body)?;
+            ShortCodeProcessor::new(self.tera.clone(), self.file_ext.clone(), self.project_config.clone()).process(&body)?;
         let body_final = if self.file_ext == "html" {
             let parser = Parser::new_ext(&processed, Options::all());
             let mut html = String::new();

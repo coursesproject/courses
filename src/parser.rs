@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, DocPos, Document, IteratorConfig, PreprocessError};
 use crate::extensions::katex::{KaTeXPreprocessor, KaTeXPreprocessorError};
@@ -9,7 +10,7 @@ use crate::parsers::split_types::CodeTaskDefinition;
 use anyhow::Context;
 use katex::{Opts, OptsBuilder};
 use pulldown_cmark::HeadingLevel::H1;
-use pulldown_cmark::{html, Event, Options, Parser, Tag};
+use pulldown_cmark::{html, Event, Options, Parser, Tag, CowStr};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
@@ -23,15 +24,51 @@ use yaml_front_matter::YamlFrontMatter;
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FrontMatter {
     pub title: Option<String>,
-    #[serde(rename = "type", default = "default_doc_type")]
+    #[serde(rename = "type", default = "default_title")]
     pub doc_type: String,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub code_split: bool,
+    #[serde(default = "default_true")]
+    pub notebook_output: bool,
+    #[serde(default)]
+    pub layout: LayoutSettings,
+
+    #[serde(default)]
+    pub output: OutputSpec,
 }
 
-fn default_doc_type() -> String {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputSpec {
+    #[serde(default = "default_true")]
+    pub web: bool,
+    #[serde(default = "default_true")]
+    pub source: bool,
+}
+
+impl Default for OutputSpec {
+    fn default() -> Self {
+        OutputSpec {
+            web: true, source: true,
+        }
+    }
+}
+
+// #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+// pub struct SplitSettings {
+//     bool_active: bool,
+//
+// }
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct LayoutSettings {
+    pub hide_sidebar: bool,
+}
+
+fn default_title() -> String {
     "text".to_string()
 }
+
+fn default_true() -> bool { true }
 
 #[derive(Debug, Clone, Default)]
 pub struct DocumentParsed {
@@ -51,6 +88,11 @@ pub struct DocParser {
     html_preprocessors: Vec<Box<dyn Preprocessor>>,
     md_preprocessors: Vec<Box<dyn Preprocessor>>,
     tera: Tera,
+}
+
+struct HeadingNode {
+    id: String,
+    children: Vec<HeadingNode>,
 }
 
 #[derive(Error, Debug)]
@@ -81,6 +123,9 @@ pub enum ParserError {
 
     #[error(transparent)]
     Std(#[from] Box<dyn std::error::Error>),
+
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
 }
 
 impl DocParser {
@@ -117,7 +162,7 @@ impl DocParser {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap(); // TODO: HELP!
-                let parser = Parser::new_ext(&yml.content, options);
+                // let parser = Parser::new_ext(&yml.content, options);
                 self.process(doc, Document::from(yml.content.clone()), yml.metadata)
             }
         };
@@ -134,8 +179,46 @@ impl DocParser {
         let mut code_ext = CodeSplit::new(meta.clone());
         let iter = doc.configure_iterator(config);
         let iter = iter.map(|v| code_ext.each(v));
+
+
         let v: Vec<(Event, DocPos)> =
             iter.collect::<Result<Vec<(Event, DocPos)>, crate::extensions::Error>>()?;
+
+        // let mut hs: HashMap<String, String> = HashMap::new();
+        //
+        // let iter = v.into_iter().map(|(e, pos)| (match e {
+        //     Event::Text(txt) => {
+        //         let ts = txt.into_string();
+        //         if &ts == "\\" {
+        //             Event::Text(CowStr::Boxed("\\\\".to_string().into_boxed_str()))
+        //         } else {
+        //             Event::Text(CowStr::Boxed(ts.into_boxed_str()))
+        //         }
+        //     },
+        //     Event::Start(tag) => {
+        //         match tag {
+        //             Tag::Heading(lvl, attr, cls) => {
+        //                 hs.insert()
+        //             },
+        //             t => t
+        //         }
+        //     },
+        //     e => e
+        // }, pos));
+
+        let iter = v.into_iter().map(|(e, pos)| (if let Event::Text(txt) = e {
+            let ts = txt.into_string();
+            if &ts == "\\" {
+                Event::Text(CowStr::Boxed("\\\\".to_string().into_boxed_str()))
+            } else {
+                Event::Text(CowStr::Boxed(ts.into_boxed_str()))
+            }
+        } else {
+            e
+        }, pos));
+
+        let v: Vec<(Event, DocPos)> = iter.collect();
+
         Ok((code_ext, v))
     }
 
@@ -166,7 +249,7 @@ impl DocParser {
         // let content_md = content.preprocess(&processor_export)?;
 
         let (code_html, vec_html) = self.process_single(
-            IteratorConfig::default().include_output(),
+            IteratorConfig { include_output: meta.notebook_output, include_solutions: false },
             &content_html,
             meta.clone(),
         )?;

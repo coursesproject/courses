@@ -28,10 +28,14 @@ enum Commands {
     Serve {
         #[arg(short, long)]
         path: Option<PathBuf>,
+        #[arg(short, long, default_value = "dev")]
+        mode: String,
     },
     Build {
         #[arg(short, long)]
         path: Option<PathBuf>,
+        #[arg(short, long, default_value = "release")]
+        mode: String,
     },
     Init {
         name: String,
@@ -45,13 +49,13 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build { path } => {
+        Commands::Build { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
             let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
 
             println!("[1/4] ‍💡 Reading project directory...");
 
-            let mut pipeline = Pipeline::new(path.as_path())?;
+            let mut pipeline = Pipeline::new(path.as_path(), mode)?;
             let cf = pipeline.build_everything(cfg.clone())?;
 
             serde_yaml::to_writer(
@@ -70,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
             println!("🌟 Done.");
             Ok(())
         }
-        Commands::Serve { path } => {
+        Commands::Serve { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
             let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
 
@@ -82,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
             let config: Config<()> = Config::generate_from_directory(&path)?;
             let c2 = config.clone();
 
-            let mut pipeline = Pipeline::new(path.as_path())?;
+            let mut pipeline = Pipeline::new(path.as_path(), mode.clone())?;
             let cf = pipeline.build_everything(config)?;
 
             serde_yaml::to_writer(
@@ -114,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
                         if let DebouncedEventKind::Any = &event.kind {
                             let p = &event.path;
 
-                            let mut pipeline = Pipeline::new(path.as_path()).unwrap();
+                            let mut pipeline = Pipeline::new(path.as_path(), mode.clone()).unwrap();
 
                             if p.starts_with(path.as_path().join("content")) {
                                 pipeline.build_file(p, &c2, &cf);
