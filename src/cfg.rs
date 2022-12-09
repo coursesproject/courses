@@ -147,7 +147,7 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
         for item in iter {
             match item.part_idx.unwrap() {
                 0 => index = item.doc,
-                part_idx => {
+                _part_idx => {
                     let part_id = item.part_id.unwrap();
                     match item.chapter_idx.unwrap() {
                         0 => {

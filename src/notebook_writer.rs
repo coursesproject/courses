@@ -2,12 +2,12 @@ use crate::notebook::*;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use std::collections::HashMap;
 use std::io;
-use std::ops::Range;
 use crate::document::DocPos;
 
 enum CellType {
     Markdown,
     Code,
+    #[allow(unused)]
     Raw,
 }
 
@@ -138,7 +138,7 @@ where
             Tag::Paragraph => self.cell_source.push_str("\n"),
             Tag::Heading(_, _, _) => self.cell_source.push_str("\n\n"),
             Tag::BlockQuote => {}
-            Tag::List(i) => self.cell_source.push_str("\n"),
+            Tag::List(_) => self.cell_source.push_str("\n"),
             Tag::Item => self.cell_source.push_str("\n"),
             Tag::FootnoteDefinition(_) => {}
             Tag::Table(_) => {}
@@ -148,7 +148,7 @@ where
             Tag::Emphasis => self.cell_source.push_str("*"),
             Tag::Strong => self.cell_source.push_str("__"),
             Tag::Strikethrough => {}
-            Tag::Link(type_, dest, title) => {
+            Tag::Link(_type, dest, title) => {
                 self.cell_source
                     .push_str(format!("]({} {})", dest, title).as_str());
             }
@@ -158,7 +158,7 @@ where
     }
 
     fn run(mut self) -> io::Result<Notebook> {
-        while let Some((event, range)) = self.iter.next() {
+        while let Some((event, _range)) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag)?,
                 Event::End(tag) => self.end_tag(tag)?,
@@ -262,11 +262,11 @@ where
 
     fn end_tag(&mut self, tag: Tag<'a>) -> io::Result<()> {
         match tag {
-            Tag::CodeBlock(kind) => self.source.push_str("\n```\n"),
+            Tag::CodeBlock(_) => self.source.push_str("\n```\n"),
             Tag::Paragraph => self.source.push_str("\n"),
             Tag::Heading(_, _, _) => self.source.push_str("\n\n"),
             Tag::BlockQuote => {}
-            Tag::List(i) => self.source.push_str("\n"),
+            Tag::List(_) => self.source.push_str("\n"),
             Tag::Item => self.source.push_str("\n"),
             Tag::FootnoteDefinition(_) => {}
             Tag::Table(_) => {}
@@ -276,7 +276,7 @@ where
             Tag::Emphasis => self.source.push_str("*"),
             Tag::Strong => self.source.push_str("__"),
             Tag::Strikethrough => {}
-            Tag::Link(type_, dest, title) => {
+            Tag::Link(_type, dest, title) => {
                 self.source
                     .push_str(format!("]({} {})", dest, title).as_str());
             }
@@ -286,7 +286,7 @@ where
     }
 
     fn run(mut self) -> io::Result<String> {
-        while let Some((event, range)) = self.iter.next() {
+        while let Some((event, _range)) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag)?,
                 Event::End(tag) => self.end_tag(tag)?,

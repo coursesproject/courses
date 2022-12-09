@@ -3,11 +3,9 @@ pub mod shortcode_extender;
 
 use crate::document::DocPos;
 use crate::extensions::Error::CodeParseError;
-use crate::parser::{DocumentParsed, FrontMatter};
-use crate::parsers::split::{format_pest_err, human_errors, parse_code_string, Rule};
+use crate::parser::{FrontMatter};
+use crate::parsers::split::{human_errors, parse_code_string, Rule};
 use crate::parsers::split_types::CodeTaskDefinition;
-use anyhow::Context;
-use pest::error::InputLocation;
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
 use serde::{Deserialize, Serialize};

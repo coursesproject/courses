@@ -1,4 +1,3 @@
-use anyhow::Context;
 use pest::iterators::Pair;
 use pest::Parser;
 use std::collections::HashMap;

@@ -11,7 +11,7 @@ pub struct ShortCode {
 }
 
 pub fn parse_shortcode(content: &str) -> Result<ShortCode, pest::error::Error<Rule>> {
-    let mut padded = content.to_string();
+    let padded = content.to_string();
     let p = ShortCodeParser::parse(Rule::p, &padded)?;
 
     let mut iter = p.into_iter();

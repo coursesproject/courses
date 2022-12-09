@@ -56,6 +56,7 @@ pub struct CodeTaskDefinition {
 }
 
 impl CodeTaskDefinition {
+    #[allow(unused)]
     fn to_json(&self) -> String {
         serde_json::to_string(&self).expect("Could not construct JSON representation.")
     }

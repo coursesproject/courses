@@ -9,14 +9,12 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::extensions::katex::KaTeXPreprocessor;
 use crate::extensions::shortcode_extender::ShortCodeProcessor;
 use crate::extensions::Preprocessor;
 use crate::render::HtmlRenderError::TemplateError;
-use indicatif::ProgressBar;
-use katex::{Opts, OptsBuilder};
+use katex::{Opts};
 use tera::Tera;
 use termion::{color, style};
 use crate::parsers::split::parse_code_string;
@@ -53,8 +51,6 @@ impl Pipeline {
     }
 
     fn parse(&self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
-        let opts = OptsBuilder::default().build().unwrap();
-
         let pattern = self.project_path.as_path().to_str().unwrap().to_string()
             + &format!("/templates/shortcodes/**/*");
         let tera = Tera::new(&pattern)?;
@@ -169,13 +165,8 @@ impl Pipeline {
         &mut self,
         config: Config<()>,
     ) -> anyhow::Result<Config<DocumentConfig>> {
-        let mut len: u64 = 0;
-        for p in &config.content {
-            len += 1;
-            for c in &p.chapters {
-                len += c.documents.len() as u64 + 1;
-            }
-        }
+
+
 
         println!("[2/4] 📖 Parsing source documents...");
 
@@ -187,7 +178,7 @@ impl Pipeline {
                 let res = match res {
                     Ok(i) => Some(i),
                     Err(e) => {
-                        let mut ei: &dyn Error = &e;
+                        let ei: &dyn Error = &e;
                         println!(
                             "{}{}error: {}{}{}",
                             style::Bold,
@@ -232,7 +223,7 @@ impl Pipeline {
         fs::create_dir(build_path.as_path())?;
 
         println!("[X/4] Writing notebooks...");
-        let notebook_errors: Vec<()> = parsed
+        let _notebook_errors: Vec<()> = parsed
             .clone()
             .into_iter()
             .map(|item| {
@@ -283,7 +274,7 @@ impl Pipeline {
             .collect();
 
 
-        let md_errors: Vec<ConfigItem<DocumentParsed>> = html_results_filtered
+        let _md_errors: Vec<ConfigItem<DocumentParsed>> = html_results_filtered
             // .clone()
             .into_iter()
             .map(|item| self.write_markdown(&item.doc, &build_path).map(|_| item))

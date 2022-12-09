@@ -5,7 +5,7 @@ mod setup;
 use clap::{Parser, Subcommand};
 use courses::cfg::{Config, ProjectConfig};
 use courses::pipeline::Pipeline;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
@@ -14,7 +14,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{env, fs};
+use std::{env};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Build { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
-            let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
+            let cfg = Config::generate_from_directory(path.as_path()).unwrap();
 
             println!("[1/4] ‍💡 Reading project directory...");
 
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Serve { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
-            let mut cfg = Config::generate_from_directory(path.as_path()).unwrap();
+            let cfg = Config::generate_from_directory(path.as_path()).unwrap();
 
             let p2 = path.as_path().join("content");
             let tp = path.as_path().join("templates");
@@ -187,7 +187,7 @@ async fn main() -> anyhow::Result<()> {
 
             Ok(())
         }
-        Commands::Init { name } => {
+        Commands::Init { .. } => {
             let options = vec!["Default", "Empty"];
             let mut s = inquire::Select::new("What template set-up would you like?", options);
             s.starting_cursor = 0;

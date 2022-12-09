@@ -1,6 +1,6 @@
-use crate::extensions::shortcode_extender::{ShortCodeProcessError, ShortCodeProcessor};
+use crate::extensions::shortcode_extender::{ShortCodeProcessError};
 use crate::extensions::Preprocessor;
-use crate::notebook::{Cell, CellEventIterator, CellOutput, Notebook};
+use crate::notebook::{Cell, CellOutput, Notebook};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
@@ -29,8 +29,10 @@ pub enum Element {
 #[derive(Debug, Clone)]
 pub struct DocPos {
     cell_number: Option<usize>,
+    #[allow(unused)]
     global_offset: usize,
     line: usize,
+    #[allow(unused)]
     local_position: Range<usize>,
 }
 
@@ -185,18 +187,16 @@ pub struct IteratorConfig {
     pub include_solutions: bool,
 }
 
-pub struct IteratorConfigBuilder {
-    include_output: Option<bool>,
-    include_solutions: Option<bool>,
-}
-
 impl IteratorConfig {
+    #[allow(unused)]
     pub fn include_output(self) -> Self {
         IteratorConfig {
             include_output: true,
             include_solutions: self.include_solutions,
         }
     }
+
+    #[allow(unused)]
     pub fn include_solutions(self) -> Self {
         IteratorConfig {
             include_output: self.include_output,

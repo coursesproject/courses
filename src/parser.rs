@@ -1,23 +1,16 @@
-use std::collections::HashMap;
 use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, DocPos, Document, IteratorConfig, PreprocessError};
-use crate::extensions::katex::{KaTeXPreprocessor, KaTeXPreprocessorError};
-use crate::extensions::shortcode_extender::{ShortCodeProcessError, ShortCodeProcessor};
+use crate::extensions::shortcode_extender::{ShortCodeProcessError};
 use crate::extensions::{CodeSplit, Extension, Preprocessor};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
-use crate::parsers::split_types::CodeTaskDefinition;
-use anyhow::Context;
-use katex::{Opts, OptsBuilder};
 use pulldown_cmark::HeadingLevel::H1;
-use pulldown_cmark::{html, Event, Options, Parser, Tag, CowStr};
+use pulldown_cmark::{html, Event, Tag, CowStr};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
-use std::io::{BufReader, Read};
-use std::ops::Range;
+use std::io::{Read};
 use std::path::{Path, PathBuf};
-use tera::Tera;
 use thiserror::Error;
 use yaml_front_matter::YamlFrontMatter;
 
@@ -48,7 +41,8 @@ pub struct OutputSpec {
 impl Default for OutputSpec {
     fn default() -> Self {
         OutputSpec {
-            web: true, source: true,
+            web: true,
+            source: true,
         }
     }
 }
@@ -74,22 +68,18 @@ fn default_true() -> bool { true }
 pub struct DocumentParsed {
     pub(crate) title: String,
     pub(crate) frontmatter: FrontMatter,
-    pub(crate) doc_content: Document,
-    pub(crate) doc_export: Document,
     pub(crate) html: String,
     pub(crate) notebook: Notebook,
     pub(crate) md: String,
-    pub(crate) raw_solution: String,
-    pub(crate) split_meta: CodeTaskDefinition,
 }
 
 pub struct DocParser {
     project_path: PathBuf,
     html_preprocessors: Vec<Box<dyn Preprocessor>>,
     md_preprocessors: Vec<Box<dyn Preprocessor>>,
-    tera: Tera,
 }
 
+#[allow(unused)]
 struct HeadingNode {
     id: String,
     children: Vec<HeadingNode>,
@@ -134,20 +124,14 @@ impl DocParser {
         html_preprocessors: Vec<Box<dyn Preprocessor>>,
         md_preprocessors: Vec<Box<dyn Preprocessor>>,
     ) -> Result<Self, tera::Error> {
-        let pattern = project_path.as_ref().to_str().unwrap().to_string()
-            + &format!("/templates/shortcodes/**/*");
-
         Ok(DocParser {
             project_path: project_path.as_ref().to_path_buf(),
-            tera: Tera::new(&pattern)?,
             html_preprocessors,
             md_preprocessors,
         })
     }
 
     pub fn parse(&mut self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
-        let options = Options::all();
-
         let content_path = self.project_path.join("content").join(&doc.path);
         let res: Result<DocumentParsed, ParserError> = match doc.format {
             Format::Notebook => {
@@ -156,14 +140,14 @@ impl DocParser {
                 // let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_str(&buf)?;
                 let meta = nb.get_front_matter()?;
-                self.process(doc, Document::from(nb.clone()), meta)
+                self.process(Document::from(nb.clone()), meta)
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap(); // TODO: HELP!
                 // let parser = Parser::new_ext(&yml.content, options);
-                self.process(doc, Document::from(yml.content.clone()), yml.metadata)
+                self.process(Document::from(yml.content.clone()), yml.metadata)
             }
         };
 
@@ -224,7 +208,6 @@ impl DocParser {
 
     fn process(
         &mut self,
-        doc: &DocumentSpec<()>,
         content: Document,
         meta: FrontMatter,
     ) -> Result<DocumentParsed, ParserError> {
@@ -248,12 +231,12 @@ impl DocParser {
         //
         // let content_md = content.preprocess(&processor_export)?;
 
-        let (code_html, vec_html) = self.process_single(
+        let (_code_html, vec_html) = self.process_single(
             IteratorConfig { include_output: meta.notebook_output, include_solutions: false },
             &content_html,
             meta.clone(),
         )?;
-        let (code_md, vec_md) =
+        let (_code_md, vec_md) =
             self.process_single(IteratorConfig::default(), &content_md, meta.clone())?;
 
         let heading = Self::find_header(&vec_html.clone());
@@ -274,11 +257,7 @@ impl DocParser {
             html: html_output,
             md,
             notebook: nb,
-            doc_content: content_html,
-            raw_solution: code_html.solution_string,
-            split_meta: code_html.source_def,
             frontmatter: meta,
-            doc_export: content_md,
         })
     }
 

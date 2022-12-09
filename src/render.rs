@@ -1,16 +1,14 @@
 use crate::cfg::{Config, ProjectConfig};
 use crate::parser::DocumentParsed;
 use crate::pipeline::DocumentConfig;
-use crate::render::HtmlRenderError::TemplateError;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use tera::Tera;
 use thiserror::Error;
 
 pub struct HtmlRenderer {
-    project_path: PathBuf,
     project_config: ProjectConfig,
     tera: Tera,
 }
@@ -28,7 +26,6 @@ impl HtmlRenderer {
         let project_config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
 
         Ok(HtmlRenderer {
-            project_path: project_path.as_ref().to_path_buf(),
             tera: Tera::new(&pattern)?,
             project_config,
         })
