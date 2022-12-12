@@ -10,11 +10,11 @@ use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
 use penguin::Server;
+use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{env};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -59,14 +59,7 @@ async fn main() -> anyhow::Result<()> {
             let cf = pipeline.build_everything(cfg.clone())?;
 
             serde_yaml::to_writer(
-                &File::create(
-                    cfg.clone()
-                        .project_path
-                        .as_path()
-                        .join("build")
-                        .join("config.yml"),
-                )
-                .unwrap(),
+                &File::create(cfg.project_path.as_path().join("build").join("config.yml")).unwrap(),
                 &cf,
             )
             .unwrap();

@@ -1,6 +1,5 @@
 //! This is the module docs
 
-
 #[macro_use]
 extern crate pest_derive;
 extern crate core;
@@ -14,9 +13,9 @@ pub mod notebook_writer;
 pub mod parser;
 pub mod parsers;
 pub mod pipeline;
+mod preprocessor;
 pub mod render;
 mod visitor;
-mod preprocessor;
 
 #[cfg(test)]
 mod tests {
@@ -26,7 +25,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let str = include_str!("../resources/test/sample.py");
-        let doc = parse_code_string(str).unwrap();
+        let _doc = parse_code_string(str).unwrap();
     }
 
     #[test]
@@ -34,8 +33,8 @@ mod tests {
         let str = include_str!("../resources/test/sample.rs");
         let doc = parse_code_string(str).unwrap();
 
-        let output_solution = doc.write_string(true);
-        let output_placeholder = doc.write_string(false);
+        let _output_solution = doc.write_string(true);
+        let _output_placeholder = doc.write_string(false);
     }
 
     #[test]
@@ -43,6 +42,6 @@ mod tests {
         let str = include_str!("../resources/test/sample.rs");
         let doc = parse_code_string(str).unwrap();
 
-        let res = serde_json::to_string(&doc).unwrap();
+        let _res = serde_json::to_string(&doc).unwrap();
     }
 }

@@ -1,4 +1,4 @@
-use crate::extensions::shortcode_extender::{ShortCodeProcessError};
+use crate::extensions::shortcode_extender::ShortCodeProcessError;
 use crate::extensions::Preprocessor;
 use crate::notebook::{Cell, CellOutput, Notebook};
 use pulldown_cmark::CodeBlockKind::Fenced;
@@ -75,7 +75,7 @@ pub enum PreprocessError {
 impl Document {
     pub fn preprocess(
         &self,
-        processor: &Box<dyn Preprocessor>,
+        processor: &dyn Preprocessor,
     ) -> Result<Document, Box<dyn std::error::Error>> {
         let elements = self
             .elements
@@ -143,11 +143,11 @@ pub struct ElementIterator<'a, 'b> {
 
 pub enum ElementIteratorCell<'a, 'b> {
     Markdown {
-        parser: OffsetIter<'a, 'b>,
+        parser: Box<OffsetIter<'a, 'b>>,
     },
     Code {
         cell_number: usize,
-        events: IntoIter<(Event<'a>, Range<usize>)>,
+        events: Box<IntoIter<(Event<'a>, Range<usize>)>>,
     },
     Raw {},
 }
@@ -227,7 +227,7 @@ impl<'a> ConfigureIterator for &'a Element {
         let (cell, content) = match self {
             Element::Markdown { content } => (
                 ElementIteratorCell::Markdown {
-                    parser: Parser::new_ext(&content, Options::all()).into_offset_iter(),
+                    parser: Box::new(Parser::new_ext(content, Options::all()).into_offset_iter()),
                 },
                 content.clone(),
             ),
@@ -254,7 +254,7 @@ impl<'a> ConfigureIterator for &'a Element {
                 (
                     ElementIteratorCell::Code {
                         cell_number: *cell_number,
-                        events: events.into_iter(),
+                        events: Box::new(events.into_iter()),
                     },
                     content.clone(),
                 )

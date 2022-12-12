@@ -1,13 +1,11 @@
-use std::{env, fs};
 use rust_embed::RustEmbed;
+use std::{env, fs};
 
 #[derive(RustEmbed)]
 #[folder = "resources/bundle/"]
 struct Asset;
 
 pub(crate) fn setup(typ: &str) -> anyhow::Result<()> {
-
-
     let dir = env::current_dir()?;
     let tp_dir = dir.join("templates");
 
@@ -36,7 +34,7 @@ pub(crate) fn setup(typ: &str) -> anyhow::Result<()> {
             fs::write(tp_section_dest, tp_section.data)?;
             fs::write(tp_nav_dest, tp_nav.data)?;
         }
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 
     let content_dir = dir.join("content");
@@ -53,10 +51,8 @@ mod tests {
 
     #[test]
     fn create_default() {
-
-
-        for s in vec!["Default", "Empty"] {
-            let mut tmpdir = tempfile::tempdir().unwrap();
+        for s in &["Default", "Empty"] {
+            let tmpdir = tempfile::tempdir().unwrap();
             env::set_current_dir(tmpdir.path()).expect("Could not set working directory");
 
             setup(s).expect("Setup failed");
@@ -70,6 +66,5 @@ mod tests {
             assert!(tp_section_path.is_file(), "Missing section.tera.html");
             assert!(tp_nav_path.is_file(), "Missing nav.tera.html");
         }
-
     }
 }

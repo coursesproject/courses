@@ -1,3 +1,4 @@
+use crate::cfg::ProjectConfig;
 use crate::extensions::Preprocessor;
 use crate::parsers::shortcodes::{parse_shortcode, Rule};
 use pulldown_cmark::html::push_html;
@@ -6,7 +7,6 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use tera::Tera;
 use thiserror::Error;
-use crate::cfg::ProjectConfig;
 
 pub enum OutputFormat {
     Markdown,
@@ -33,7 +33,7 @@ enum ShortcodeInfo {
 fn extract_block(start: usize, input: &str) -> Option<ShortcodeInfo> {
     let end = start + input[start..].find("%}")?;
 
-    let end_block = end + (&input[end..]).find("{% end %}")?;
+    let end_block = end + input[end..].find("{% end %}")?;
 
     Some(ShortcodeInfo::Block {
         def: (start, end),
@@ -65,7 +65,7 @@ fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
 }
 
 fn find_next_block(input: &str) -> Option<(usize, usize)> {
-    let start = input.find("`")?;
+    let start = input.find('`')?;
     let end_delim = if input[(start + 1)..].len() > 2 && &input[(start + 1)..(start + 3)] == "``" {
         "```"
     } else {
@@ -103,7 +103,7 @@ pub enum ShortCodeProcessError {
         source: tera::Error,
     },
     // #[error("shortcode syntax error: {}", .0)]
-    Pest(#[from] pest::error::Error<Rule>),
+    Pest(#[from] Box<pest::error::Error<Rule>>),
 }
 
 impl Display for ShortCodeProcessError {
@@ -132,7 +132,11 @@ pub struct ShortCodeProcessor {
 
 impl ShortCodeProcessor {
     pub fn new(tera: Tera, file_ext: String, project_config: ProjectConfig) -> Self {
-        ShortCodeProcessor { tera, file_ext, project_config }
+        ShortCodeProcessor {
+            tera,
+            file_ext,
+            project_config,
+        }
     }
 
     fn render_inline_template(&self, shortcode: &str) -> Result<String, ShortCodeProcessError> {
@@ -160,8 +164,12 @@ impl ShortCodeProcessor {
             context.insert(k, &v);
         }
 
-        let processed =
-            ShortCodeProcessor::new(self.tera.clone(), self.file_ext.clone(), self.project_config.clone()).process(&body)?;
+        let processed = ShortCodeProcessor::new(
+            self.tera.clone(),
+            self.file_ext.clone(),
+            self.project_config.clone(),
+        )
+        .process(body)?;
         let body_final = if self.file_ext == "html" {
             let parser = Parser::new_ext(&processed, Options::all());
             let mut html = String::new();
@@ -185,7 +193,7 @@ impl Preprocessor for ShortCodeProcessor {
 
         let blocks = find_all_blocks(input);
 
-        while rest.len() > 0 {
+        while !rest.is_empty() {
             match find_shortcode(rest) {
                 None => {
                     result.push_str(rest);
@@ -195,15 +203,14 @@ impl Preprocessor for ShortCodeProcessor {
                 Some(info) => {
                     match info {
                         ShortcodeInfo::Inline(start, end) => {
-                            match (&blocks)
-                                .into_iter()
-                                .filter(|(bs, be)| bs < &(start + offset) && be >= &(end + offset))
-                                .next()
+                            match blocks
+                                .iter()
+                                .find(|(bs, be)| bs < &(start + offset) && be >= &(end + offset))
                             {
                                 None => {
                                     let pre = &rest[..start];
                                     let post = &rest[(end + 2)..];
-                                    let tmp_name = (&rest[(start + 2)..(end - 1)]).trim();
+                                    let tmp_name = rest[(start + 2)..(end - 1)].trim();
 
                                     let res = self.render_inline_template(tmp_name)?;
 
@@ -223,17 +230,16 @@ impl Preprocessor for ShortCodeProcessor {
                             }
                         }
                         ShortcodeInfo::Block { def, end } => {
-                            match (&blocks)
-                                .into_iter()
-                                .filter(|(bs, be)| bs < &(def.1 + offset) && be > &(end.0 + offset))
-                                .next()
+                            match blocks
+                                .iter()
+                                .find(|(bs, be)| bs < &(def.1 + offset) && be > &(end.0 + offset))
                             {
                                 None => {
                                     let pre = &rest[..def.0];
                                     let post = &rest[(end.1 + 2)..];
 
-                                    let tmp_name = (&rest[(def.0 + 2)..(def.1 - 1)]).trim();
-                                    let body = (&rest[(def.1 + 2)..end.0]).trim();
+                                    let tmp_name = rest[(def.0 + 2)..(def.1 - 1)].trim();
+                                    let body = rest[(def.1 + 2)..end.0].trim();
 
                                     let res = self.render_block_template(tmp_name, body)?;
 
@@ -262,7 +268,6 @@ impl Preprocessor for ShortCodeProcessor {
         Ok(result)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -293,8 +298,8 @@ mod tests {
                 assert_eq!(def.1, 23);
                 assert_eq!(end.0, 39);
                 assert_eq!(end.1, 46);
-            },
-            ShortcodeInfo::Inline(_, _) => panic!("Wrong code type. Should be block.")
+            }
+            ShortcodeInfo::Inline(_, _) => panic!("Wrong code type. Should be block."),
         }
     }
 
@@ -305,7 +310,8 @@ mod tests {
         let err_inline_start = "This is some text { shortcode(arg=val) }} and some more text";
         let err_inline_start2 = "This is some text shortcode(arg=val) }} and some more text";
 
-        let msg: &str = "Invalid shortcode syntax should return None, but a code was returned instead.";
+        let msg: &str =
+            "Invalid shortcode syntax should return None, but a code was returned instead.";
         assert!(find_shortcode(err_block_end).is_none(), "{}", msg);
         assert!(find_shortcode(err_block_start).is_none(), "{}", msg);
         assert!(find_shortcode(err_inline_start).is_none(), "{}", msg);

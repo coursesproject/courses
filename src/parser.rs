@@ -1,15 +1,15 @@
 use crate::cfg::{DocumentSpec, Format};
 use crate::document::{ConfigureIterator, DocPos, Document, IteratorConfig, PreprocessError};
-use crate::extensions::shortcode_extender::{ShortCodeProcessError};
+use crate::extensions::shortcode_extender::ShortCodeProcessError;
 use crate::extensions::{CodeSplit, Extension, Preprocessor};
 use crate::notebook::Notebook;
 use crate::notebook_writer::{render_markdown, render_notebook};
 use pulldown_cmark::HeadingLevel::H1;
-use pulldown_cmark::{html, Event, Tag, CowStr};
+use pulldown_cmark::{html, CowStr, Event, Tag};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
-use std::io::{Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use yaml_front_matter::YamlFrontMatter;
@@ -62,7 +62,9 @@ fn default_title() -> String {
     "text".to_string()
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct DocumentParsed {
@@ -140,13 +142,13 @@ impl DocParser {
                 // let bf = BufReader::new(File::open(&content_path)?);
                 let nb: Notebook = serde_json::from_str(&buf)?;
                 let meta = nb.get_front_matter()?;
-                self.process(Document::from(nb.clone()), meta)
+                self.process(Document::from(nb), meta)
             }
             Format::Markdown => {
                 let input = fs::read_to_string(&content_path)?;
                 let yml: yaml_front_matter::Document<FrontMatter> =
                     YamlFrontMatter::parse(&input).unwrap(); // TODO: HELP!
-                // let parser = Parser::new_ext(&yml.content, options);
+                                                             // let parser = Parser::new_ext(&yml.content, options);
                 self.process(Document::from(yml.content.clone()), yml.metadata)
             }
         };
@@ -160,10 +162,9 @@ impl DocParser {
         doc: &'a Document,
         meta: FrontMatter,
     ) -> Result<(CodeSplit, Vec<(Event, DocPos)>), crate::extensions::Error> {
-        let mut code_ext = CodeSplit::new(meta.clone());
+        let mut code_ext = CodeSplit::new(meta);
         let iter = doc.configure_iterator(config);
         let iter = iter.map(|v| code_ext.each(v));
-
 
         let v: Vec<(Event, DocPos)> =
             iter.collect::<Result<Vec<(Event, DocPos)>, crate::extensions::Error>>()?;
@@ -190,16 +191,21 @@ impl DocParser {
         //     e => e
         // }, pos));
 
-        let iter = v.into_iter().map(|(e, pos)| (if let Event::Text(txt) = e {
-            let ts = txt.into_string();
-            if &ts == "\\" {
-                Event::Text(CowStr::Boxed("\\\\".to_string().into_boxed_str()))
-            } else {
-                Event::Text(CowStr::Boxed(ts.into_boxed_str()))
-            }
-        } else {
-            e
-        }, pos));
+        let iter = v.into_iter().map(|(e, pos)| {
+            (
+                if let Event::Text(txt) = e {
+                    let ts = txt.into_string();
+                    if &ts == "\\" {
+                        Event::Text(CowStr::Boxed("\\\\".to_string().into_boxed_str()))
+                    } else {
+                        Event::Text(CowStr::Boxed(ts.into_boxed_str()))
+                    }
+                } else {
+                    e
+                },
+                pos,
+            )
+        });
 
         let v: Vec<(Event, DocPos)> = iter.collect();
 
@@ -215,13 +221,13 @@ impl DocParser {
             .html_preprocessors
             .iter()
             .fold(Ok(content.clone()), |content, preprocessor| {
-                content.and_then(|c| c.preprocess(preprocessor))
+                content.and_then(|c| c.preprocess(preprocessor.as_ref()))
             })?;
         let content_md = self
             .md_preprocessors
             .iter()
             .fold(Ok(content), |content, preprocessor| {
-                content.and_then(|c| c.preprocess(preprocessor))
+                content.and_then(|c| c.preprocess(preprocessor.as_ref()))
             })?;
 
         // let mut content_html = content.preprocess(&processor_html)?;
@@ -232,7 +238,10 @@ impl DocParser {
         // let content_md = content.preprocess(&processor_export)?;
 
         let (_code_html, vec_html) = self.process_single(
-            IteratorConfig { include_output: meta.notebook_output, include_solutions: false },
+            IteratorConfig {
+                include_output: meta.notebook_output,
+                include_solutions: false,
+            },
             &content_html,
             meta.clone(),
         )?;
@@ -261,23 +270,14 @@ impl DocParser {
         })
     }
 
-    fn find_header(iter: &Vec<(Event, DocPos)>) -> String {
-        let mut i_tmp = iter.clone().into_iter();
+    fn find_header(iter: &[(Event, DocPos)]) -> String {
+        let mut i_tmp = iter.iter();
         let mut heading = "".to_string();
         while let Some((e, _)) = i_tmp.next() {
-            if let Event::Start(tag) = e {
-                if let Tag::Heading(lvl, _, _) = tag {
-                    match lvl {
-                        H1 => {
-                            if let Some((txt, _)) = i_tmp.next() {
-                                if let Event::Text(actual_text) = txt {
-                                    heading = actual_text.trim().to_string();
-                                    break;
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
+            if let Event::Start(Tag::Heading(H1, _, _)) = e {
+                if let Some((Event::Text(actual_text), _)) = i_tmp.next() {
+                    heading = actual_text.trim().to_string();
+                    break;
                 }
             }
         }

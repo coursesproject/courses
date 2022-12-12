@@ -7,27 +7,26 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
 
-
 /// This is a custom map trait meant for configurations. The structure is preserved and each document
 /// is transformed.
 pub trait Transform<T, I, O> {
     /// Like map but for a configuration.
     fn transform<F>(&self, f: &F) -> T
-        where
-            F: Fn(&DocumentSpec<I>) -> O;
+    where
+        F: Fn(&DocumentSpec<I>) -> O;
 }
 
 /// Convenience trait for a map-function that also has access to the possible parents of a document.
 pub trait TransformParents<T, I, O> {
     /// The inner function receives the parents which are omitted if they don't exist.
     fn transform_parents<F>(&self, f: &F) -> T
-        where
-            F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
 }
 
 impl<D> IntoIterator for Config<D>
-    where
-        D: Clone,
+where
+    D: Clone,
 {
     type Item = ConfigItem<D>;
     type IntoIter = ConfigIterator<D>;
@@ -41,7 +40,6 @@ impl<D> IntoIterator for Config<D>
         }
     }
 }
-
 
 /// Iterates a Config.
 pub struct ConfigIterator<D> {
@@ -82,8 +80,8 @@ impl<D> ConfigItem<D> {
 
     /// Perform operation on the inner document, then return the result wrapped in a ConfigItem.
     pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
-        where
-            F: Fn(&D) -> anyhow::Result<O>,
+    where
+        F: Fn(&D) -> anyhow::Result<O>,
     {
         let doc = DocumentSpec {
             id: self.doc.id,
@@ -103,8 +101,8 @@ impl<D> ConfigItem<D> {
 
     /// Perform operation on the whole DocumentSpec.
     pub fn map_doc<O, F, E>(self, f: F) -> Result<ConfigItem<O>, E>
-        where
-            F: Fn(DocumentSpec<D>) -> Result<O, E>,
+    where
+        F: Fn(DocumentSpec<D>) -> Result<O, E>,
     {
         let doc = DocumentSpec {
             id: self.doc.id.clone(),
@@ -129,7 +127,7 @@ impl<D> ConfigItem<D> {
 
 /// Collect iterator of ConfigItem into Config (tree structure).
 impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
-    fn from_iter<T: IntoIterator<Item=ConfigItem<D>>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = ConfigItem<D>>>(iter: T) -> Self {
         // let mut index = it.next().unwrap().doc;
         let mut index: DocumentSpec<D> = DocumentSpec {
             id: "".to_string(),
@@ -185,15 +183,15 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
 
         Config {
             project_path: Default::default(),
-            index: index,
+            index,
             content: parts,
         }
     }
 }
 
 impl<D> Iterator for ConfigIterator<D>
-    where
-        D: Clone,
+where
+    D: Clone,
 {
     type Item = ConfigItem<D>;
 
@@ -219,7 +217,7 @@ impl<D> Iterator for ConfigIterator<D>
                 match current_chapter_pos {
                     0 => {
                         // Part index
-                        if part.chapters.len() == 0 {
+                        if part.chapters.is_empty() {
                             self.part_pos += 1;
                         } else {
                             self.chapter_pos += 1;
@@ -355,7 +353,7 @@ impl BuildConfigSet {
         match mode {
             "dev" => Ok(self.dev.clone()),
             "release" => Ok(self.release.clone()),
-            _ => Err(anyhow!("Invalid build mode"))
+            _ => Err(anyhow!("Invalid build mode")),
         }
     }
 }
@@ -364,11 +362,9 @@ impl Default for BuildConfigSet {
     fn default() -> Self {
         BuildConfigSet {
             dev: BuildConfig {
-                katex_output: false
+                katex_output: false,
             },
-            release: BuildConfig {
-                katex_output: true
-            },
+            release: BuildConfig { katex_output: true },
         }
     }
 }
@@ -380,8 +376,8 @@ pub struct BuildConfig {
 
 impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
     fn transform<F>(&self, f: &F) -> Chapter<O>
-        where
-            F: Fn(&DocumentSpec<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         Chapter {
             id: self.id.clone(),
@@ -394,18 +390,18 @@ impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
 
 impl<I> Chapter<I> {
     fn transform_parents_helper<F, O>(&self, part: &Part<I>, f: &F) -> Chapter<O>
-        where
-            F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Chapter {
             id: self.id.clone(),
             index: self
                 .index
-                .transform_parents_helper(Some(part), Some(&self), f),
+                .transform_parents_helper(Some(part), Some(self), f),
             documents: self
                 .documents
                 .iter()
-                .map(|d| d.transform_parents_helper(Some(part), Some(&self), f))
+                .map(|d| d.transform_parents_helper(Some(part), Some(self), f))
                 .collect(),
             files: self.files.clone(),
         }
@@ -414,8 +410,8 @@ impl<I> Chapter<I> {
 
 impl<I, O> Transform<Part<O>, I, O> for Part<I> {
     fn transform<F>(&self, f: &F) -> Part<O>
-        where
-            F: Fn(&DocumentSpec<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         Part {
             id: self.id.clone(),
@@ -427,8 +423,8 @@ impl<I, O> Transform<Part<O>, I, O> for Part<I> {
 
 impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
     fn transform_parents<F>(&self, f: &F) -> Part<O>
-        where
-            F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Part {
             id: self.id.clone(),
@@ -436,7 +432,7 @@ impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
             chapters: self
                 .chapters
                 .iter()
-                .map(|c| c.transform_parents_helper(&self, f))
+                .map(|c| c.transform_parents_helper(self, f))
                 .collect(),
         }
     }
@@ -444,8 +440,8 @@ impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
 
 impl<I, O> Transform<Config<O>, I, O> for Config<I> {
     fn transform<F>(&self, f: &F) -> Config<O>
-        where
-            F: Fn(&DocumentSpec<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         Config {
             project_path: self.project_path.clone(),
@@ -457,8 +453,8 @@ impl<I, O> Transform<Config<O>, I, O> for Config<I> {
 
 impl<I, O> TransformParents<Config<O>, I, O> for Config<I> {
     fn transform_parents<F>(&self, f: &F) -> Config<O>
-        where
-            F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Config {
             project_path: self.project_path.clone(),
@@ -474,8 +470,8 @@ impl<I, O> TransformParents<Config<O>, I, O> for Config<I> {
 
 impl<I, O> Transform<DocumentSpec<O>, I, O> for DocumentSpec<I> {
     fn transform<F>(&self, f: &F) -> DocumentSpec<O>
-        where
-            F: Fn(&DocumentSpec<I>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>) -> O,
     {
         DocumentSpec {
             id: self.id.clone(),
@@ -493,8 +489,8 @@ impl<I> DocumentSpec<I> {
         chapter: Option<&Chapter<I>>,
         f: &F,
     ) -> DocumentSpec<O>
-        where
-            F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+    where
+        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         DocumentSpec {
             id: self.id.clone(),
@@ -522,7 +518,7 @@ pub fn section_id<P: AsRef<Path>>(path: P) -> Option<String> {
         path.as_ref()
             .file_name()?
             .to_str()?
-            .split(".")
+            .split('.')
             .into_iter()
             .next()?
             .to_string(),
@@ -537,7 +533,8 @@ fn chapter_id<P: AsRef<Path>>(path: P) -> Option<String> {
 impl DocumentSpec<()> {
     fn new<P: AsRef<Path>>(section_path: P) -> anyhow::Result<Self> {
         Ok(DocumentSpec {
-            id: section_id(section_path.as_ref()).ok_or(anyhow!("Could not get raw file name"))?,
+            id: section_id(section_path.as_ref())
+                .ok_or_else(|| anyhow!("Could not get raw file name"))?,
             path: section_path.as_ref().to_path_buf(),
             format: Format::from_path(section_path)?,
             content: Arc::new(()),
@@ -596,7 +593,8 @@ impl Chapter<()> {
             })
             .filter(|entry| !entry.file_name().to_str().unwrap().contains("index"))
             .filter(|entry| entry.metadata().map(|meta| meta.is_file()).is_ok())
-            .map(|entry| entry.path()).collect();
+            .map(|entry| entry.path())
+            .collect();
 
         let documents: Vec<DocumentSpec<()>> = paths
             .map(|entry| DocumentSpec::new(entry.path().strip_prefix(content_path.as_ref())?))
@@ -605,7 +603,7 @@ impl Chapter<()> {
         let index_doc = index_helper(&chapter_dir, &content_path);
 
         Ok(Chapter {
-            id: chapter_id(chapter_dir).ok_or(anyhow!("Can't get chapter id"))?,
+            id: chapter_id(chapter_dir).ok_or_else(|| anyhow!("Can't get chapter id"))?,
             index: index_doc?,
             documents,
             files: file_paths,
@@ -615,7 +613,7 @@ impl Chapter<()> {
 
 impl Part<()> {
     fn new<P: AsRef<Path>, PC: AsRef<Path>>(dir: P, content_path: PC) -> anyhow::Result<Self> {
-        let part_folder = chapter_id(&dir).ok_or(anyhow!("Can't get part id"))?;
+        let part_folder = chapter_id(&dir).ok_or_else(|| anyhow!("Can't get part id"))?;
         // let part_dir = dir.as_ref().join(&part_folder);
 
         let chapters = get_sorted_paths(&dir)?
@@ -666,11 +664,10 @@ impl Config<()> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::iter::zip;
     use super::*;
+    use std::iter::zip;
 
     #[test]
     fn gen_config_from_dir() {
@@ -695,25 +692,31 @@ mod tests {
         let cfg = Config {
             project_path: Default::default(),
             index: doc.clone(),
-            content: vec![Part {
-                id: "part1".to_string(),
-                index: doc.clone(),
-                chapters: vec![Chapter {
-                    id: "chapter1".to_string(),
+            content: vec![
+                Part {
+                    id: "part1".to_string(),
                     index: doc.clone(),
-                    documents: vec![doc.clone(), doc.clone()],
-                    files: vec![PathBuf::new()],
-                }, Chapter {
-                    id: "chapter2".to_string(),
-                    index: doc.clone(),
-                    documents: vec![doc.clone(), doc.clone()],
-                    files: vec![PathBuf::new()],
-                }],
-            }, Part {
-                id: "part2".to_string(),
-                index: doc.clone(),
-                chapters: vec![],
-            }],
+                    chapters: vec![
+                        Chapter {
+                            id: "chapter1".to_string(),
+                            index: doc.clone(),
+                            documents: vec![doc.clone(), doc.clone()],
+                            files: vec![PathBuf::new()],
+                        },
+                        Chapter {
+                            id: "chapter2".to_string(),
+                            index: doc.clone(),
+                            documents: vec![doc.clone(), doc.clone()],
+                            files: vec![PathBuf::new()],
+                        },
+                    ],
+                },
+                Part {
+                    id: "part2".to_string(),
+                    index: doc,
+                    chapters: vec![],
+                },
+            ],
         };
 
         let cfg_mapped: Config<()> = cfg.clone().into_iter().collect();

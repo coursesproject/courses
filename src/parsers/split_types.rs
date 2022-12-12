@@ -71,7 +71,7 @@ where
     T: Output,
 {
     fn write_string(&self, solution: bool) -> String {
-        self.into_iter()
+        self.iter()
             .map(|v| v.write_string(solution))
             .collect::<Vec<String>>()
             .join("")

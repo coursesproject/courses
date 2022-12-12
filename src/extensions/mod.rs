@@ -3,7 +3,7 @@ pub mod shortcode_extender;
 
 use crate::document::DocPos;
 use crate::extensions::Error::CodeParseError;
-use crate::parser::{FrontMatter};
+use crate::parser::FrontMatter;
 use crate::parsers::split::{human_errors, parse_code_string, Rule};
 use crate::parsers::split_types::CodeTaskDefinition;
 use pulldown_cmark::CodeBlockKind::Fenced;
@@ -22,7 +22,7 @@ pub trait Extension<'a> {
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("code split syntax error at {}: {}", .1, .0)]
-    CodeParseError(#[source] pest::error::Error<Rule>, DocPos),
+    CodeParseError(#[source] Box<pest::error::Error<Rule>>, DocPos),
     #[error("could not parse attributes: {}", .0)]
     AttrParseError(#[from] toml::de::Error),
 }
@@ -74,8 +74,8 @@ impl<'a> Extension<'a> for CodeSplit {
                         // self.code_started = true;
                         // TODO: Find other way to test the attribute string (possibly parse it)
                         if let CodeBlockKind::Fenced(attr_str) = attribute_string {
-                            let res = if attr_str.find(",").is_some() {
-                                let formatted = attr_str.clone().replace(",", "\n");
+                            let res = if attr_str.find(',').is_some() {
+                                let formatted = attr_str.clone().replace(',', "\n");
                                 let attrs: CodeAttrs = toml::from_str(&formatted)?;
                                 self.code_started = attrs.perform_split;
                                 Ok((
@@ -116,9 +116,8 @@ impl<'a> Extension<'a> for CodeSplit {
                                     event.1.clone(),
                                 )
                             })
-                            .map_err(|e| human_errors(e))
+                            .map_err(|e| human_errors(*e))
                             .map_err(|e| CodeParseError(e, event.1))?)
-
                     } else {
                         Ok((Event::Text(txt), event.1))
                     }
@@ -130,7 +129,4 @@ impl<'a> Extension<'a> for CodeSplit {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-}
+mod tests {}

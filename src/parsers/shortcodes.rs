@@ -10,11 +10,11 @@ pub struct ShortCode {
     pub(crate) parameters: HashMap<String, String>,
 }
 
-pub fn parse_shortcode(content: &str) -> Result<ShortCode, pest::error::Error<Rule>> {
+pub fn parse_shortcode(content: &str) -> Result<ShortCode, Box<pest::error::Error<Rule>>> {
     let padded = content.to_string();
     let p = ShortCodeParser::parse(Rule::p, &padded)?;
 
-    let mut iter = p.into_iter();
+    let mut iter = p;
     let name = iter.next().expect("Missing name").as_str().to_string();
 
     let mut parameters = HashMap::new();

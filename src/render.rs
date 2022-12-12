@@ -4,7 +4,7 @@ use crate::pipeline::DocumentConfig;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::BufReader;
-use std::path::{Path};
+use std::path::Path;
 use tera::Tera;
 use thiserror::Error;
 
@@ -18,7 +18,7 @@ impl HtmlRenderer {
         let path_str = project_path
             .as_ref()
             .to_str()
-            .ok_or(anyhow!("Invalid path"))?;
+            .ok_or_else(|| anyhow!("Invalid path"))?;
         let pattern = path_str.to_string() + "/templates/**/*.tera.html";
 
         let config_path = project_path.as_ref().join("config.yml");

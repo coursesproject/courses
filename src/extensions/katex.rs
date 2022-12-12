@@ -16,7 +16,7 @@ impl KaTeXPreprocessor {
 }
 
 fn find_block(input: &str) -> Option<(usize, usize, usize)> {
-    let begin = input.find("$")?;
+    let begin = input.find('$')?;
     let end_delim = if &input[(begin + 1)..(begin + 2)] == "$" {
         "$$"
     } else {
@@ -33,7 +33,7 @@ impl Preprocessor for KaTeXPreprocessor {
         let mut rest = input;
         let mut res = String::new();
 
-        while rest.len() > 0 {
+        while !rest.is_empty() {
             match find_block(rest) {
                 Some((begin, end, delim_len)) => {
                     let pre = &rest[..begin];
@@ -43,7 +43,7 @@ impl Preprocessor for KaTeXPreprocessor {
 
                     let mut opts = self.opts.clone();
                     opts.set_display_mode(delim_len == 2);
-                    let ktex = katex::render_with_opts(&source, opts)?;
+                    let ktex = katex::render_with_opts(source, opts)?;
 
                     res.push_str(pre);
                     res.push_str(&ktex);

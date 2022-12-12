@@ -1,8 +1,8 @@
+use crate::document::DocPos;
 use crate::notebook::*;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use std::collections::HashMap;
 use std::io;
-use crate::document::DocPos;
 
 enum CellType {
     Markdown,
@@ -105,10 +105,10 @@ where
             Tag::TableHead => {}
             Tag::TableRow => {}
             Tag::TableCell => {}
-            Tag::Emphasis => self.cell_source.push_str("*"),
+            Tag::Emphasis => self.cell_source.push('*'),
             Tag::Strong => self.cell_source.push_str("__"),
             Tag::Strikethrough => {}
-            Tag::Link(_, _, _) => self.cell_source.push_str("["),
+            Tag::Link(_, _, _) => self.cell_source.push('['),
             Tag::Image(_, _, _) => {}
         }
         Ok(())
@@ -135,17 +135,17 @@ where
                     }
                 }
             },
-            Tag::Paragraph => self.cell_source.push_str("\n"),
+            Tag::Paragraph => self.cell_source.push('\n'),
             Tag::Heading(_, _, _) => self.cell_source.push_str("\n\n"),
             Tag::BlockQuote => {}
-            Tag::List(_) => self.cell_source.push_str("\n"),
-            Tag::Item => self.cell_source.push_str("\n"),
+            Tag::List(_) => self.cell_source.push('\n'),
+            Tag::Item => self.cell_source.push('\n'),
             Tag::FootnoteDefinition(_) => {}
             Tag::Table(_) => {}
             Tag::TableHead => {}
             Tag::TableRow => {}
             Tag::TableCell => {}
-            Tag::Emphasis => self.cell_source.push_str("*"),
+            Tag::Emphasis => self.cell_source.push('*'),
             Tag::Strong => self.cell_source.push_str("__"),
             Tag::Strikethrough => {}
             Tag::Link(_type, dest, title) => {
@@ -169,11 +169,11 @@ where
                     } else {
                         self.cell_source.push_str(&ts)
                     }
-                },
+                }
                 Event::Code(_) => {}
                 Event::Html(text) => self.cell_source.push_str(&text.into_string()),
                 Event::FootnoteReference(_) => {}
-                Event::SoftBreak => self.cell_source.push_str("\n"),
+                Event::SoftBreak => self.cell_source.push('\n'),
                 Event::HardBreak => self.cell_source.push_str("\n\n"),
                 Event::Rule => {}
                 Event::TaskListMarker(_) => {}
@@ -251,10 +251,10 @@ where
             Tag::TableHead => {}
             Tag::TableRow => {}
             Tag::TableCell => {}
-            Tag::Emphasis => self.source.push_str("*"),
+            Tag::Emphasis => self.source.push('*'),
             Tag::Strong => self.source.push_str("__"),
             Tag::Strikethrough => {}
-            Tag::Link(_, _, _) => self.source.push_str("["),
+            Tag::Link(_, _, _) => self.source.push('['),
             Tag::Image(_, _, _) => {}
         }
         Ok(())
@@ -263,17 +263,17 @@ where
     fn end_tag(&mut self, tag: Tag<'a>) -> io::Result<()> {
         match tag {
             Tag::CodeBlock(_) => self.source.push_str("\n```\n"),
-            Tag::Paragraph => self.source.push_str("\n"),
+            Tag::Paragraph => self.source.push('\n'),
             Tag::Heading(_, _, _) => self.source.push_str("\n\n"),
             Tag::BlockQuote => {}
-            Tag::List(_) => self.source.push_str("\n"),
-            Tag::Item => self.source.push_str("\n"),
+            Tag::List(_) => self.source.push('\n'),
+            Tag::Item => self.source.push('\n'),
             Tag::FootnoteDefinition(_) => {}
             Tag::Table(_) => {}
             Tag::TableHead => {}
             Tag::TableRow => {}
             Tag::TableCell => {}
-            Tag::Emphasis => self.source.push_str("*"),
+            Tag::Emphasis => self.source.push('*'),
             Tag::Strong => self.source.push_str("__"),
             Tag::Strikethrough => {}
             Tag::Link(_type, dest, title) => {
@@ -297,11 +297,11 @@ where
                     } else {
                         self.source.push_str(&ts)
                     }
-                },
+                }
                 Event::Code(_) => {}
                 Event::Html(text) => self.source.push_str(&text.into_string()),
                 Event::FootnoteReference(_) => {}
-                Event::SoftBreak => self.source.push_str("\n"),
+                Event::SoftBreak => self.source.push('\n'),
                 Event::HardBreak => self.source.push_str("\n\n"),
                 Event::Rule => {}
                 Event::TaskListMarker(_) => {}

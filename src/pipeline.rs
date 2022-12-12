@@ -13,12 +13,12 @@ use std::sync::Arc;
 use crate::extensions::katex::KaTeXPreprocessor;
 use crate::extensions::shortcode_extender::ShortCodeProcessor;
 use crate::extensions::Preprocessor;
-use crate::render::HtmlRenderError::TemplateError;
-use katex::{Opts};
-use tera::Tera;
-use termion::{color, style};
 use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
+use crate::render::HtmlRenderError::TemplateError;
+use katex::Opts;
+use tera::Tera;
+use termion::{color, style};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DocumentConfig {
@@ -52,7 +52,7 @@ impl Pipeline {
 
     fn parse(&self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
         let pattern = self.project_path.as_path().to_str().unwrap().to_string()
-            + &format!("/templates/shortcodes/**/*");
+            + "/templates/shortcodes/**/*";
         let tera = Tera::new(&pattern)?;
 
         let mut html_preprocessors: Vec<Box<dyn Preprocessor>> = Vec::new();
@@ -61,10 +61,17 @@ impl Pipeline {
         if build_config.katex_output {
             html_preprocessors.push(Box::new(KaTeXPreprocessor::new(Opts::default())));
         }
-        html_preprocessors.push(Box::new(ShortCodeProcessor::new(tera.clone(), "html".to_string(), self.project_config.clone())));
+        html_preprocessors.push(Box::new(ShortCodeProcessor::new(
+            tera.clone(),
+            "html".to_string(),
+            self.project_config.clone(),
+        )));
 
-        let md_preprocessors: Vec<Box<dyn Preprocessor>> =
-            vec![Box::new(ShortCodeProcessor::new(tera, "md".to_string(), self.project_config.clone()))];
+        let md_preprocessors: Vec<Box<dyn Preprocessor>> = vec![Box::new(ShortCodeProcessor::new(
+            tera,
+            "md".to_string(),
+            self.project_config.clone(),
+        ))];
 
         let mut parser = DocParser::new(
             self.project_path.clone(),
@@ -95,7 +102,7 @@ impl Pipeline {
         let mut doc_iter = doc_path.iter();
         let el = doc_iter.next().unwrap().to_str().unwrap();
 
-        let doc = if el.contains(".") {
+        let doc = if el.contains('.') {
             &config.index
         } else {
             let first_elem = doc_iter.next().unwrap().to_str().unwrap();
@@ -103,23 +110,18 @@ impl Pipeline {
             // let file_name = doc_iter.next().unwrap().to_str().unwrap();
             let file_id = section_id(path.as_ref()).unwrap();
 
-            let part: &Part<()> = &config
-                .content
-                .iter()
-                .filter(|e| &e.id == el)
-                .next()
-                .unwrap();
-            let elem = part.chapters.iter().filter(|c| &c.id == first_elem).next();
+            let part: &Part<()> = config.content.iter().find(|e| e.id == el).unwrap();
+            let elem = part.chapters.iter().find(|c| c.id == first_elem);
             part_id = Some(part.id.clone());
 
             match elem {
                 None => &part.index,
                 Some(c) => {
                     chapter_id = Some(c.id.clone());
-                    let doc = c.documents.iter().filter(|d| d.id == file_id).next();
+                    let doc = c.documents.iter().find(|d| d.id == file_id);
                     match doc {
                         None => &c.index,
-                        Some(d) => &d,
+                        Some(d) => d,
                     }
                 }
             }
@@ -149,8 +151,14 @@ impl Pipeline {
                 // fs::create_dir_all(build_dir)?;
                 // fs::write(section_build_path, html).unwrap();
 
-                self.write_html(&parsed_doc, &part_id, &chapter_id, build_config, &basebuild_path)
-                    .unwrap(); // TODO: Error handling
+                self.write_html(
+                    &parsed_doc,
+                    &part_id,
+                    &chapter_id,
+                    build_config,
+                    &basebuild_path,
+                )
+                .unwrap(); // TODO: Error handling
                 self.write_notebook(&parsed_doc, &basebuild_path).unwrap(); // TODO: Error handling
 
                 println!("🔔 Document {} changed, re-rendered output", doc.id);
@@ -165,15 +173,11 @@ impl Pipeline {
         &mut self,
         config: Config<()>,
     ) -> anyhow::Result<Config<DocumentConfig>> {
-
-
-
         println!("[2/4] 📖 Parsing source documents...");
-
-        let parsed: Config<DocumentParsed> = config.clone()
+        let parsed: Config<DocumentParsed> = config
+            .clone()
             .into_iter()
-            .map(|item| {
-
+            .filter_map(|item| {
                 let res = item.map_doc(|doc| self.parse(&doc));
                 let res = match res {
                     Ok(i) => Some(i),
@@ -197,7 +201,6 @@ impl Pipeline {
                 };
                 res
             })
-            .filter_map(|res| res)
             .collect::<Config<DocumentParsed>>();
 
         // Work on how to create build configuration
@@ -209,7 +212,7 @@ impl Pipeline {
                 item.map_doc(|doc| {
                     let c = doc.content;
                     Ok(DocumentConfig {
-                        id: doc.id.clone(),
+                        id: doc.id,
                         header: c.title.clone(),
                         frontmatter: c.frontmatter.clone(),
                     })
@@ -239,13 +242,19 @@ impl Pipeline {
             .collect::<anyhow::Result<Vec<()>>>()?;
 
         println!("[4/4] 🌼 Rendering output...");
-        let html_results_filtered: Vec<ConfigItem<DocumentParsed>> = parsed
-            .clone()
+        let html_results_filtered = parsed
             .into_iter()
             .map(|item| {
-                if item.doc.content.frontmatter.output.web { // Only output if active (TODO: Don't parse html if not necessary)
-                    self.write_html(&item.doc, &item.part_id, &item.chapter_id, &build_config, &build_path)
-                        .map(|_| item)
+                if item.doc.content.frontmatter.output.web {
+                    // Only output if active (TODO: Don't parse html if not necessary)
+                    self.write_html(
+                        &item.doc,
+                        &item.part_id,
+                        &item.chapter_id,
+                        &build_config,
+                        &build_path,
+                    )
+                    .map(|_| item)
                 } else {
                     Ok(item)
                 }
@@ -273,13 +282,10 @@ impl Pipeline {
                     }
                     None
                 }
-            })
-            .collect();
-
+            });
 
         let _md_errors: Vec<ConfigItem<DocumentParsed>> = html_results_filtered
             // .clone()
-            .into_iter()
             .map(|item| self.write_markdown(&item.doc, &build_path).map(|_| item))
             .filter_map(|result| match result {
                 Ok(i) => Some(i),
@@ -297,27 +303,31 @@ impl Pipeline {
 
         for part in config.content {
             for chapter in part.chapters {
-                chapter.files.into_iter().map(|path| {
-                    let relative = path.strip_prefix(self.project_path.as_path().join("content"))?;
-                    // let web_path = build_path.as_path().join("web");
-                    let source_path = build_path.as_path().join("source");
+                chapter
+                    .files
+                    .into_iter()
+                    .map(|path| {
+                        let relative =
+                            path.strip_prefix(self.project_path.as_path().join("content"))?;
+                        // let web_path = build_path.as_path().join("web");
+                        let source_path = build_path.as_path().join("source");
 
-                    let to_path = source_path.join(relative);
-                    let mut to_dir = to_path.clone();
-                    to_dir.pop();
+                        let to_path = source_path.join(relative);
+                        let mut to_dir = to_path.clone();
+                        to_dir.pop();
 
-                    fs::create_dir_all(to_dir)?;
+                        fs::create_dir_all(to_dir)?;
 
+                        let content = fs::read_to_string(path.as_path())?;
+                        let task = parse_code_string(&content)?;
+                        let out = task.write_string(false);
 
-                    let content = fs::read_to_string(path.as_path())?;
-                    let task = parse_code_string(&content)?;
-                    let out = task.write_string(false);
+                        fs::write(to_path, out)?;
 
-                    fs::write(to_path, out)?;
-
-                    // fs::copy(path.as_path(), to_path)?;
-                    Ok(())
-                }).collect::<anyhow::Result<Vec<()>>>()?;
+                        // fs::copy(path.as_path(), to_path)?;
+                        Ok(())
+                    })
+                    .collect::<anyhow::Result<Vec<()>>>()?;
             }
         }
 
@@ -326,8 +336,6 @@ impl Pipeline {
 
         fs::create_dir_all(resource_path_build_web.as_path())?;
         fs_extra::copy_items(&[resource_path], path_web, &options)?;
-
-
 
         Ok(build_config)
     }
@@ -372,7 +380,7 @@ impl Pipeline {
     ) -> Result<(), HtmlRenderError> {
         let output = self
             .renderer
-            .render_document(&doc.content, &doc.id, part_id, chapter_id, &build_config)
+            .render_document(&doc.content, &doc.id, part_id, chapter_id, build_config)
             .map_err(|e| TemplateError(e, doc.path.to_str().unwrap().to_string()))?;
 
         let mut html_build_dir = build_path.as_ref().join("web").join(&doc.path);
