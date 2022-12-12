@@ -4,10 +4,12 @@ title: Shortcodes
 
 # Shortcodes
 
-Markdown is intentionally limiting in its functionality (REF). Therefore, like most other static-site generators,
-`courses` supports a special syntax called shortcodes for adding components to your markup. A number of built-in
+Markdown is intentionally limiting in its functionality. Therefore, like most other static-site generators,
+`courses` supports a special syntax - called *shortcodes* - for adding components to your markup. A number of built-in
 shortcodes provide basic features like figures and admonitions. Custom shortcodes can easily be added to any project
 to extend the functionality.
+
+Courses supports multiple output formats for shortcodes depending on context. This makes it easy to make shortcodes compatible with both html-output and the markdown output in notebooks. 
 
 ## Syntax
 
@@ -26,7 +28,7 @@ Valid markdown markup
 ```
 
 The inline variant simply renders the shortcode template with the provided argument values and replaces the shortcode
-with the html output.
+with the html or markdown output.
 
 The block variant makes it possible to use Markdown content in the template. The markup inside the block delimiters
 is pre-rendered as html and then passed to the shortcode's template in the `body` parameter. *As a result, shortcodes
@@ -66,6 +68,13 @@ Produces a figure for the webpage and a regular markdown image for the notebook.
 - `width` (optional): Css width property. Any valid css width is valid here.
 - `caption`: Figure caption.
 
+**Markdown/notebook output:**
+For notebooks, this shortcode produces a regular markdown image code. The template code is:
+
+```markdown
+\![{{caption}}]({{project.url_prefix}}/resources/{{url}})
+```
+
 ### Message
 
 {% message(color=info, title="Optional title") %}
@@ -87,6 +96,7 @@ Message box
 - `color`: Bulma color class to use for the box. Bulma is the css library used for the default layout. See
   the [Bulma documentation](https://bulma.io/documentation/overview/colors/) for a list of valid values.
 - `title` (optional): Box title. If not provided, the title will be a capitalized version of the `color` value.
+
 
 ## Custom shortcodes
 

@@ -4,10 +4,10 @@ layout:
     hide_sidebar: true
 ---
 
-{{ hero(title="Courses", subtitle="A publishing system for interactive content") }}
 
-<br/>
-<br/>
+{{ image(url=logo.svg) }}
+
+{{ hero(title="Courses", subtitle="A publishing system for interactive content") }}
 
 ## Features
 

@@ -4,9 +4,9 @@ code_split: false
 ---
 
 # Code tools
-Courses allows you to write solutions to code exercises inline with the same exercise text and placeholder code that should be published. It also allows you to configure automated export to several formats (e.g. HTML for the webpage and Jupyter Notebooks to be used for exercises). More than any other features, these make Courses distinct from similar tools.
+Courses allows you to tag source code blocks using a special syntax hiding in the comments of the host language (so far only Python is supported, but this will change soon). So far, the placeholder/solution syntax is the only fully implemented function and it makes it possible to define a single source for documents that contain elements that have to be hidden from the recipients. 
 
-It allows you to focus on writing content instead of managing and setting up individual tools.
+*This concept is planned to be expanded to support automatic testing of solutions and grading of user submitted code.*
 
 
 ## Exercise definitions
