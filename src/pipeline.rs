@@ -219,7 +219,10 @@ impl Pipeline {
 
         let build_path = self.project_path.join("build");
 
-        fs::remove_dir_all(build_path.as_path())?;
+        if build_path.as_path().exists() {
+            fs::remove_dir_all(build_path.as_path())?;
+        }
+
         fs::create_dir(build_path.as_path())?;
 
         println!("[X/4] Writing notebooks...");
