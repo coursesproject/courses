@@ -3,6 +3,7 @@
 
 #[macro_use]
 extern crate pest_derive;
+extern crate core;
 
 pub mod cfg;
 mod document;
@@ -26,7 +27,6 @@ mod tests {
     fn test_parse() {
         let str = include_str!("../resources/test/sample.py");
         let doc = parse_code_string(str).unwrap();
-        println!("{:?}", doc);
     }
 
     #[test]
@@ -36,8 +36,6 @@ mod tests {
 
         let output_solution = doc.write_string(true);
         let output_placeholder = doc.write_string(false);
-        println!("{:?}", output_solution);
-        println!("{:?}", output_placeholder);
     }
 
     #[test]
@@ -46,6 +44,5 @@ mod tests {
         let doc = parse_code_string(str).unwrap();
 
         let res = serde_json::to_string(&doc).unwrap();
-        println!("{:#?}", res);
     }
 }

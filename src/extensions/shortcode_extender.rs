@@ -262,3 +262,53 @@ impl Preprocessor for ShortCodeProcessor {
         Ok(result)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_inline() {
+        let input = "This is some text {{ shortcode(arg=val) }} and some more text";
+        let spec = find_shortcode(input).expect("Shortcode not found");
+
+        match spec {
+            ShortcodeInfo::Block { .. } => panic!("Wrong code type. Should be inline"),
+            ShortcodeInfo::Inline(start, end) => {
+                assert_eq!(start, 18);
+                assert_eq!(end, 40);
+            }
+        }
+    }
+
+    #[test]
+    fn test_extract_block() {
+        let input = "This {% block(arg=val) %} is some text {% end %} and some more text";
+        let spec = find_shortcode(input).expect("Shortcode not found");
+
+        match spec {
+            ShortcodeInfo::Block { def, end } => {
+                assert_eq!(def.0, 5);
+                assert_eq!(def.1, 23);
+                assert_eq!(end.0, 39);
+                assert_eq!(end.1, 46);
+            },
+            ShortcodeInfo::Inline(_, _) => panic!("Wrong code type. Should be block.")
+        }
+    }
+
+    #[test]
+    fn test_block_error() {
+        let err_block_end = "This {% block(arg=val) %} is some text {% end and some more text";
+        let err_block_start = "This {% block(arg=val) is some text {% end %} and some more text";
+        let err_inline_start = "This is some text { shortcode(arg=val) }} and some more text";
+        let err_inline_start2 = "This is some text shortcode(arg=val) }} and some more text";
+
+        let msg: &str = "Invalid shortcode syntax should return None, but a code was returned instead.";
+        assert!(find_shortcode(err_block_end).is_none(), "{}", msg);
+        assert!(find_shortcode(err_block_start).is_none(), "{}", msg);
+        assert!(find_shortcode(err_inline_start).is_none(), "{}", msg);
+        assert!(find_shortcode(err_inline_start2).is_none(), "{}", msg);
+    }
+}

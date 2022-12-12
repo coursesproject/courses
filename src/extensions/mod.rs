@@ -132,7 +132,5 @@ impl<'a> Extension<'a> for CodeSplit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::builder_old::Builder;
-    use crate::cfg::Format;
-    use crate::config::Document;
+
 }

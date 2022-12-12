@@ -398,24 +398,6 @@ impl Notebook {
     }
 }
 
-//
-// impl<'a> IntoIterator for &'a Cell {
-//     type Item = Event<'a>;
-//     type IntoIter = Parser<'a, 'a>;
-//
-//     fn into_iter(self) -> Self::IntoIter {
-//         match self {
-//             Cell::Markdown { common } => {
-//                 Parser::new(&common.source)
-//             }
-//             Cell::Code { common, .. } => {
-//
-//             }
-//             _ => Parser::new("")
-//         }
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use crate::notebook::Notebook;
@@ -443,7 +425,7 @@ mod tests {
         let nb: Notebook = serde_json::from_reader(bf).expect("Deserialization failed");
 
         let mut html_output = String::new();
-        html::push_html(&mut html_output, nb.into_iter());
+        html::push_html(&mut html_output, nb.into_iter().map(|(e, _)| e));
 
         // println!("{}", html_output);
     }
