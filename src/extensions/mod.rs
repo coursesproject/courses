@@ -6,7 +6,6 @@ use crate::extensions::Error::CodeParseError;
 use crate::parser::FrontMatter;
 use crate::parsers::split::{human_errors, parse_code_string, Rule};
 use crate::parsers::split_types::CodeTaskDefinition;
-use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -16,6 +15,10 @@ pub trait Preprocessor {
 }
 
 pub trait Extension<'a> {
+    fn process<I: Iterator<Item = (Event<'a>, DocPos)>>(
+        &mut self,
+        iter: I,
+    ) -> Result<Vec<(Event<'a>, DocPos)>, Error>;
     fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error>;
 }
 
@@ -64,6 +67,60 @@ fn default_split() -> bool {
 }
 
 impl<'a> Extension<'a> for CodeSplit {
+    fn process<I: Iterator<Item = (Event<'a>, DocPos)>>(
+        &mut self,
+        iter: I,
+    ) -> Result<Vec<(Event<'a>, DocPos)>, Error> {
+        let mut code_block = false;
+        let mut source = "".to_string();
+        let mut code_attr = String::new();
+
+        iter.flat_map(|(event, pos)| match &event {
+            Event::Start(tag) => {
+                if let Tag::CodeBlock(CodeBlockKind::Fenced(attr)) = &tag {
+                    code_block = true;
+                    code_attr = attr.to_string();
+                }
+                vec![Ok((Event::Start(tag.clone()), pos))]
+            }
+            Event::End(tag) => {
+                if let Tag::CodeBlock(CodeBlockKind::Fenced(_)) = tag {
+                    // TODO: Here
+                    let res = parse_code_string(source.clone().as_ref());
+                    code_block = false;
+                    source = String::new();
+                    match res {
+                        Ok(doc) => {
+                            let (placeholder, _solution) = doc.split();
+                            vec![
+                                Ok((
+                                    Event::Text(CowStr::Boxed(
+                                        placeholder.trim().to_string().into_boxed_str(),
+                                    )),
+                                    pos.clone(),
+                                )),
+                                Ok((Event::End(tag.clone()), pos)),
+                            ]
+                        }
+                        Err(e) => vec![Err(CodeParseError(human_errors(*e), pos))],
+                    }
+                } else {
+                    vec![Ok((event, pos))]
+                }
+            }
+            Event::Text(txt) => {
+                if code_block {
+                    source.push_str(txt.as_ref());
+                    vec![]
+                } else {
+                    vec![Ok((Event::Text(txt.clone()), pos))]
+                }
+            }
+            _ => vec![Ok((event, pos))],
+        })
+        .collect()
+    }
+
     fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error> {
         if !self.frontmatter.code_split {
             Ok(event)
@@ -79,9 +136,9 @@ impl<'a> Extension<'a> for CodeSplit {
                                 let attrs: CodeAttrs = toml::from_str(&formatted)?;
                                 self.code_started = attrs.perform_split;
                                 Ok((
-                                    Event::Start(Tag::CodeBlock(Fenced(CowStr::Boxed(
-                                        attrs.lang.into_boxed_str(),
-                                    )))),
+                                    Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(
+                                        CowStr::Boxed(attrs.lang.into_boxed_str()),
+                                    ))),
                                     event.1,
                                 ))
                             } else {

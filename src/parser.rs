@@ -164,10 +164,12 @@ impl DocParser {
     ) -> Result<(CodeSplit, Vec<(Event, DocPos)>), crate::extensions::Error> {
         let mut code_ext = CodeSplit::new(meta);
         let iter = doc.configure_iterator(config);
-        let iter = iter.map(|v| code_ext.each(v));
 
-        let v: Vec<(Event, DocPos)> =
-            iter.collect::<Result<Vec<(Event, DocPos)>, crate::extensions::Error>>()?;
+        // let iter = iter.map(|v| code_ext.each(v));
+        // let v: Vec<(Event, DocPos)> =
+        //     iter.collect::<Result<Vec<(Event, DocPos)>, crate::extensions::Error>>()?;
+
+        let v = code_ext.process(iter)?;
 
         // let mut hs: HashMap<String, String> = HashMap::new();
         //

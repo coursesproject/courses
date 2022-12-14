@@ -127,38 +127,6 @@ async fn main() -> anyhow::Result<()> {
                 config,
             )?;
 
-            // let mut watcher = notify::recommended_watcher(move |res| match res {
-            //     Ok(event) => {
-            //         let event: Event = event;
-            //         //println!("event: {:?}", event);
-            //         match event.kind {
-            //             EventKind::Access(kind) => match kind {
-            //                 AccessKind::Close(_) => {}
-            //                 _ => {}
-            //             },
-            //             EventKind::Modify(kind) => match kind {
-            //                 ModifyKind::Data(ch) => {
-            //                     // let res = pipeline.build_everything(config).unwrap();
-            //                     let p = event.paths.first().unwrap();
-            //
-            //                     let mut pipeline = Pipeline::new(path.as_path()).unwrap();
-            //
-            //                     if p.starts_with(path.as_path().join("content")) {
-            //                         pipeline.build_file(p, &c2, &cf).unwrap();
-            //                     } else {
-            //                         pipeline.build_everything(c2.clone()).unwrap();
-            //                     }
-            //
-            //                     controller.reload();
-            //                 }
-            //                 _ => {}
-            //             },
-            //             _ => {}
-            //         }
-            //     }
-            //     Err(e) => println!("watch error: {:?}", e),
-            // })?;
-
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
             debouncer
@@ -167,14 +135,6 @@ async fn main() -> anyhow::Result<()> {
             debouncer
                 .watcher()
                 .watch(tp.as_path(), RecursiveMode::Recursive)?;
-
-            // watcher.watch(p2.as_path(), RecursiveMode::Recursive)?;
-            // watcher.watch(tp.as_path(), RecursiveMode::Recursive)?;
-
-            // tokio::spawn(async move {
-            //     tokio::time::sleep(Duration::from_secs(5)).await;
-            //     controller.reload();
-            // });
 
             server.await?;
 

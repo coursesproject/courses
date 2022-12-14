@@ -1,7 +1,7 @@
 WHITESPACE = _{(" "|"\n"|"\t")}
 
 
-string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "." | ":" | "%" | "^" | "?")*}
+string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?")*}
 string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
 basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "." | ":")+}
 

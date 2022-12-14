@@ -58,14 +58,14 @@ impl Pipeline {
         let mut html_preprocessors: Vec<Box<dyn Preprocessor>> = Vec::new();
         let build_config = self.project_config.build.get_config(&self.mode)?;
 
-        if build_config.katex_output {
-            html_preprocessors.push(Box::new(KaTeXPreprocessor::new(Opts::default())));
-        }
         html_preprocessors.push(Box::new(ShortCodeProcessor::new(
             tera.clone(),
             "html".to_string(),
             self.project_config.clone(),
         )));
+        if build_config.katex_output {
+            html_preprocessors.push(Box::new(KaTeXPreprocessor::new(Opts::default())));
+        }
 
         let md_preprocessors: Vec<Box<dyn Preprocessor>> = vec![Box::new(ShortCodeProcessor::new(
             tera,
