@@ -16,6 +16,7 @@ pub mod pipeline;
 mod preprocessor;
 pub mod render;
 mod visitor;
+mod ast;
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,7 @@
 pub mod katex;
 pub mod shortcode_extender;
 
+use std::iter::FlatMap;
 use crate::document::DocPos;
 use crate::extensions::Error::CodeParseError;
 use crate::parser::FrontMatter;
@@ -16,6 +17,7 @@ pub trait Preprocessor {
 }
 
 pub trait Extension<'a> {
+    fn process<I: Iterator<Item=(Event<'a>, DocPos)>>(&mut self, iter: I) -> Result<Vec<(Event<'a>, DocPos)>, Error>;
     fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error>;
 }
 
@@ -64,6 +66,45 @@ fn default_split() -> bool {
 }
 
 impl<'a> Extension<'a> for CodeSplit {
+    fn process<I: Iterator<Item=(Event<'a>, DocPos)>>(&mut self, iter: I) -> Result<Vec<(Event<'a>, DocPos)>, Error> {
+        let mut code_block = false;
+        let mut source = "".to_string();
+        let mut code_attr = String::new();
+
+        iter.flat_map(|(event, pos)| match &event {
+            Event::Start(tag) => {
+                if let Tag::CodeBlock(Fenced(attr)) = &tag {
+                    code_block = true;
+                    code_attr = attr.to_string();
+                }
+                vec![Ok((Event::Start(tag.clone()), pos))]
+            }
+            Event::End(tag) => {
+                if let Tag::CodeBlock(Fenced(_)) = tag { // TODO: Here
+                    let res = parse_code_string(source.clone().as_ref());
+                    match res {
+                        Ok(doc) => {
+                            let (placeholder, _solution) = doc.split();
+                            vec![Ok((Event::Text(CowStr::Boxed(placeholder.into_boxed_str())), pos.clone())), Ok((Event::End(tag.clone()), pos.clone()))]
+                        }
+                        Err(e) => vec![Err(CodeParseError(human_errors(*e), pos))]
+                    }
+                } else {
+                    vec![Ok((event, pos))]
+                }
+            }
+            Event::Text(txt) => {
+                if code_block {
+                    source.push_str(txt.as_ref());
+                    vec![]
+                } else {
+                    vec![Ok((Event::Text(txt.clone()), pos))]
+                }
+            }
+            _ => vec![Ok((event, pos))]
+        }).collect()
+    }
+
     fn each(&mut self, event: (Event<'a>, DocPos)) -> Result<(Event<'a>, DocPos), Error> {
         if !self.frontmatter.code_split {
             Ok(event)

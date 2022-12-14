@@ -203,15 +203,15 @@ pub enum Cell {
 
 pub enum CellEventIterator<'a, 'b> {
     Markdown {
-        cell: &'a Cell,
+
         parser: Box<OffsetIter<'a, 'b>>,
     },
     Code {
-        cell: &'a Cell,
+
         events: Box<IntoIter<(Event<'a>, Range<usize>)>>,
     },
     Raw {
-        cell: &'a Cell,
+        source: &'a str,
     },
 }
 
@@ -307,7 +307,6 @@ impl<'a> IntoIterator for &'a Cell {
     fn into_iter(self) -> Self::IntoIter {
         match self {
             Cell::Markdown { common } => CellEventIterator::Markdown {
-                cell: self,
                 parser: Box::new(
                     Parser::new_ext(&common.source, Options::all()).into_offset_iter(),
                 ),
@@ -331,11 +330,10 @@ impl<'a> IntoIterator for &'a Cell {
                     .iter()
                     .for_each(|o| events.append(&mut o.to_events()));
                 CellEventIterator::Code {
-                    cell: self,
                     events: Box::new(events.into_iter()),
                 }
             }
-            Cell::Raw { .. } => CellEventIterator::Raw { cell: self },
+            Cell::Raw { common } => CellEventIterator::Raw { source: &common.source },
         }
     }
 }
@@ -347,7 +345,7 @@ impl<'a, 'b> Iterator for CellEventIterator<'a, 'b> {
         match self {
             CellEventIterator::Markdown { parser, .. } => parser.next(),
             CellEventIterator::Code { events, .. } => events.next(),
-            CellEventIterator::Raw { .. } => None,
+            CellEventIterator::Raw { source } => Some((Event::Text(CowStr::Borrowed(source)), 0..0)),
         }
     }
 }
