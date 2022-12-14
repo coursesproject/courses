@@ -2,6 +2,7 @@ use crate::document::DocPos;
 use crate::notebook::*;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::io;
 
 enum CellType {
@@ -96,7 +97,7 @@ where
             Tag::Item => match self.list_order_num {
                 None => self.cell_source.push_str("- "),
                 Some(i) => {
-                    self.cell_source.push_str(&format!("{}. ", i));
+                    write!(self.cell_source, "{}. ", i).expect("Invalid format");
                     self.list_order_num = self.list_order_num.map(|i| i + 1);
                 }
             },
@@ -233,7 +234,7 @@ where
                 }
                 CodeBlockKind::Fenced(cls) => {
                     let s = cls.into_string();
-                    self.source.push_str(format!("```{}\n", s).as_str());
+                    writeln!(self.source, "```{}", s).expect("Invalid format");
                 }
             },
             Tag::List(i) => {
@@ -242,7 +243,7 @@ where
             Tag::Item => match self.list_order_num {
                 None => self.source.push_str("- "),
                 Some(i) => {
-                    self.source.push_str(&format!("{}. ", i));
+                    write!(self.source, "{}. ", i).expect("Invalid format");
                     self.list_order_num = self.list_order_num.map(|i| i + 1);
                 }
             },
@@ -277,8 +278,7 @@ where
             Tag::Strong => self.source.push_str("__"),
             Tag::Strikethrough => {}
             Tag::Link(_type, dest, title) => {
-                self.source
-                    .push_str(format!("]({} {})", dest, title).as_str());
+                write!(self.source, "]({} {})", dest, title).expect("Invalid format");
             }
             Tag::Image(_, _, _) => {}
         }

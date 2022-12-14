@@ -12,8 +12,8 @@ homepage = "https://antonmeskildsen.github.io/courses/"
 repository = "https://github.com/antonmeskildsen/courses"
 readme = "README.md"
 
-keywords = ["web", "ssg", "publishing", "notebooks", "education"]
-categories = ["web-programming", "template-engine", "command-line-utilities"]
+keywords = ["site", "generator", "publishing", "notebooks", "education"]
+categories = ["command-line-utilities"]
 
 [lib]
 name = "courses"
