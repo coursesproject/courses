@@ -1,13 +1,32 @@
-use crate::extensions::shortcode_extender::ShortCodeProcessError;
-use crate::extensions::Preprocessor;
+use crate::ast::AEvent;
 use crate::notebook::{Cell, CellOutput, Notebook};
+use crate::processors::shortcode_extender::ShortCodeProcessError;
+use crate::processors::Preprocessor;
+use crate::Context;
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
+use std::rc::Rc;
 use std::vec::IntoIter;
 use thiserror::Error;
+
+#[derive(Debug, Clone, Default)]
+pub struct RawDocument {
+    pub metadata: DocumentMetadata,
+    content: Content,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EventDocument {
+    pub metadata: DocumentMetadata,
+    pub content: Vec<(AEvent, DocPos)>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Content(Vec<Element>);
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -36,6 +55,58 @@ pub struct DocPos {
     local_position: Range<usize>,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct DocumentMetadata {
+    pub title: Option<String>,
+    #[serde(rename = "type", default = "default_title")]
+    pub doc_type: String,
+    #[serde(default = "default_true")]
+    pub code_split: bool,
+    #[serde(default = "default_true")]
+    pub notebook_output: bool,
+    #[serde(default)]
+    pub layout: LayoutSettings,
+
+    #[serde(default)]
+    pub output: OutputSpec,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputSpec {
+    #[serde(default = "default_true")]
+    pub web: bool,
+    #[serde(default = "default_true")]
+    pub source: bool,
+}
+
+impl Default for OutputSpec {
+    fn default() -> Self {
+        OutputSpec {
+            web: true,
+            source: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct LayoutSettings {
+    pub hide_sidebar: bool,
+}
+
+fn default_title() -> String {
+    "text".to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Error, Debug)]
+pub enum PreprocessError {
+    #[error(transparent)]
+    Shortcode(#[from] ShortCodeProcessError),
+}
+
 impl Display for DocPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.cell_number {
@@ -61,45 +132,62 @@ impl DocPos {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Document {
-    elements: Vec<Element>,
-}
-
-#[derive(Error, Debug)]
-pub enum PreprocessError {
-    #[error(transparent)]
-    Shortcode(#[from] ShortCodeProcessError),
-}
-
-impl Document {
+impl RawDocument {
     pub fn preprocess(
-        &self,
+        self,
         processor: &dyn Preprocessor,
-    ) -> Result<Document, Box<dyn std::error::Error>> {
+        ctx: &Context,
+    ) -> Result<RawDocument, Box<dyn std::error::Error>> {
         let elements = self
-            .elements
+            .content
+            .0
             .iter()
             .map(|e| match e {
                 Element::Markdown { content } => Ok(Element::Markdown {
-                    content: processor.process(content)?,
+                    content: processor.process(content, ctx)?,
                 }),
                 _ => Ok(e.clone()),
             })
             .collect::<Result<Vec<Element>, Box<dyn std::error::Error>>>()?;
-        Ok(Document { elements })
+        Ok(RawDocument {
+            content: Content(elements),
+            metadata: self.metadata,
+        })
     }
-}
 
-impl From<String> for Document {
-    fn from(s: String) -> Self {
-        Document {
-            elements: vec![Element::Markdown { content: s }],
+    pub(crate) fn new<C: Into<Content>>(content: C, metadata: DocumentMetadata) -> Self {
+        RawDocument {
+            content: content.into(),
+            metadata,
+        }
+    }
+
+    pub fn to_events(&self, config: IteratorConfig) -> EventDocument {
+        let content = self.configure_iterator(config).map(|(e, p)| (e.into(), p));
+        EventDocument {
+            metadata: self.metadata.clone(),
+            content: content.collect(),
         }
     }
 }
 
-impl From<Notebook> for Document {
+impl EventDocument {
+    pub fn to_events(&self) -> impl Iterator<Item = Event<'static>> {
+        self.content.clone().into_iter().map(|(e, p)| e.into())
+    }
+
+    pub fn to_events_with_pos(&self) -> impl Iterator<Item = (Event<'static>, DocPos)> {
+        self.content.clone().into_iter().map(|(e, p)| (e.into(), p))
+    }
+}
+
+impl From<String> for Content {
+    fn from(s: String) -> Self {
+        Content(vec![Element::Markdown { content: s }])
+    }
+}
+
+impl From<Notebook> for Content {
     fn from(n: Notebook) -> Self {
         let elements = n
             .cells
@@ -131,7 +219,7 @@ impl From<Notebook> for Document {
             })
             .collect();
 
-        Document { elements }
+        Content(elements)
     }
 }
 
@@ -205,7 +293,7 @@ impl IteratorConfig {
     }
 }
 
-pub trait ConfigureIterator {
+pub trait ConfigureCollector {
     type Item;
     type IntoIter;
 
@@ -219,7 +307,7 @@ pub trait ConfigureElemIterator {
     fn configure_iterator(self, cell_number: usize, config: IteratorConfig) -> Self::IntoIter;
 }
 
-impl<'a> ConfigureIterator for &'a Element {
+impl<'a> ConfigureCollector for &'a Element {
     type Item = Event<'a>;
     type IntoIter = ElementIterator<'a, 'a>;
 
@@ -270,13 +358,14 @@ impl<'a> ConfigureIterator for &'a Element {
     }
 }
 
-impl<'a> ConfigureIterator for &'a Document {
+impl<'a> ConfigureCollector for &'a RawDocument {
     type Item = (Event<'a>, DocPos);
     type IntoIter = Box<dyn Iterator<Item = Self::Item> + 'a>;
 
     fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {
         Box::new(
-            self.elements
+            self.content
+                .0
                 .iter()
                 .flat_map(move |elem: &Element| elem.configure_iterator(config)),
         )

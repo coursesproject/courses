@@ -1,7 +1,7 @@
-use crate::cfg::{section_id, Config, ConfigItem, DocumentSpec, Part, ProjectConfig};
-use crate::parser::{DocParser, DocumentParsed, FrontMatter, ParserError};
+use crate::project::{section_id, ConfigItem, Item, Part, Project, ProjectConfig};
 use crate::render::{HtmlRenderError, HtmlRenderer};
 use anyhow::Context;
+use cdoc::parser::{DocumentParsed, FrontMatter, ParserError};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
@@ -10,12 +10,12 @@ use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::extensions::katex::KaTeXPreprocessor;
-use crate::extensions::shortcode_extender::ShortCodeProcessor;
-use crate::extensions::Preprocessor;
-use crate::parsers::split::parse_code_string;
-use crate::parsers::split_types::Output;
-use crate::render::HtmlRenderError::TemplateError;
+use cdoc::extensions::katex::KaTeXPreprocessor;
+use cdoc::extensions::shortcode_extender::ShortCodeProcessor;
+use cdoc::parsers::split::parse_code_string;
+use cdoc::parsers::split_types::Output;
+use cdoc::processors::Preprocessor;
+use cdoc::render::HtmlRenderError::TemplateError;
 use katex::Opts;
 use tera::Tera;
 use termion::{color, style};
@@ -50,7 +50,7 @@ impl Pipeline {
         })
     }
 
-    fn parse(&self, doc: &DocumentSpec<()>) -> Result<DocumentParsed, ParserError> {
+    fn parse(&self, doc: &Item<()>) -> Result<DocumentParsed, ParserError> {
         let pattern = self.project_path.as_path().to_str().unwrap().to_string()
             + "/templates/shortcodes/**/*";
         let tera = Tera::new(&pattern)?;
@@ -84,8 +84,8 @@ impl Pipeline {
     pub fn build_file<P: AsRef<Path>>(
         &mut self,
         path: P,
-        config: &Config<()>,
-        build_config: &Config<DocumentConfig>,
+        config: &Project<()>,
+        build_config: &Project<DocumentConfig>,
     ) {
         // let doc_base = RelativePathBuf::from_path(&path)?;
         // let doc_path = doc_base
@@ -130,7 +130,7 @@ impl Pipeline {
         let parsed = self.parse(doc); // TODO: Error message
         match parsed {
             Ok(parsed) => {
-                let parsed_doc = DocumentSpec {
+                let parsed_doc = Item {
                     id: doc.id.clone(),
                     format: doc.format.clone(),
                     path: doc.path.clone(),
@@ -171,10 +171,10 @@ impl Pipeline {
 
     pub fn build_everything(
         &mut self,
-        config: Config<()>,
-    ) -> anyhow::Result<Config<DocumentConfig>> {
+        config: Project<()>,
+    ) -> anyhow::Result<Project<DocumentConfig>> {
         println!("[2/4] 📖 Parsing source documents...");
-        let parsed: Config<DocumentParsed> = config
+        let parsed: Project<DocumentParsed> = config
             .clone()
             .into_iter()
             .filter_map(|item| {
@@ -201,11 +201,11 @@ impl Pipeline {
                 };
                 res
             })
-            .collect::<Config<DocumentParsed>>();
+            .collect::<Project<DocumentParsed>>();
 
         // Work on how to create build configuration
         println!("[3/4] 🌵 Generating build configuration...");
-        let build_config: Config<DocumentConfig> = parsed
+        let build_config: Project<DocumentConfig> = parsed
             .clone()
             .into_iter()
             .map(|item| {
@@ -218,7 +218,7 @@ impl Pipeline {
                     })
                 })
             })
-            .collect::<anyhow::Result<Config<DocumentConfig>>>()?;
+            .collect::<anyhow::Result<Project<DocumentConfig>>>()?;
 
         let build_path = self.project_path.join("build");
 
@@ -342,7 +342,7 @@ impl Pipeline {
 
     fn write_notebook<P: AsRef<Path>>(
         &self,
-        doc: &DocumentSpec<DocumentParsed>,
+        doc: &Item<DocumentParsed>,
         build_path: P,
     ) -> anyhow::Result<()> {
         let mut notebook_build_dir = build_path.as_ref().join("source").join(&doc.path);
@@ -358,7 +358,7 @@ impl Pipeline {
 
     fn write_markdown<P: AsRef<Path>>(
         &self,
-        doc: &DocumentSpec<DocumentParsed>,
+        doc: &Item<DocumentParsed>,
         build_path: P,
     ) -> anyhow::Result<()> {
         let mut md_build_dir = build_path.as_ref().join("md").join(&doc.path);
@@ -372,10 +372,10 @@ impl Pipeline {
 
     fn write_html<P: AsRef<Path>>(
         &self,
-        doc: &DocumentSpec<DocumentParsed>,
+        doc: &Item<DocumentParsed>,
         part_id: &Option<String>,
         chapter_id: &Option<String>,
-        build_config: &Config<DocumentConfig>,
+        build_config: &Project<DocumentConfig>,
         build_path: P,
     ) -> Result<(), HtmlRenderError> {
         let output = self

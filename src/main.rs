@@ -3,8 +3,8 @@
 mod setup;
 
 use clap::{Parser, Subcommand};
-use courses::cfg::{Config, ProjectConfig};
 use courses::pipeline::Pipeline;
+use courses::project::{Project, ProjectConfig};
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Build { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
-            let cfg = Config::generate_from_directory(path.as_path()).unwrap();
+            let cfg = Project::generate_from_directory(path.as_path()).unwrap();
 
             println!("[1/4] ‍💡 Reading project directory...");
 
@@ -69,14 +69,14 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Serve { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
-            let cfg = Config::generate_from_directory(path.as_path()).unwrap();
+            let cfg = Project::generate_from_directory(path.as_path()).unwrap();
 
             let p2 = path.as_path().join("content");
             let tp = path.as_path().join("templates");
             let p_build = path.as_path().join("build/web");
 
             println!("[1/4] ‍💡 Reading project directory...");
-            let config: Config<()> = Config::generate_from_directory(&path)?;
+            let config: Project<()> = Project::generate_from_directory(&path)?;
             let c2 = config.clone();
 
             let mut pipeline = Pipeline::new(path.as_path(), mode.clone())?;

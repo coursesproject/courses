@@ -15,6 +15,12 @@ readme = "README.md"
 keywords = ["site", "generator", "publishing", "notebooks", "education"]
 categories = ["command-line-utilities"]
 
+[workspace]
+
+members = [
+    "cdoc"
+]
+
 [lib]
 name = "courses"
 path = "src/lib.rs"
@@ -22,6 +28,8 @@ path = "src/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cdoc = { path = "cdoc" }
+
 serde = { version = "1.0.145", features = ["derive", "rc"]}
 serde_yaml = "0.9.13"
 serde_json = "1.0.85"

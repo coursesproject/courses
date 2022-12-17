@@ -1,6 +1,6 @@
-use crate::cfg::{Config, ProjectConfig};
 use crate::parser::DocumentParsed;
 use crate::pipeline::DocumentConfig;
+use crate::project::{Project, ProjectConfig};
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::BufReader;
@@ -37,7 +37,7 @@ impl HtmlRenderer {
         doc_id: &str,
         part_id: &Option<String>,
         chapter_id: &Option<String>,
-        config: &Config<DocumentConfig>,
+        config: &Project<DocumentConfig>,
     ) -> tera::Result<String> {
         let mut context = tera::Context::new();
         context.insert("config", config);
