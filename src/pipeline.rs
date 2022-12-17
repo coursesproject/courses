@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use cdoc::config::PipelineConfig;
+use cdoc::config::{Format, PipelineConfig};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -16,6 +16,7 @@ pub struct Pipeline {
     project_path: PathBuf,
     project_config: ProjectConfig,
     cfg: PipelineConfig,
+    gen: HashMap<Format, Box<dyn Generator>>,
 }
 
 impl Pipeline {
@@ -23,6 +24,7 @@ impl Pipeline {
         project_path: P,
         mode: String,
         cfg: PipelineConfig,
+        gen: HashMap<Format, Box<dyn Generator>>,
     ) -> anyhow::Result<Self> {
         let config_path = project_path.as_ref().join("config.yml");
         let config_reader = BufReader::new(File::open(config_path)?);
@@ -53,19 +55,6 @@ impl Pipeline {
 
         for format in self.project_config.outputs {
             let output = self.generate(loaded.clone())?;
-
-            let ctx = GeneratorContext {
-                root: self.project_path.to_path_buf(),
-                project: loaded.clone(),
-                config: self.project_config.clone(),
-                pipeline: &self.cfg,
-                build_path: self
-                    .project_path
-                    .as_path()
-                    .join("build")
-                    .join(format.name()),
-            };
-            Generator::new(ctx, format).generate()?;
         }
     }
 
