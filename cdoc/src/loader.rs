@@ -36,16 +36,35 @@ impl Loader for MarkdownLoader {
     }
 }
 
-pub struct ParserFileConfiguration {
+#[derive(Serialize, Deserialize)]
+pub struct LoaderConfig {
+    #[serde(flatten)]
     mapping: HashMap<String, Box<dyn Loader>>,
 }
 
-impl ParserFileConfiguration {
+impl LoaderConfig {
     pub fn add_mapping(&mut self, extension: &str, parser: Box<dyn Loader>) {
         self.mapping.insert(extension.to_string(), parser);
     }
 
     pub fn get_parser(&self, extension: &str) -> Option<&dyn Loader> {
         self.mapping.get(extension).map(|b| b.deref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialization() {
+        let config = r#"
+            {
+                ".md": {"type": "markdown_loader"},
+                ".ipynb": {"type": "notebook_loader"}
+            }
+        "#;
+
+        let p: LoaderConfig = serde_json::from_str(config).unwrap();
     }
 }

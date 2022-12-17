@@ -4,7 +4,7 @@ mod setup;
 
 use clap::{Parser, Subcommand};
 use courses::pipeline::Pipeline;
-use courses::project::{Project, ProjectConfig};
+use courses::r#mod::{Project, ProjectConfig};
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,

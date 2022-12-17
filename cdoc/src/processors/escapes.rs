@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EscapeProcessor;
 
-#[typetag::serde]
+#[typetag::serde(name = "escapes")]
 impl EventProcessor for EscapeProcessor {
     fn name(&self) -> String {
         "Escape processor".to_string()

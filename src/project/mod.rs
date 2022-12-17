@@ -1,6 +1,9 @@
 //! Types for describing project configurations.
 
+pub mod config;
+
 use anyhow::anyhow;
+use cdoc::config::Format;
 use serde::{Deserialize, Serialize};
 use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
@@ -28,11 +31,11 @@ impl<D> IntoIterator for Project<D>
 where
     D: Clone,
 {
-    type Item = ConfigItem<D>;
-    type IntoIter = ConfigIterator<D>;
+    type Item = ProjectItem<D>;
+    type IntoIter = ProjectIterator<D>;
 
     fn into_iter(self) -> Self::IntoIter {
-        ConfigIterator {
+        ProjectIterator {
             part_pos: 0,
             chapter_pos: 0,
             doc_pos: 0,
@@ -42,7 +45,7 @@ where
 }
 
 /// Iterates a Config.
-pub struct ConfigIterator<D> {
+pub struct ProjectIterator<D> {
     part_pos: usize,
     chapter_pos: usize,
     doc_pos: usize,
@@ -50,7 +53,7 @@ pub struct ConfigIterator<D> {
 }
 
 /// Contains necessary information for reconstructing a Config from an iterator.
-pub struct ConfigItem<D> {
+pub struct ProjectItem<D> {
     pub part_id: Option<String>,
     pub chapter_id: Option<String>,
     pub part_idx: Option<usize>,
@@ -59,7 +62,7 @@ pub struct ConfigItem<D> {
     pub files: Option<Vec<PathBuf>>, // Temporary solution for carrying file info
 }
 
-impl<D> ConfigItem<D> {
+impl<D> ProjectItem<D> {
     fn new(
         part_id: Option<String>,
         chapter_id: Option<String>,
@@ -68,7 +71,7 @@ impl<D> ConfigItem<D> {
         doc: Item<D>,
         files: Option<Vec<PathBuf>>,
     ) -> Self {
-        ConfigItem {
+        ProjectItem {
             part_id,
             chapter_id,
             part_idx,
@@ -79,7 +82,7 @@ impl<D> ConfigItem<D> {
     }
 
     /// Perform operation on the inner document, then return the result wrapped in a ConfigItem.
-    pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
+    pub fn map<O, F>(self, f: F) -> anyhow::Result<ProjectItem<O>>
     where
         F: Fn(&D) -> anyhow::Result<O>,
     {
@@ -89,7 +92,7 @@ impl<D> ConfigItem<D> {
             path: self.doc.path,
             content: Arc::new(f(self.doc.content.as_ref())?),
         };
-        Ok(ConfigItem::new(
+        Ok(ProjectItem::new(
             self.part_id,
             self.chapter_id,
             self.part_idx,
@@ -100,7 +103,7 @@ impl<D> ConfigItem<D> {
     }
 
     /// Perform operation on the whole DocumentSpec.
-    pub fn map_doc<O, F, E>(self, f: F) -> Result<ConfigItem<O>, E>
+    pub fn map_doc<O, F, E>(self, f: F) -> Result<ProjectItem<O>, E>
     where
         F: Fn(Item<D>) -> Result<O, E>,
     {
@@ -110,7 +113,7 @@ impl<D> ConfigItem<D> {
             path: self.doc.path.clone(),
             content: Arc::new(f(self.doc)?),
         };
-        Ok(ConfigItem::new(
+        Ok(ProjectItem::new(
             self.part_id,
             self.chapter_id,
             self.part_idx,
@@ -126,12 +129,12 @@ impl<D> ConfigItem<D> {
 }
 
 /// Collect iterator of ConfigItem into Config (tree structure).
-impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Project<D> {
-    fn from_iter<T: IntoIterator<Item = ConfigItem<D>>>(iter: T) -> Self {
+impl<D: Clone + Default> FromIterator<ProjectItem<D>> for Project<D> {
+    fn from_iter<T: IntoIterator<Item = ProjectItem<D>>>(iter: T) -> Self {
         // let mut index = it.next().unwrap().doc;
         let mut index: Item<D> = Item {
             id: "".to_string(),
-            format: Format::Markdown,
+            format: DocFormat::Markdown,
             path: Default::default(),
             content: Arc::new(D::default()),
         };
@@ -189,18 +192,18 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Project<D> {
     }
 }
 
-impl<D> Iterator for ConfigIterator<D>
+impl<D> Iterator for ProjectIterator<D>
 where
     D: Clone,
 {
-    type Item = ConfigItem<D>;
+    type Item = ProjectItem<D>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.part_pos {
             0 => {
                 // Config index
                 self.part_pos += 1;
-                Some(ConfigItem::new(
+                Some(ProjectItem::new(
                     None,
                     None,
                     Some(0),
@@ -222,7 +225,7 @@ where
                         } else {
                             self.chapter_pos += 1;
                         }
-                        Some(ConfigItem::new(
+                        Some(ProjectItem::new(
                             Some(part.id.clone()),
                             None,
                             Some(part_idx),
@@ -252,7 +255,7 @@ where
                         match current_doc_pos {
                             0 => {
                                 // Chapter index
-                                Some(ConfigItem::new(
+                                Some(ProjectItem::new(
                                     Some(part.id.clone()),
                                     Some(chapter.id.clone()),
                                     Some(part_idx),
@@ -261,7 +264,7 @@ where
                                     Some(chapter.files.clone()),
                                 ))
                             }
-                            doc_pos => Some(ConfigItem::new(
+                            doc_pos => Some(ProjectItem::new(
                                 Some(part.id.clone()),
                                 Some(chapter.id.clone()),
                                 Some(part_idx),
@@ -280,7 +283,7 @@ where
 
 /// Specifies the document format. Currently, only Markdown and Notebooks (ipynb) are supported.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Format {
+pub enum DocFormat {
     Markdown,
     Notebook,
 }
@@ -330,48 +333,6 @@ pub struct Project<C> {
     pub project_path: PathBuf,
     pub(crate) index: Item<C>,
     pub(crate) content: Vec<Part<C>>,
-}
-
-/// Refers to a configuration.yml file in the project that specifies a variety
-/// of options for the project.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectConfig {
-    #[serde(default)]
-    pub url_prefix: String,
-    #[serde(default)]
-    pub build: BuildConfigSet,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BuildConfigSet {
-    pub dev: BuildConfig,
-    pub release: BuildConfig,
-}
-
-impl BuildConfigSet {
-    pub fn get_config(&self, mode: &str) -> anyhow::Result<BuildConfig> {
-        match mode {
-            "dev" => Ok(self.dev.clone()),
-            "release" => Ok(self.release.clone()),
-            _ => Err(anyhow!("Invalid build mode")),
-        }
-    }
-}
-
-impl Default for BuildConfigSet {
-    fn default() -> Self {
-        BuildConfigSet {
-            dev: BuildConfig {
-                katex_output: false,
-            },
-            release: BuildConfig { katex_output: true },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BuildConfig {
-    pub katex_output: bool,
 }
 
 impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
@@ -501,12 +462,12 @@ impl<I> Item<I> {
     }
 }
 
-impl Format {
+impl DocFormat {
     /// Get format from path (md/ipynb).
     pub fn from_path<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         match path.as_ref().extension().unwrap().to_str().unwrap() {
-            "md" => Ok(Format::Markdown),
-            "ipynb" => Ok(Format::Notebook),
+            "md" => Ok(DocFormat::Markdown),
+            "ipynb" => Ok(DocFormat::Notebook),
             _ => Err(anyhow!("Invalid file extension")),
         }
     }
@@ -536,7 +497,9 @@ impl Item<()> {
             id: section_id(section_path.as_ref())
                 .ok_or_else(|| anyhow!("Could not get raw file name"))?,
             path: section_path.as_ref().to_path_buf(),
-            format: Format::from_path(section_path)?,
+            format: Format::from_extension(
+                section_path.as_ref().extension().unwrap().to_str().unwrap(),
+            )?,
             content: Arc::new(()),
         })
     }

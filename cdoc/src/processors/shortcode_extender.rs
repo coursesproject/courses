@@ -185,6 +185,16 @@ pub struct ShortCodeProcessor {
 }
 
 impl ShortCodeProcessor {
+    pub fn new(pattern: &str, file_ext: &str) -> Result<Self, tera::Error> {
+        Ok(ShortCodeProcessor {
+            template: BoundTera {
+                tera: Tera::new(pattern)?,
+                pattern: pattern.to_string(),
+            },
+            file_ext: file_ext.to_string(),
+        })
+    }
+
     fn render_inline_template(
         &self,
         shortcode: &str,
@@ -233,7 +243,7 @@ impl ShortCodeProcessor {
     }
 }
 
-#[typetag::serde]
+#[typetag::serde(name = "shortcodes")]
 impl Preprocessor for ShortCodeProcessor {
     fn name(&self) -> String {
         "Shortcode processor".to_string()

@@ -2,12 +2,15 @@ use crate::document::{DocPos, EventDocument};
 use crate::notebook::{Cell, CellCommon, CellMeta, Notebook, NotebookMeta};
 use crate::renderers::Renderer;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::io;
 
-struct NotebookRenderer;
+#[derive(Serialize, Deserialize)]
+pub struct NotebookRenderer;
 
+#[typetag::serde(name = "renderer_config")]
 impl Renderer for NotebookRenderer {
     fn render(&self, doc: &EventDocument) -> String {
         let notebook = render_notebook(doc.to_events_with_pos());

@@ -1,6 +1,3 @@
-use crate::parser::DocumentParsed;
-use crate::pipeline::DocumentConfig;
-use crate::project::{Project, ProjectConfig};
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::BufReader;
@@ -8,12 +5,12 @@ use std::path::Path;
 use tera::Tera;
 use thiserror::Error;
 
-pub struct HtmlRenderer {
+pub struct HtmlGenerator {
     project_config: ProjectConfig,
     tera: Tera,
 }
 
-impl HtmlRenderer {
+impl HtmlGenerator {
     pub fn new<P: AsRef<Path>>(project_path: P) -> anyhow::Result<Self> {
         let path_str = project_path
             .as_ref()
@@ -25,7 +22,7 @@ impl HtmlRenderer {
         let config_reader = BufReader::new(File::open(config_path)?);
         let project_config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
 
-        Ok(HtmlRenderer {
+        Ok(HtmlGenerator {
             tera: Tera::new(&pattern)?,
             project_config,
         })

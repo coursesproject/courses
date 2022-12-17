@@ -1,14 +1,15 @@
-use crate::processors::Preprocessor;
-use crate::Context;
 use katex::Opts;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::processors::Preprocessor;
+use crate::Context;
 
 #[derive(Error, Debug)]
 pub enum KaTeXPreprocessorError {}
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct KaTeXPreprocessor {}
+pub struct KaTeXPreprocessor;
 
 fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     let begin = input.find('$')?;
@@ -23,7 +24,7 @@ fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     Some((begin, end, end_delim.len()))
 }
 
-#[typetag::serde]
+#[typetag::serde(name = "katex")]
 impl Preprocessor for KaTeXPreprocessor {
     fn name(&self) -> String {
         "KaTeX preprocessor".to_string()

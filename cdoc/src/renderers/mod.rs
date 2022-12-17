@@ -1,20 +1,22 @@
-mod html;
-mod markdown;
-mod notebook;
+pub mod html;
+pub mod markdown;
+pub mod notebook;
 
 use crate::document::EventDocument;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
 
+#[typetag::serde(tag = "type")]
 pub trait Renderer {
     fn render(&self, doc: &EventDocument) -> String;
 }
 
-pub struct RenderExtensionConfiguration {
+pub struct RendererConfig {
     mapping: HashMap<String, Box<dyn Renderer>>,
 }
 
-impl RenderExtensionConfiguration {
+impl RendererConfig {
     pub fn add_mapping(&mut self, extension: &str, parser: Box<dyn Renderer>) {
         self.mapping.insert(extension.to_string(), parser);
     }

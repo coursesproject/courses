@@ -1,4 +1,5 @@
 use crate::ast::AEvent;
+use crate::config::Format;
 use crate::notebook::{Cell, CellOutput, Notebook};
 use crate::processors::shortcode_extender::ShortCodeProcessError;
 use crate::processors::Preprocessor;
@@ -7,6 +8,7 @@ use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use std::rc::Rc;
@@ -67,25 +69,15 @@ pub struct DocumentMetadata {
     #[serde(default)]
     pub layout: LayoutSettings,
 
-    #[serde(default)]
-    pub output: OutputSpec,
+    #[serde(default = "default_outputs")]
+    pub output: HashSet<Format>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputSpec {
-    #[serde(default = "default_true")]
-    pub web: bool,
-    #[serde(default = "default_true")]
-    pub source: bool,
-}
-
-impl Default for OutputSpec {
-    fn default() -> Self {
-        OutputSpec {
-            web: true,
-            source: true,
-        }
-    }
+fn default_outputs() -> HashSet<Format> {
+    let mut map = HashSet::new();
+    map.insert(Format::Notebook);
+    map.insert(Format::Html);
+    map
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

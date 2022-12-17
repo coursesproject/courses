@@ -4,13 +4,13 @@ use crate::parsers::split::{human_errors, parse_code_string};
 use crate::processors::Error::CodeParseError;
 use crate::processors::{Error, EventProcessor};
 use pulldown_cmark::{CodeBlockKind, CowStr};
-use std::rc::Rc;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CodeSplit;
 
-#[typetag::serde]
+#[typetag::serde(name = "code_split")]
 impl EventProcessor for CodeSplit {
     fn name(&self) -> String {
         "Code split".to_string()

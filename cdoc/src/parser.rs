@@ -1,10 +1,10 @@
 use crate::document::{
     DocumentMetadata, EventDocument, IteratorConfig, PreprocessError, RawDocument,
 };
-use crate::loader::{Loader, ParserFileConfiguration};
+use crate::loader::Loader;
 use crate::notebook::Notebook;
 use crate::processors::shortcode_extender::ShortCodeProcessError;
-use crate::processors::{EventProcessRunner, EventProcessor, PreprocessRunner, Preprocessor};
+use crate::processors::{EventProcessor, Preprocessor};
 use crate::Context;
 use anyhow::anyhow;
 use pulldown_cmark::{Event, Tag};
@@ -15,29 +15,12 @@ use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Parser {
-    preprocessors: Vec<Box<dyn Preprocessor>>,
-    event_processors: Vec<Box<dyn EventProcessor>>,
-    loader: Box<dyn Loader>,
+    pub preprocessors: Vec<Box<dyn Preprocessor>>,
+    pub event_processors: Vec<Box<dyn EventProcessor>>,
 }
 
 impl Parser {
-    pub fn new(
-        preprocess_runner: PreprocessRunner,
-        event_process_runner: EventProcessRunner,
-        loader: Box<dyn Loader>,
-    ) -> Self {
-        Parser {
-            preprocessors: preprocess_runner,
-            event_processors: event_process_runner,
-            loader,
-        }
-    }
-
-    pub fn parse<P: AsRef<Path>>(
-        &self,
-        input: &str,
-        ctx: &Context,
-    ) -> Result<EventDocument, ParserError> {
+    pub fn parse(&self, doc: &RawDocument, ctx: &Context) -> Result<EventDocument, ParserError> {
         // let ext = path
         //     .as_ref()
         //     .extension()
@@ -46,8 +29,6 @@ impl Parser {
         //     .parser_config
         //     .get_parser(ext.to_str().unwrap())
         //     .ok_or_else(|| anyhow!("File type not supported"))?;
-
-        let doc = self.loader.load(&input)?;
 
         let doc = self.run_preprocessors(&doc, ctx)?;
         self.run_event_processors(&doc)
@@ -140,9 +121,14 @@ mod tests {
     fn test_deserialization() {
         let config = r#"
             {
-                "preprocessors": [],
-                "event_processors": [],
-                "loader": {"type": "markdown_loader"}
+                "preprocessors": [
+                    {
+                        "type": "shortcodes",
+                        "template": "tp/**",
+                        "file_ext": ".html"
+                    }
+                ],
+                "event_processors": []
             }
         "#;
 

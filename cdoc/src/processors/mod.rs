@@ -3,13 +3,9 @@ mod escapes;
 pub mod katex;
 pub mod shortcode_extender;
 
-use crate::document::{ConfigureCollector, DocPos, EventDocument, IteratorConfig, RawDocument};
-use crate::parser::ParserError;
+use crate::document::{ConfigureCollector, DocPos, EventDocument};
 use crate::parsers::split::Rule;
 use crate::Context;
-use pulldown_cmark::HeadingLevel::H1;
-use pulldown_cmark::{Event, Tag};
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use thiserror::Error;
 
@@ -21,13 +17,13 @@ pub enum Error {
     AttrParseError(#[from] toml::de::Error),
 }
 
-#[typetag::serde]
+#[typetag::serde(tag = "type")]
 pub trait Preprocessor: Debug {
     fn name(&self) -> String;
     fn process(&self, input: &str, ctx: &Context) -> Result<String, Box<dyn std::error::Error>>;
 }
 
-#[typetag::serde]
+#[typetag::serde(tag = "type")]
 pub trait EventProcessor: Debug {
     fn name(&self) -> String;
     fn process(&self, input: EventDocument) -> Result<EventDocument, Error>;

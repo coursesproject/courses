@@ -2,10 +2,13 @@ use crate::document::{DocPos, EventDocument};
 use crate::renderers::notebook::heading_num;
 use crate::renderers::Renderer;
 use pulldown_cmark::{CodeBlockKind, Event, Tag};
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
-struct MarkdownRenderer;
+#[derive(Serialize, Deserialize)]
+pub struct MarkdownRenderer;
 
+#[typetag::serde(name = "renderer_config")]
 impl Renderer for MarkdownRenderer {
     fn render(&self, doc: &EventDocument) -> String {
         render_markdown(doc.to_events_with_pos())
