@@ -9,11 +9,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Default)]
-pub struct Input {
-    pub content: String,
-    pub format: Format,
-}
+
 
 pub struct GeneratorContext<'a> {
     pub root: PathBuf,

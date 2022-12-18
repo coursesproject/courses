@@ -12,4 +12,3 @@ use std::collections::HashMap;
 mod generators;
 pub mod pipeline;
 pub mod project;
-pub mod render;

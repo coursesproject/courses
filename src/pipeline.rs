@@ -25,6 +25,7 @@ impl Pipeline {
         mode: String,
         cfg: PipelineConfig,
         gen: HashMap<Format, Box<dyn Generator>>,
+        project: Project<()>
     ) -> anyhow::Result<Self> {
         let config_path = project_path.as_ref().join("config.yml");
         let config_reader = BufReader::new(File::open(config_path)?);
