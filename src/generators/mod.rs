@@ -1,10 +1,8 @@
+use cdoc::renderers::RenderResult;
 use std::path::PathBuf;
 
-use cdoc::renderers::RenderResult;
-use serde::{Deserialize, Serialize};
-
 use crate::project::config::ProjectConfig;
-use crate::project::{Item, Project, ProjectItem};
+use crate::project::{Project, ProjectItem};
 
 pub mod config;
 pub mod html;

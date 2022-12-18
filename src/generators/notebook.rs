@@ -1,13 +1,14 @@
-use crate::generators::{Generator, GeneratorContext};
-use crate::project::config::ProjectConfig;
-use crate::project::ProjectItem;
-use anyhow::Error;
-use cdoc::renderers::RenderResult;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::ops::Deref;
 use std::path::PathBuf;
+
+use cdoc::renderers::RenderResult;
+
+use crate::generators::{Generator, GeneratorContext};
+use crate::project::config::ProjectConfig;
+use crate::project::ProjectItem;
 
 pub struct CodeOutputGenerator;
 
@@ -20,9 +21,7 @@ impl Generator for CodeOutputGenerator {
                 let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", item.doc.id));
 
                 fs::create_dir_all(notebook_build_dir)?;
-                let f = File::create(notebook_build_path)?;
-                let writer = BufWriter::new(f);
-                serde_json::to_writer(writer, &item.doc.content)?;
+                fs::write(notebook_build_path, &c.content)?;
             }
         }
 
@@ -33,7 +32,7 @@ impl Generator for CodeOutputGenerator {
         &self,
         content: RenderResult,
         doc_info: ProjectItem<()>,
-        config: ProjectConfig,
+        _config: ProjectConfig,
         build_dir: PathBuf,
     ) -> anyhow::Result<()> {
         let mut notebook_build_dir = build_dir.as_path().join(&doc_info.doc.path);

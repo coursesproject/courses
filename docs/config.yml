@@ -21,6 +21,5 @@ parsers:
       notebook_outputs: true
     preprocessors:
       - type: shortcodes
-      - type: katex
     event_processors:
       - type: code_split

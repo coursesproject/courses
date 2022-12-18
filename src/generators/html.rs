@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use tera::Tera;
-use thiserror::Error;
 
 use cdoc::renderers::RenderResult;
 
@@ -33,15 +32,13 @@ impl HtmlGenerator {
         doc_id: String,
         doc_path: PathBuf,
         build_dir: PathBuf,
-    ) -> Result<(), HtmlRenderError> {
+    ) -> anyhow::Result<()> {
         let mut html_build_dir = build_dir.join(&doc_path);
         html_build_dir.pop(); // Pop filename
 
         let section_build_path = html_build_dir.join(format!("{}.html", doc_id));
 
-        fs::create_dir_all(html_build_dir)
-            .context("Could not create directory")
-            .map_err(|e| HtmlRenderError::Other(e, doc_path.to_str().unwrap().to_string()))?;
+        fs::create_dir_all(html_build_dir).context("Could not create directory")?;
         fs::write(section_build_path, &output).unwrap();
 
         Ok(())
@@ -89,21 +86,8 @@ impl Generator for HtmlGenerator {
         context.insert("title", "Test");
 
         let result = self.tera.render("section.tera.html", &context)?;
-        self.write_document(
-            result,
-            doc_info.doc.id,
-            doc_info.doc.path,
-            build_dir.clone(),
-        )?;
+        self.write_document(result, doc_info.doc.id, doc_info.doc.path, build_dir)?;
 
         Ok(())
     }
-}
-
-#[derive(Error, Debug)]
-pub enum HtmlRenderError {
-    #[error("template render error")]
-    TemplateError(tera::Error, String),
-    #[error("other error")]
-    Other(anyhow::Error, String),
 }

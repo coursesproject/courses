@@ -1,11 +1,12 @@
-use crate::document::{DocumentMetadata, RawDocument};
-use crate::notebook::Notebook;
-use crate::parser::ParserError;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::Deref;
+
+use serde::{Deserialize, Serialize};
 use yaml_front_matter::YamlFrontMatter;
+
+use crate::document::{DocumentMetadata, RawDocument};
+use crate::notebook::Notebook;
 
 #[typetag::serde(tag = "type")]
 pub trait Loader: Debug {
@@ -31,7 +32,7 @@ pub struct MarkdownLoader;
 impl Loader for MarkdownLoader {
     fn load(&self, input: &str) -> Result<RawDocument, anyhow::Error> {
         let yml: yaml_front_matter::Document<DocumentMetadata> =
-            YamlFrontMatter::parse(&input).unwrap();
+            YamlFrontMatter::parse(input).unwrap();
         Ok(RawDocument::new(yml.content.clone(), yml.metadata))
     }
 }

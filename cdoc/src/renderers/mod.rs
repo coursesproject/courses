@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+use std::ops::Deref;
+
+use serde::{Deserialize, Serialize};
+
+use crate::document::{DocumentMetadata, DocumentVariables, EventDocument};
+
 pub mod html;
 pub mod markdown;
 pub mod notebook;
-
-use crate::document::{DocumentMetadata, DocumentVariables, EventDocument};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::ops::Deref;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RenderResult {

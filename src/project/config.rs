@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+
 use anyhow::anyhow;
-use cdoc::config::OutputFormat;
 use serde::{Deserialize, Serialize};
+
+use cdoc::config::OutputFormat;
 use cdoc::parser::Parser;
 
 /// Refers to a configuration.yml file in the project that specifies a variety

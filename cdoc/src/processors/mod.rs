@@ -1,16 +1,16 @@
+use std::fmt::Debug;
+
+use tera::Tera;
+use thiserror::Error;
+
+use crate::config::OutputFormat;
+use crate::document::{DocPos, EventDocument};
+use crate::parsers::split::Rule;
+
 pub mod code_split;
 mod escapes;
 pub mod katex;
 pub mod shortcode_extender;
-
-use crate::config::OutputFormat;
-use crate::document::{ConfigureCollector, DocPos, EventDocument};
-use crate::parsers::split::Rule;
-use crate::Meta;
-use serde::Serialize;
-use std::fmt::Debug;
-use tera::Tera;
-use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -36,11 +36,11 @@ pub trait EventProcessor {
 }
 
 #[typetag::serde(tag = "type")]
-pub trait PreprocessorConfig: Debug {
+pub trait PreprocessorConfig: Debug + Send + Sync {
     fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>>;
 }
 
 #[typetag::serde(tag = "type")]
-pub trait EventProcessorConfig: Debug {
+pub trait EventProcessorConfig: Debug + Send + Sync {
     fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>>;
 }

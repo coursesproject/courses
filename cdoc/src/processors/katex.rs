@@ -3,14 +3,13 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::processors::{Preprocessor, PreprocessorConfig, ProcessorContext};
-use crate::Meta;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KaTeXPreprocessorConfig;
 
 #[typetag::serde(name = "katex")]
 impl PreprocessorConfig for KaTeXPreprocessorConfig {
-    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
+    fn build(&self, _ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
         Ok(Box::new(KaTeXPreprocessor))
     }
 }
@@ -39,7 +38,7 @@ impl Preprocessor for KaTeXPreprocessor {
         "KaTeX preprocessor".to_string()
     }
 
-    fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error> {
+    fn process(&self, input: &str, _ctx: &tera::Context) -> Result<String, anyhow::Error> {
         let mut rest = input;
         let mut res = String::new();
 

@@ -1,7 +1,8 @@
-use crate::document::{DocumentVariables, EventDocument};
-use crate::renderers::{RenderResult, Renderer};
 use pulldown_cmark::html;
 use serde::{Deserialize, Serialize};
+
+use crate::document::EventDocument;
+use crate::renderers::{RenderResult, Renderer};
 
 #[derive(Serialize, Deserialize)]
 pub struct HtmlRenderer;

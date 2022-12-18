@@ -11,7 +11,7 @@ pub struct CodeSplitConfig;
 
 #[typetag::serde(name = "code_split")]
 impl EventProcessorConfig for CodeSplitConfig {
-    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>> {
+    fn build(&self, _ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>> {
         Ok(Box::new(CodeSplit))
     }
 }

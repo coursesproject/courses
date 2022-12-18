@@ -1,19 +1,19 @@
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use std::ops::Range;
+use std::vec::IntoIter;
+
+use pulldown_cmark::CodeBlockKind::Fenced;
+use pulldown_cmark::Tag::CodeBlock;
+use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
 use crate::ast::AEvent;
 use crate::config::OutputFormat;
 use crate::notebook::{Cell, CellOutput, Notebook};
 use crate::processors::shortcode_extender::ShortCodeProcessError;
 use crate::processors::Preprocessor;
-use crate::Meta;
-use pulldown_cmark::CodeBlockKind::Fenced;
-use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
-use std::ops::Range;
-use std::rc::Rc;
-use std::vec::IntoIter;
-use thiserror::Error;
 
 #[derive(Debug, Clone, Default)]
 pub struct RawDocument {
@@ -94,10 +94,6 @@ fn default_title() -> String {
     "text".to_string()
 }
 
-fn default_true() -> bool {
-    true
-}
-
 #[derive(Error, Debug)]
 pub enum PreprocessError {
     #[error(transparent)]
@@ -171,7 +167,7 @@ impl RawDocument {
 
 impl EventDocument {
     pub fn to_events(&self) -> impl Iterator<Item = Event<'static>> {
-        self.content.clone().into_iter().map(|(e, p)| e.into())
+        self.content.clone().into_iter().map(|(e, _p)| e.into())
     }
 
     pub fn to_events_with_pos(&self) -> impl Iterator<Item = (Event<'static>, DocPos)> {

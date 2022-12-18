@@ -1,16 +1,18 @@
+use std::hash::Hash;
+use std::sync::Arc;
+
+use anyhow::anyhow;
+use serde::{Deserialize, Serialize};
+
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
-use crate::processors::code_split::{CodeSplit, CodeSplitConfig};
-use crate::processors::katex::{KaTeXPreprocessor, KaTeXPreprocessorConfig};
-use crate::processors::shortcode_extender::{ShortCodeProcessConfig, ShortCodeProcessor};
+use crate::processors::code_split::CodeSplitConfig;
+use crate::processors::katex::KaTeXPreprocessorConfig;
+use crate::processors::shortcode_extender::ShortCodeProcessConfig;
 use crate::renderers::html::HtmlRenderer;
 use crate::renderers::markdown::MarkdownRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::Renderer;
-use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
-use std::hash::Hash;
-use std::rc::Rc;
 
 #[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -124,23 +126,14 @@ impl OutputFormat {
     }
 }
 
-// #[derive(Serialize, Deserialize)]
-// pub struct PipelineConfig {
-//     #[serde(default = "default_loaders")]
-//     pub loaders: HashMap<InputFormat, Box<dyn Loader>>,
-//     #[serde(default = "default_renderers")]
-//     pub renderers: HashMap<OutputFormat, Box<dyn Renderer>>,
-//     #[serde(default = "default_parsers")]
-//     pub parsers: HashMap<OutputFormat, Box<Parser>>,
-// }
-
+#[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
         preprocessors: vec![
-            Rc::new(ShortCodeProcessConfig),
-            Rc::new(KaTeXPreprocessorConfig),
+            Arc::new(ShortCodeProcessConfig),
+            Arc::new(KaTeXPreprocessorConfig),
         ],
-        event_processors: vec![Rc::new(CodeSplitConfig)],
+        event_processors: vec![Arc::new(CodeSplitConfig)],
         settings: ParserSettings {
             solutions: false,
             notebook_outputs: false,

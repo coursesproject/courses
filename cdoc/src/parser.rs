@@ -1,18 +1,13 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document::{
-    DocumentMetadata, EventDocument, IteratorConfig, PreprocessError, RawDocument,
-};
-use crate::loader::Loader;
-use crate::notebook::Notebook;
+use crate::document::{EventDocument, IteratorConfig, PreprocessError, RawDocument};
 use crate::processors::shortcode_extender::ShortCodeProcessError;
 use crate::processors::{
     EventProcessor, EventProcessorConfig, Preprocessor, PreprocessorConfig, ProcessorContext,
 };
-use crate::Meta;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ParserSettings {
@@ -24,8 +19,8 @@ pub struct ParserSettings {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
-    pub preprocessors: Vec<Rc<dyn PreprocessorConfig>>,
-    pub event_processors: Vec<Rc<dyn EventProcessorConfig>>,
+    pub preprocessors: Vec<Arc<dyn PreprocessorConfig>>,
+    pub event_processors: Vec<Arc<dyn EventProcessorConfig>>,
     pub settings: ParserSettings,
 }
 
@@ -36,7 +31,7 @@ impl Parser {
         template_context: &tera::Context,
         ctx: &ProcessorContext,
     ) -> Result<EventDocument, anyhow::Error> {
-        let doc = self.run_preprocessors(&doc, template_context, ctx)?;
+        let doc = self.run_preprocessors(doc, template_context, ctx)?;
         self.run_event_processors(&doc, ctx)
     }
 
@@ -87,15 +82,6 @@ impl Parser {
 
         Ok(events)
     }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct DocumentParsed {
-    pub(crate) title: String,
-    pub(crate) frontmatter: DocumentMetadata,
-    pub(crate) html: String,
-    pub(crate) notebook: Notebook,
-    pub(crate) md: String,
 }
 
 #[allow(unused)]

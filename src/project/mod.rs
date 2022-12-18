@@ -1,15 +1,17 @@
 //! Types for describing project configurations.
 
-pub mod config;
-
-use anyhow::anyhow;
-use cdoc::config::{InputFormat, OutputFormat};
-use serde::{Deserialize, Serialize};
 use std::fs::DirEntry;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
+
+use anyhow::anyhow;
+use serde::{Deserialize, Serialize};
+
+use cdoc::config::InputFormat;
+
+pub mod config;
 
 /// This is a custom map trait meant for configurations. The structure is preserved and each document
 /// is transformed.
@@ -111,7 +113,7 @@ impl<D> ProjectItem<D> {
     {
         let doc = Item {
             id: self.doc.id.clone(),
-            format: self.doc.format.clone(),
+            format: self.doc.format,
             path: self.doc.path.clone(),
             content: Arc::new(f(self.doc)?),
         };
@@ -463,7 +465,7 @@ impl<I, O> Transform<Item<O>, I, O> for Item<I> {
     {
         Item {
             id: self.id.clone(),
-            format: self.format.clone(),
+            format: self.format,
             path: self.path.clone(),
             content: Arc::new(f(self)),
         }
@@ -482,7 +484,7 @@ impl<I> Item<I> {
     {
         Item {
             id: self.id.clone(),
-            format: self.format.clone(),
+            format: self.format,
             path: self.path.clone(),
             content: Arc::new(f(self, part, chapter)),
         }
@@ -656,8 +658,9 @@ impl Project<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::iter::zip;
+
+    use super::*;
 
     #[test]
     fn gen_config_from_dir() {

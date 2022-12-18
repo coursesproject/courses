@@ -1,6 +1,6 @@
 use crate::document::{DocPos, EventDocument};
 use crate::renderers::notebook::heading_num;
-use crate::renderers::{Renderer, RenderResult};
+use crate::renderers::{RenderResult, Renderer};
 use pulldown_cmark::{CodeBlockKind, Event, Tag};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;

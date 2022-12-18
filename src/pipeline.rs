@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
@@ -20,6 +18,7 @@ use crate::project::config::ProjectConfig;
 use crate::project::{section_id, Item, Part, Project, ProjectItem};
 
 pub struct Pipeline {
+    #[allow(unused)]
     mode: String,
     project_path: PathBuf,
     project: Project<()>,
@@ -33,16 +32,9 @@ impl Pipeline {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
         mode: String,
+        config: ProjectConfig,
         project: Project<()>,
     ) -> anyhow::Result<Self> {
-        let config_path = project_path.as_ref().join("config.yml");
-        let config_reader = BufReader::new(
-            File::open(config_path).context("Error loading project configuration:")?,
-        );
-
-        let config: ProjectConfig = serde_yaml::from_reader(config_reader)
-            .context("Error loading project configuration:")?;
-
         let path_str = project_path
             .as_ref()
             .to_str()
