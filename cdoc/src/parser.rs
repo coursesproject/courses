@@ -1,65 +1,89 @@
+use std::rc::Rc;
+
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
 use crate::document::{
     DocumentMetadata, EventDocument, IteratorConfig, PreprocessError, RawDocument,
 };
 use crate::loader::Loader;
 use crate::notebook::Notebook;
 use crate::processors::shortcode_extender::ShortCodeProcessError;
-use crate::processors::{EventProcessor, Preprocessor};
-use crate::Context;
-use anyhow::anyhow;
-use pulldown_cmark::{Event, Tag};
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
-use thiserror::Error;
+use crate::processors::{
+    EventProcessor, EventProcessorConfig, Preprocessor, PreprocessorConfig, ProcessorContext,
+};
+use crate::Meta;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ParserSettings {
+    #[serde(default)]
+    pub(crate) solutions: bool,
+    #[serde(default)]
+    pub(crate) notebook_outputs: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
-    pub preprocessors: Vec<Box<dyn Preprocessor>>,
-    pub event_processors: Vec<Box<dyn EventProcessor>>,
+    pub preprocessors: Vec<Rc<dyn PreprocessorConfig>>,
+    pub event_processors: Vec<Rc<dyn EventProcessorConfig>>,
+    pub settings: ParserSettings,
 }
 
 impl Parser {
-    pub fn parse(&self, doc: &RawDocument, ctx: &Context) -> Result<EventDocument, ParserError> {
-        // let ext = path
-        //     .as_ref()
-        //     .extension()
-        //     .ok_or_else(|| anyhow!("File without extension not supported"))?;
-        // let ld = self
-        //     .parser_config
-        //     .get_parser(ext.to_str().unwrap())
-        //     .ok_or_else(|| anyhow!("File type not supported"))?;
-
-        let doc = self.run_preprocessors(&doc, ctx)?;
-        self.run_event_processors(&doc)
+    pub fn parse(
+        &self,
+        doc: &RawDocument,
+        template_context: &tera::Context,
+        ctx: &ProcessorContext,
+    ) -> Result<EventDocument, anyhow::Error> {
+        let doc = self.run_preprocessors(&doc, template_context, ctx)?;
+        self.run_event_processors(&doc, ctx)
     }
 
     pub fn run_preprocessors(
         &self,
         doc: &RawDocument,
-        ctx: &Context,
-    ) -> Result<RawDocument, ParserError> {
-        let content = self
+        template_context: &tera::Context,
+        ctx: &ProcessorContext,
+    ) -> Result<RawDocument, anyhow::Error> {
+        let built = self
             .preprocessors
             .iter()
-            .fold(Ok(doc.clone()), |c, preprocessor| {
-                c.and_then(|c| c.preprocess(preprocessor.as_ref(), ctx))
-            })?;
+            .map(|p| p.build(ctx))
+            .collect::<anyhow::Result<Vec<Box<dyn Preprocessor>>>>()?;
+
+        let content = built.iter().fold(Ok(doc.clone()), |c, preprocessor| {
+            c.and_then(|c| c.preprocess(preprocessor.as_ref(), template_context))
+        })?;
 
         Ok(content)
     }
 
-    pub fn run_event_processors(&self, doc: &RawDocument) -> Result<EventDocument, ParserError> {
+    pub fn run_event_processors(
+        &self,
+        doc: &RawDocument,
+        ctx: &ProcessorContext,
+    ) -> Result<EventDocument, anyhow::Error> {
         let v = doc.to_events(IteratorConfig {
-            include_output: doc.metadata.notebook_output,
-            include_solutions: false,
+            include_output: doc
+                .metadata
+                .notebook_output
+                .unwrap_or(self.settings.notebook_outputs),
+            include_solutions: doc
+                .metadata
+                .code_solutions
+                .unwrap_or(self.settings.solutions),
         });
-        let events = self
+
+        let built = self
             .event_processors
             .iter()
-            .fold(Ok(v), |c, event_processor| {
-                c.and_then(|c| event_processor.process(c))
-            })?;
+            .map(|p| p.build(ctx))
+            .collect::<anyhow::Result<Vec<Box<dyn EventProcessor>>>>()?;
+
+        let events = built.iter().fold(Ok(v), |c, event_processor| {
+            c.and_then(|c| event_processor.process(c))
+        })?;
 
         Ok(events)
     }

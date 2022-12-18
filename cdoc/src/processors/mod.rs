@@ -3,10 +3,13 @@ mod escapes;
 pub mod katex;
 pub mod shortcode_extender;
 
+use crate::config::OutputFormat;
 use crate::document::{ConfigureCollector, DocPos, EventDocument};
 use crate::parsers::split::Rule;
-use crate::Context;
+use crate::Meta;
+use serde::Serialize;
 use std::fmt::Debug;
+use tera::Tera;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -17,14 +20,27 @@ pub enum Error {
     AttrParseError(#[from] toml::de::Error),
 }
 
-#[typetag::serde(tag = "type")]
-pub trait Preprocessor: Debug {
+pub struct ProcessorContext {
+    pub tera: Tera,
+    pub output_format: OutputFormat,
+}
+
+pub trait Preprocessor {
     fn name(&self) -> String;
-    fn process(&self, input: &str, ctx: &Context) -> Result<String, Box<dyn std::error::Error>>;
+    fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error>;
+}
+
+pub trait EventProcessor {
+    fn name(&self) -> String;
+    fn process(&self, input: EventDocument) -> Result<EventDocument, Error>;
 }
 
 #[typetag::serde(tag = "type")]
-pub trait EventProcessor: Debug {
-    fn name(&self) -> String;
-    fn process(&self, input: EventDocument) -> Result<EventDocument, Error>;
+pub trait PreprocessorConfig: Debug {
+    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>>;
+}
+
+#[typetag::serde(tag = "type")]
+pub trait EventProcessorConfig: Debug {
+    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>>;
 }

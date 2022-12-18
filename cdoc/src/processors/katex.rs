@@ -2,13 +2,23 @@ use katex::Opts;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::processors::Preprocessor;
-use crate::Context;
+use crate::processors::{Preprocessor, PreprocessorConfig, ProcessorContext};
+use crate::Meta;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KaTeXPreprocessorConfig;
+
+#[typetag::serde(name = "katex")]
+impl PreprocessorConfig for KaTeXPreprocessorConfig {
+    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
+        Ok(Box::new(KaTeXPreprocessor))
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum KaTeXPreprocessorError {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct KaTeXPreprocessor;
 
 fn find_block(input: &str) -> Option<(usize, usize, usize)> {
@@ -24,13 +34,12 @@ fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     Some((begin, end, end_delim.len()))
 }
 
-#[typetag::serde(name = "katex")]
 impl Preprocessor for KaTeXPreprocessor {
     fn name(&self) -> String {
         "KaTeX preprocessor".to_string()
     }
 
-    fn process(&self, input: &str, ctx: &Context) -> Result<String, Box<dyn std::error::Error>> {
+    fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error> {
         let mut rest = input;
         let mut res = String::new();
 

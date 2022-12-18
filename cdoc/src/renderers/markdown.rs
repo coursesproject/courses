@@ -1,6 +1,6 @@
 use crate::document::{DocPos, EventDocument};
 use crate::renderers::notebook::heading_num;
-use crate::renderers::Renderer;
+use crate::renderers::{Renderer, RenderResult};
 use pulldown_cmark::{CodeBlockKind, Event, Tag};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -10,8 +10,13 @@ pub struct MarkdownRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for MarkdownRenderer {
-    fn render(&self, doc: &EventDocument) -> String {
-        render_markdown(doc.to_events_with_pos())
+    fn render(&self, doc: &EventDocument) -> RenderResult {
+        let output = render_markdown(doc.to_events_with_pos());
+        RenderResult {
+            content: output,
+            metadata: doc.metadata.clone(),
+            variables: doc.variables.clone(),
+        }
     }
 }
 

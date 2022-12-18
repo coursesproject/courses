@@ -3,9 +3,10 @@
 pub mod config;
 
 use anyhow::anyhow;
-use cdoc::config::Format;
+use cdoc::config::{InputFormat, OutputFormat};
 use serde::{Deserialize, Serialize};
 use std::fs::DirEntry;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
@@ -53,6 +54,7 @@ pub struct ProjectIterator<D> {
 }
 
 /// Contains necessary information for reconstructing a Config from an iterator.
+#[derive(Clone)]
 pub struct ProjectItem<D> {
     pub part_id: Option<String>,
     pub chapter_id: Option<String>,
@@ -134,7 +136,7 @@ impl<D: Clone + Default> FromIterator<ProjectItem<D>> for Project<D> {
         // let mut index = it.next().unwrap().doc;
         let mut index: Item<D> = Item {
             id: "".to_string(),
-            format: DocFormat::Markdown,
+            format: InputFormat::Markdown,
             path: Default::default(),
             content: Arc::new(D::default()),
         };
@@ -320,12 +322,37 @@ pub struct Item<C> {
     /// Document id (filename excluding extension)
     pub id: String,
     /// Document source format
-    pub format: Format,
+    pub format: InputFormat,
     /// Location
     pub path: PathBuf,
     /// Content. It is wrapped in Arc to minimise unnecessary memory copying.
     pub content: Arc<C>,
 }
+
+impl<C> Item<C> {
+    pub fn map<O, F>(self, f: F) -> Item<O>
+    where
+        F: Fn(&C) -> O,
+    {
+        Item {
+            id: self.id,
+            format: self.format,
+            path: self.path,
+            content: Arc::new(f(self.content.deref())),
+        }
+    }
+}
+//
+// impl<C: Clone, E> Item<Result<C, E>> {
+//     pub fn collect(self) -> Result<Item<C>, E> {
+//         self.content.map(|c| Item {
+//             id: self.id,
+//             format: self.format,
+//             path: self.path,
+//             content: Arc::new(c.clone()),
+//         })
+//     }
+// }
 
 /// The top-level configuration of a project's content.TTT
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -497,7 +524,7 @@ impl Item<()> {
             id: section_id(section_path.as_ref())
                 .ok_or_else(|| anyhow!("Could not get raw file name"))?,
             path: section_path.as_ref().to_path_buf(),
-            format: Format::from_extension(
+            format: InputFormat::from_extension(
                 section_path.as_ref().extension().unwrap().to_str().unwrap(),
             )?,
             content: Arc::new(()),
@@ -648,7 +675,7 @@ mod tests {
     fn test_iteration_collect() {
         let doc = Item {
             id: "doc".to_string(),
-            format: Format::Markdown,
+            format: InputFormat::Markdown,
             path: Default::default(),
             content: Arc::new(()),
         };

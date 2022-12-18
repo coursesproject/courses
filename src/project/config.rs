@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use anyhow::anyhow;
-use cdoc::config::Format;
+use cdoc::config::OutputFormat;
 use serde::{Deserialize, Serialize};
+use cdoc::parser::Parser;
 
 /// Refers to a configuration.yml file in the project that specifies a variety
 /// of options for the project.
@@ -10,7 +12,8 @@ pub struct ProjectConfig {
     pub url_prefix: String,
     #[serde(default)]
     pub build: BuildConfigSet,
-    pub outputs: Vec<Format>,
+    pub outputs: Vec<OutputFormat>,
+    pub parsers: HashMap<OutputFormat, Parser>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

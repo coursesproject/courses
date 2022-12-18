@@ -1,2 +1,26 @@
 url_prefix: /courses
 katex_output: true
+
+outputs:
+  - html
+  - notebook
+
+parsers:
+  html:
+    settings:
+      solutions: false
+      notebook_outputs: true
+    preprocessors:
+      - type: shortcodes
+      - type: katex
+    event_processors:
+      - type: code_split
+  notebook:
+    settings:
+      solutions: false
+      notebook_outputs: true
+    preprocessors:
+      - type: shortcodes
+      - type: katex
+    event_processors:
+      - type: code_split

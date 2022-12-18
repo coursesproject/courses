@@ -1,13 +1,23 @@
 use crate::ast::AEvent;
 use crate::document::EventDocument;
-use crate::processors::{Error, EventProcessor};
+use crate::processors::{
+    Error, EventProcessor, EventProcessorConfig, Preprocessor, ProcessorContext,
+};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct EscapeProcessor;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EscapeProcessorConfig;
 
 #[typetag::serde(name = "escapes")]
+impl EventProcessorConfig for EscapeProcessorConfig {
+    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>> {
+        Ok(Box::new(EscapeProcessor))
+    }
+}
+
+#[derive(Debug)]
+pub struct EscapeProcessor;
+
 impl EventProcessor for EscapeProcessor {
     fn name(&self) -> String {
         "Escape processor".to_string()
@@ -30,6 +40,7 @@ impl EventProcessor for EscapeProcessor {
         });
         Ok(EventDocument {
             metadata: input.metadata,
+            variables: input.variables,
             content: iter.collect(),
         })
     }

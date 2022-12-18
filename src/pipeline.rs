@@ -1,100 +1,245 @@
-use anyhow::anyhow;
-use cdoc::config::{Format, PipelineConfig};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use crate::generators::{Generator, GeneratorContext};
+use anyhow::{anyhow, Context};
+use tera::Tera;
 
+use cdoc::config::OutputFormat;
+use cdoc::processors::ProcessorContext;
+use cdoc::renderers::RenderResult;
+
+use crate::generators::config::ConfigGenerator;
+use crate::generators::html::HtmlGenerator;
+use crate::generators::markdown::MarkdownGenerator;
+use crate::generators::notebook::CodeOutputGenerator;
+use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
-use crate::project::{Project, ProjectItem};
+use crate::project::{section_id, Item, Part, Project, ProjectItem};
 
 pub struct Pipeline {
     mode: String,
     project_path: PathBuf,
+    project: Project<()>,
     project_config: ProjectConfig,
-    cfg: PipelineConfig,
-    gen: HashMap<Format, Box<dyn Generator>>,
+    base_tera: Tera,
+    shortcode_tera: Tera,
+    cached_contexts: HashMap<OutputFormat, GeneratorContext>,
 }
 
 impl Pipeline {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
         mode: String,
-        cfg: PipelineConfig,
-        gen: HashMap<Format, Box<dyn Generator>>,
-        project: Project<()>
+        project: Project<()>,
     ) -> anyhow::Result<Self> {
         let config_path = project_path.as_ref().join("config.yml");
-        let config_reader = BufReader::new(File::open(config_path)?);
+        let config_reader = BufReader::new(
+            File::open(config_path).context("Error loading project configuration:")?,
+        );
 
-        let config: ProjectConfig = serde_yaml::from_reader(config_reader)?;
+        let config: ProjectConfig = serde_yaml::from_reader(config_reader)
+            .context("Error loading project configuration:")?;
+
+        let path_str = project_path
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("Invalid path"))?;
+        let pattern = path_str.to_string() + "/templates/**/*.tera.html";
+        let base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
+
+        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*";
+        let shortcode_tera =
+            Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
 
         Ok(Pipeline {
             mode,
             project_path: project_path.as_ref().to_path_buf(),
+            project,
             project_config: config,
-            cfg,
+            base_tera,
+            shortcode_tera,
+            cached_contexts: HashMap::new(),
         })
     }
 
-    fn build_all(&mut self, project: Project<()>) {
-        let loaded = project
+    fn get_generator(&self, format: OutputFormat) -> Box<dyn Generator> {
+        match format {
+            OutputFormat::Markdown => Box::new(MarkdownGenerator),
+            OutputFormat::Notebook => Box::new(CodeOutputGenerator),
+            OutputFormat::Html => Box::new(HtmlGenerator::new(
+                self.base_tera.clone(),
+                self.project.clone(),
+            )),
+            OutputFormat::Config => Box::new(ConfigGenerator),
+        }
+    }
+
+    fn get_build_path(&self, format: OutputFormat) -> PathBuf {
+        match format {
+            OutputFormat::Markdown => self.project_path.join("build").join("md"),
+            OutputFormat::Notebook => self.project_path.join("build").join("notebooks"),
+            OutputFormat::Html => self.project_path.join("build").join("html"),
+            OutputFormat::Config => self.project_path.join("build").join("config"),
+        }
+    }
+
+    pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
+        let item = self.doc_from_path(path)?;
+        let item2 = item.clone();
+
+        let loaded = item.map_doc(|doc| {
+            let path = self.project_path.join("content").join(&doc.path);
+            let val = fs::read_to_string(path.as_path())
+                .context(format!("Error loading document at {}", path.display()))?;
+            Ok::<String, anyhow::Error>(val)
+        })?;
+
+        for format in &self.project_config.outputs {
+            let output = self.process_document(&loaded.doc, *format)?;
+
+            if let Some(output) = output {
+                self.get_generator(*format).generate_single(
+                    output,
+                    item2.clone(),
+                    self.project_config.clone(),
+                    self.get_build_path(*format),
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn doc_from_path(&self, path: PathBuf) -> anyhow::Result<ProjectItem<()>> {
+        let mut part_id = None;
+        let mut chapter_id = None;
+
+        let doc_path = path
+            .as_path()
+            .strip_prefix(self.project_path.as_path().join("content"))?; // TODO: Error handling;
+        let mut doc_iter = doc_path.iter();
+        let el = doc_iter.next().unwrap().to_str().unwrap();
+
+        let doc = if el.contains('.') {
+            &self.project.index
+        } else {
+            let first_elem = doc_iter.next().unwrap().to_str().unwrap();
+
+            // let file_name = doc_iter.next().unwrap().to_str().unwrap();
+            let file_id = section_id(path.as_path()).unwrap();
+
+            let part: &Part<()> = self
+                .project
+                .content
+                .iter()
+                .find(|e| e.id == el)
+                .expect("Part not found for single document");
+            let elem = part.chapters.iter().find(|c| c.id == first_elem);
+            part_id = Some(part.id.clone());
+
+            match elem {
+                None => &part.index,
+                Some(c) => {
+                    chapter_id = Some(c.id.clone());
+                    let doc = c.documents.iter().find(|d| d.id == file_id);
+                    match doc {
+                        None => &c.index,
+                        Some(d) => d,
+                    }
+                }
+            }
+        };
+
+        let item = ProjectItem {
+            part_id,
+            chapter_id,
+            part_idx: None,
+            chapter_idx: None,
+            doc: doc.clone(),
+            files: None,
+        };
+
+        Ok(item)
+    }
+
+    pub fn build_all(&mut self) -> Result<(), anyhow::Error> {
+        let loaded = self.load_all()?;
+
+        for format in &self.project_config.outputs {
+            let output = self.process_all(loaded.clone(), *format)?;
+            let context = GeneratorContext {
+                root: self.project_path.to_path_buf(),
+                project: output,
+                config: self.project_config.clone(),
+                build_dir: self.get_build_path(*format),
+            };
+            self.cached_contexts.insert(*format, context.clone());
+
+            self.get_generator(*format).generate(context)?;
+        }
+        Ok(())
+    }
+
+    fn load_all(&self) -> Result<Project<String>, anyhow::Error> {
+        self.project
             .clone()
             .into_iter()
             .map(|item| {
                 item.map_doc(|doc| {
-                    let path = self.project_path.join(&doc.path);
-                    let val = fs::read_to_string(path)?;
+                    let path = self.project_path.join("content").join(&doc.path);
+                    let val = fs::read_to_string(path.as_path())
+                        .context(format!("Error loading document at {}", path.display()))?;
 
                     Ok(val)
                 })
             })
-            .collect::<Result<Project<String>, anyhow::Error>>()?;
-
-        for format in self.project_config.outputs {
-            let output = self.generate(loaded.clone())?;
-        }
+            .collect::<Result<Project<String>, anyhow::Error>>()
     }
 
-    pub fn generate(
+    // fn load_single(&self, )
+
+    fn process_all(
         &self,
         project: Project<String>,
-    ) -> Result<Project<Option<String>>, Box<dyn std::error::Error>> {
-        project.into_iter().map(self.generate_single).collect()
+        format: OutputFormat,
+    ) -> anyhow::Result<Project<Option<RenderResult>>> {
+        project
+            .into_iter()
+            .map(|i| i.map_doc(|doc| self.process_document(&doc, format)))
+            .collect()
     }
 
-    pub fn generate_single(
+    fn process_document(
         &self,
-        item: &ProjectItem<String>,
-    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let doc = self
-            .ctx
-            .pipeline
-            .loaders
-            .get(&item.doc.content.format)
-            .ok_or(anyhow!("No spect found"))?
-            .load(&item.doc.content.content)?;
+        doc: &Item<String>,
+        format: OutputFormat,
+    ) -> anyhow::Result<Option<RenderResult>> {
+        let doc = doc.format.loader().load(&doc.content)?;
 
-        if doc.metadata.output.contains(&self.format) {
+        if doc.metadata.output.contains(&format) {
+            let processor_ctx = ProcessorContext {
+                tera: self.shortcode_tera.clone(),
+                output_format: format,
+            };
+
+            let mut meta = tera::Context::new();
+            meta.insert("project", &self.project_config);
+
             let res = self
-                .ctx
-                .pipeline
+                .project_config
                 .parsers
-                .get(&self.format)
-                .ok_or(anyhow!("No spec found"))?
-                .parse(&doc, &HashMap::new())?;
-            let output = self
-                .ctx
-                .pipeline
-                .renderers
-                .get(&self.format)
-                .ok_or(anyhow!("No spec found"))?
-                .render(&res);
+                .get(&format)
+                .ok_or_else(|| anyhow!("No spec found"))?
+                .parse(&doc, &meta, &processor_ctx)?;
 
-            Ok(Some(output))
+            if let Some(renderer) = format.renderer() {
+                Ok(Some(renderer.render(&res)))
+            } else {
+                Ok(None)
+            }
 
             // let mut build_dir = self
             //     .ctx
@@ -107,8 +252,9 @@ impl Pipeline {
             // let file_path = build_dir.join(format!("{}.{}", item.doc.id, self.format));
             // fs::create_dir_all(build_dir)?;
             // fs::write(file_path, output)?;
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 }
 

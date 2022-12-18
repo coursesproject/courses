@@ -1,6 +1,6 @@
 use crate::document::{DocPos, EventDocument};
 use crate::notebook::{Cell, CellCommon, CellMeta, Notebook, NotebookMeta};
-use crate::renderers::Renderer;
+use crate::renderers::{RenderResult, Renderer};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,9 +12,15 @@ pub struct NotebookRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for NotebookRenderer {
-    fn render(&self, doc: &EventDocument) -> String {
+    fn render(&self, doc: &EventDocument) -> RenderResult {
         let notebook = render_notebook(doc.to_events_with_pos());
-        serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)")
+        let output = serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)");
+
+        RenderResult {
+            content: output,
+            metadata: doc.metadata.clone(),
+            variables: doc.variables.clone(),
+        }
     }
 }
 

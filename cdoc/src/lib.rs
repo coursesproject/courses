@@ -14,4 +14,4 @@ pub mod parsers;
 pub mod processors;
 pub mod renderers;
 
-type Context = HashMap<String, split_types::Value>;
+type Meta = HashMap<String, split_types::Value>;

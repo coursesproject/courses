@@ -9,7 +9,7 @@ use yaml_front_matter::YamlFrontMatter;
 
 #[typetag::serde(tag = "type")]
 pub trait Loader: Debug {
-    fn load(&self, input: &str) -> Result<RawDocument, ParserError>;
+    fn load(&self, input: &str) -> Result<RawDocument, anyhow::Error>;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -17,7 +17,7 @@ pub struct NotebookLoader;
 
 #[typetag::serde(name = "notebook_loader")]
 impl Loader for NotebookLoader {
-    fn load(&self, input: &str) -> Result<RawDocument, ParserError> {
+    fn load(&self, input: &str) -> Result<RawDocument, anyhow::Error> {
         let nb: Notebook = serde_json::from_str(input)?;
         let meta = nb.get_front_matter()?;
         Ok(RawDocument::new(nb, meta))
@@ -29,7 +29,7 @@ pub struct MarkdownLoader;
 
 #[typetag::serde(name = "markdown_loader")]
 impl Loader for MarkdownLoader {
-    fn load(&self, input: &str) -> Result<RawDocument, ParserError> {
+    fn load(&self, input: &str) -> Result<RawDocument, anyhow::Error> {
         let yml: yaml_front_matter::Document<DocumentMetadata> =
             YamlFrontMatter::parse(&input).unwrap();
         Ok(RawDocument::new(yml.content.clone(), yml.metadata))

@@ -1,16 +1,24 @@
+use serde::{Deserialize, Serialize};
+
 use crate::ast::{ACodeBlockKind, AEvent, ATag};
 use crate::document::{DocPos, EventDocument};
 use crate::parsers::split::{human_errors, parse_code_string};
 use crate::processors::Error::CodeParseError;
-use crate::processors::{Error, EventProcessor};
-use pulldown_cmark::{CodeBlockKind, CowStr};
-use serde::{Deserialize, Serialize};
-use std::rc::Rc;
+use crate::processors::{Error, EventProcessor, EventProcessorConfig, ProcessorContext};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CodeSplit;
+pub struct CodeSplitConfig;
 
 #[typetag::serde(name = "code_split")]
+impl EventProcessorConfig for CodeSplitConfig {
+    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>> {
+        Ok(Box::new(CodeSplit))
+    }
+}
+
+#[derive(Debug)]
+pub struct CodeSplit;
+
 impl EventProcessor for CodeSplit {
     fn name(&self) -> String {
         "Code split".to_string()
@@ -66,6 +74,7 @@ impl EventProcessor for CodeSplit {
 
         Ok(EventDocument {
             metadata: input.metadata,
+            variables: input.variables,
             content,
         })
     }

@@ -1,9 +1,9 @@
 use crate::ast::AEvent;
-use crate::config::Format;
+use crate::config::OutputFormat;
 use crate::notebook::{Cell, CellOutput, Notebook};
 use crate::processors::shortcode_extender::ShortCodeProcessError;
 use crate::processors::Preprocessor;
-use crate::Context;
+use crate::Meta;
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
@@ -21,9 +21,15 @@ pub struct RawDocument {
     content: Content,
 }
 
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct DocumentVariables {
+    pub first_heading: Option<String>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct EventDocument {
     pub metadata: DocumentMetadata,
+    pub variables: DocumentVariables,
     pub content: Vec<(AEvent, DocPos)>,
 }
 
@@ -62,21 +68,20 @@ pub struct DocumentMetadata {
     pub title: Option<String>,
     #[serde(rename = "type", default = "default_title")]
     pub doc_type: String,
-    #[serde(default = "default_true")]
-    pub code_split: bool,
-    #[serde(default = "default_true")]
-    pub notebook_output: bool,
+    pub code_split: Option<bool>,
+    pub notebook_output: Option<bool>,
+    pub code_solutions: Option<bool>,
     #[serde(default)]
     pub layout: LayoutSettings,
 
     #[serde(default = "default_outputs")]
-    pub output: HashSet<Format>,
+    pub output: HashSet<OutputFormat>,
 }
 
-fn default_outputs() -> HashSet<Format> {
+fn default_outputs() -> HashSet<OutputFormat> {
     let mut map = HashSet::new();
-    map.insert(Format::Notebook);
-    map.insert(Format::Html);
+    map.insert(OutputFormat::Notebook);
+    map.insert(OutputFormat::Html);
     map
 }
 
@@ -128,8 +133,8 @@ impl RawDocument {
     pub fn preprocess(
         self,
         processor: &dyn Preprocessor,
-        ctx: &Context,
-    ) -> Result<RawDocument, Box<dyn std::error::Error>> {
+        ctx: &tera::Context,
+    ) -> Result<RawDocument, anyhow::Error> {
         let elements = self
             .content
             .0
@@ -140,7 +145,7 @@ impl RawDocument {
                 }),
                 _ => Ok(e.clone()),
             })
-            .collect::<Result<Vec<Element>, Box<dyn std::error::Error>>>()?;
+            .collect::<Result<Vec<Element>, anyhow::Error>>()?;
         Ok(RawDocument {
             content: Content(elements),
             metadata: self.metadata,
@@ -158,6 +163,7 @@ impl RawDocument {
         let content = self.configure_iterator(config).map(|(e, p)| (e.into(), p));
         EventDocument {
             metadata: self.metadata.clone(),
+            variables: DocumentVariables::default(),
             content: content.collect(),
         }
     }
