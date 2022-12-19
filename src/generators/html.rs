@@ -33,13 +33,13 @@ impl HtmlGenerator {
         doc_path: PathBuf,
         build_dir: PathBuf,
     ) -> anyhow::Result<()> {
-        let mut html_build_dir = build_dir.join(&doc_path);
+        let mut html_build_dir = build_dir.join(doc_path);
         html_build_dir.pop(); // Pop filename
 
         let section_build_path = html_build_dir.join(format!("{}.html", doc_id));
 
         fs::create_dir_all(html_build_dir).context("Could not create directory")?;
-        fs::write(section_build_path, &output).unwrap();
+        fs::write(section_build_path, output).unwrap();
 
         Ok(())
     }

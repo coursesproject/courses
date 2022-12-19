@@ -83,7 +83,7 @@ impl Pipeline {
         let item2 = item.clone();
 
         let loaded = item.map_doc(|doc| {
-            let path = self.project_path.join("content").join(&doc.path);
+            let path = self.project_path.join("content").join(doc.path);
             let val = fs::read_to_string(path.as_path())
                 .context(format!("Error loading document at {}", path.display()))?;
             Ok::<String, anyhow::Error>(val)
@@ -181,7 +181,7 @@ impl Pipeline {
             .into_iter()
             .map(|item| {
                 item.map_doc(|doc| {
-                    let path = self.project_path.join("content").join(&doc.path);
+                    let path = self.project_path.join("content").join(doc.path);
                     let val = fs::read_to_string(path.as_path())
                         .context(format!("Error loading document at {}", path.display()))?;
 
