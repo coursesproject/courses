@@ -24,20 +24,20 @@
             {# {% if part.chapters %}
             <div class="navbar-item has-dropdown is-hoverable">
                 <a href="{{project.url_prefix}}/{{ part.id }}/index.html" class="navbar-link">
-                    {{part.index.content.title}}
+                    {{part.index.content.metadata.title}}
                 </a>
         
                 <div class="navbar-dropdown">
                 {% for chapter in part.chapters %}
                 <a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html" class="navbar-item">
-                    {{chapter.index.content.title}}
+                    {{chapter.index.content.metadata.title}}
                   </a>
                 {% endfor %}
                 </div>
               </div>
             {% else %} #}
             <a href="{{project.url_prefix}}/{{ part.id }}/index.html" class="navbar-item">
-                {{part.index.content.title}}
+                {{part.index.content.metadata.title}}
               </a>
             {# {% endif %} #}
         {% endfor %}

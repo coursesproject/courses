@@ -1,4 +1,4 @@
-use crate::parser::FrontMatter;
+use crate::document::DocumentMetadata;
 use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
 use base64;
@@ -380,10 +380,10 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
 }
 
 impl Notebook {
-    pub fn get_front_matter(&self) -> Result<FrontMatter, serde_yaml::Error> {
+    pub fn get_front_matter(&self) -> Result<DocumentMetadata, serde_yaml::Error> {
         match &self.cells[0] {
             Cell::Raw { common } => Ok(serde_yaml::from_str(&common.source)?),
-            _ => Ok(FrontMatter::default()),
+            _ => Ok(DocumentMetadata::default()),
         }
     }
 

@@ -1,19 +1,24 @@
-use crate::extensions::Preprocessor;
 use katex::Opts;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::processors::{Preprocessor, PreprocessorConfig, ProcessorContext};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KaTeXPreprocessorConfig;
+
+#[typetag::serde(name = "katex")]
+impl PreprocessorConfig for KaTeXPreprocessorConfig {
+    fn build(&self, _ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
+        Ok(Box::new(KaTeXPreprocessor))
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum KaTeXPreprocessorError {}
 
-pub struct KaTeXPreprocessor {
-    opts: Opts,
-}
-
-impl KaTeXPreprocessor {
-    pub fn new(opts: Opts) -> Self {
-        KaTeXPreprocessor { opts }
-    }
-}
+#[derive(Debug)]
+pub struct KaTeXPreprocessor;
 
 fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     let begin = input.find('$')?;
@@ -29,7 +34,11 @@ fn find_block(input: &str) -> Option<(usize, usize, usize)> {
 }
 
 impl Preprocessor for KaTeXPreprocessor {
-    fn process(&self, input: &str) -> Result<String, Box<dyn std::error::Error>> {
+    fn name(&self) -> String {
+        "KaTeX preprocessor".to_string()
+    }
+
+    fn process(&self, input: &str, _ctx: &tera::Context) -> Result<String, anyhow::Error> {
         let mut rest = input;
         let mut res = String::new();
 
@@ -41,8 +50,7 @@ impl Preprocessor for KaTeXPreprocessor {
 
                     let source = &rest[(begin + delim_len)..end];
 
-                    let mut opts = self.opts.clone();
-                    opts.set_display_mode(delim_len == 2);
+                    let opts = Opts::builder().display_mode(delim_len == 2).build()?;
                     let ktex = katex::render_with_opts(source, opts)?;
 
                     res.push_str(pre);

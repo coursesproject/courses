@@ -1,11 +1,17 @@
 //! Types for describing project configurations.
 
-use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
 use std::fs::DirEntry;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
+
+use anyhow::anyhow;
+use serde::{Deserialize, Serialize};
+
+use cdoc::config::InputFormat;
+
+pub mod config;
 
 /// This is a custom map trait meant for configurations. The structure is preserved and each document
 /// is transformed.
@@ -13,7 +19,7 @@ pub trait Transform<T, I, O> {
     /// Like map but for a configuration.
     fn transform<F>(&self, f: &F) -> T
     where
-        F: Fn(&DocumentSpec<I>) -> O;
+        F: Fn(&Item<I>) -> O;
 }
 
 /// Convenience trait for a map-function that also has access to the possible parents of a document.
@@ -21,18 +27,18 @@ pub trait TransformParents<T, I, O> {
     /// The inner function receives the parents which are omitted if they don't exist.
     fn transform_parents<F>(&self, f: &F) -> T
     where
-        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
+        F: Fn(&Item<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O;
 }
 
-impl<D> IntoIterator for Config<D>
+impl<D> IntoIterator for Project<D>
 where
     D: Clone,
 {
-    type Item = ConfigItem<D>;
-    type IntoIter = ConfigIterator<D>;
+    type Item = ProjectItem<D>;
+    type IntoIter = ProjectIterator<D>;
 
     fn into_iter(self) -> Self::IntoIter {
-        ConfigIterator {
+        ProjectIterator {
             part_pos: 0,
             chapter_pos: 0,
             doc_pos: 0,
@@ -42,33 +48,34 @@ where
 }
 
 /// Iterates a Config.
-pub struct ConfigIterator<D> {
+pub struct ProjectIterator<D> {
     part_pos: usize,
     chapter_pos: usize,
     doc_pos: usize,
-    config: Config<D>,
+    config: Project<D>,
 }
 
 /// Contains necessary information for reconstructing a Config from an iterator.
-pub struct ConfigItem<D> {
+#[derive(Clone)]
+pub struct ProjectItem<D> {
     pub part_id: Option<String>,
     pub chapter_id: Option<String>,
     pub part_idx: Option<usize>,
     pub chapter_idx: Option<usize>,
-    pub doc: DocumentSpec<D>,
+    pub doc: Item<D>,
     pub files: Option<Vec<PathBuf>>, // Temporary solution for carrying file info
 }
 
-impl<D> ConfigItem<D> {
+impl<D> ProjectItem<D> {
     fn new(
         part_id: Option<String>,
         chapter_id: Option<String>,
         part_idx: Option<usize>,
         chapter_idx: Option<usize>,
-        doc: DocumentSpec<D>,
+        doc: Item<D>,
         files: Option<Vec<PathBuf>>,
     ) -> Self {
-        ConfigItem {
+        ProjectItem {
             part_id,
             chapter_id,
             part_idx,
@@ -79,17 +86,17 @@ impl<D> ConfigItem<D> {
     }
 
     /// Perform operation on the inner document, then return the result wrapped in a ConfigItem.
-    pub fn map<O, F>(self, f: F) -> anyhow::Result<ConfigItem<O>>
+    pub fn map<O, F>(self, f: F) -> anyhow::Result<ProjectItem<O>>
     where
         F: Fn(&D) -> anyhow::Result<O>,
     {
-        let doc = DocumentSpec {
+        let doc = Item {
             id: self.doc.id,
             format: self.doc.format,
             path: self.doc.path,
             content: Arc::new(f(self.doc.content.as_ref())?),
         };
-        Ok(ConfigItem::new(
+        Ok(ProjectItem::new(
             self.part_id,
             self.chapter_id,
             self.part_idx,
@@ -100,17 +107,17 @@ impl<D> ConfigItem<D> {
     }
 
     /// Perform operation on the whole DocumentSpec.
-    pub fn map_doc<O, F, E>(self, f: F) -> Result<ConfigItem<O>, E>
+    pub fn map_doc<O, F, E>(self, f: F) -> Result<ProjectItem<O>, E>
     where
-        F: Fn(DocumentSpec<D>) -> Result<O, E>,
+        F: Fn(Item<D>) -> Result<O, E>,
     {
-        let doc = DocumentSpec {
+        let doc = Item {
             id: self.doc.id.clone(),
-            format: self.doc.format.clone(),
+            format: self.doc.format,
             path: self.doc.path.clone(),
             content: Arc::new(f(self.doc)?),
         };
-        Ok(ConfigItem::new(
+        Ok(ProjectItem::new(
             self.part_id,
             self.chapter_id,
             self.part_idx,
@@ -126,12 +133,12 @@ impl<D> ConfigItem<D> {
 }
 
 /// Collect iterator of ConfigItem into Config (tree structure).
-impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
-    fn from_iter<T: IntoIterator<Item = ConfigItem<D>>>(iter: T) -> Self {
+impl<D: Clone + Default> FromIterator<ProjectItem<D>> for Project<D> {
+    fn from_iter<T: IntoIterator<Item = ProjectItem<D>>>(iter: T) -> Self {
         // let mut index = it.next().unwrap().doc;
-        let mut index: DocumentSpec<D> = DocumentSpec {
+        let mut index: Item<D> = Item {
             id: "".to_string(),
-            format: Format::Markdown,
+            format: InputFormat::Markdown,
             path: Default::default(),
             content: Arc::new(D::default()),
         };
@@ -181,7 +188,7 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
             }
         }
 
-        Config {
+        Project {
             project_path: Default::default(),
             index,
             content: parts,
@@ -189,18 +196,18 @@ impl<D: Clone + Default> FromIterator<ConfigItem<D>> for Config<D> {
     }
 }
 
-impl<D> Iterator for ConfigIterator<D>
+impl<D> Iterator for ProjectIterator<D>
 where
     D: Clone,
 {
-    type Item = ConfigItem<D>;
+    type Item = ProjectItem<D>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.part_pos {
             0 => {
                 // Config index
                 self.part_pos += 1;
-                Some(ConfigItem::new(
+                Some(ProjectItem::new(
                     None,
                     None,
                     Some(0),
@@ -222,7 +229,7 @@ where
                         } else {
                             self.chapter_pos += 1;
                         }
-                        Some(ConfigItem::new(
+                        Some(ProjectItem::new(
                             Some(part.id.clone()),
                             None,
                             Some(part_idx),
@@ -252,7 +259,7 @@ where
                         match current_doc_pos {
                             0 => {
                                 // Chapter index
-                                Some(ConfigItem::new(
+                                Some(ProjectItem::new(
                                     Some(part.id.clone()),
                                     Some(chapter.id.clone()),
                                     Some(part_idx),
@@ -261,7 +268,7 @@ where
                                     Some(chapter.files.clone()),
                                 ))
                             }
-                            doc_pos => Some(ConfigItem::new(
+                            doc_pos => Some(ProjectItem::new(
                                 Some(part.id.clone()),
                                 Some(chapter.id.clone()),
                                 Some(part_idx),
@@ -280,7 +287,7 @@ where
 
 /// Specifies the document format. Currently, only Markdown and Notebooks (ipynb) are supported.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Format {
+pub enum DocFormat {
     Markdown,
     Notebook,
 }
@@ -291,7 +298,7 @@ pub struct Part<C> {
     /// Part id (folder name)
     pub id: String,
     /// Index document
-    pub index: DocumentSpec<C>,
+    pub index: Item<C>,
     /// Chapters (in order)
     pub chapters: Vec<Chapter<C>>,
 }
@@ -302,9 +309,9 @@ pub struct Chapter<C> {
     /// Chapter id (folder name)
     pub id: String,
     /// Index document
-    pub index: DocumentSpec<C>,
+    pub index: Item<C>,
     /// Individual documents
-    pub documents: Vec<DocumentSpec<C>>,
+    pub documents: Vec<Item<C>>,
     /// Other files
     pub files: Vec<PathBuf>,
 }
@@ -313,71 +320,54 @@ pub struct Chapter<C> {
 /// type over the inner "document". This is useful for using the configuration as a datastructure
 /// for content throughout the build process.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocumentSpec<C> {
+pub struct Item<C> {
     /// Document id (filename excluding extension)
     pub id: String,
     /// Document source format
-    pub format: Format,
+    pub format: InputFormat,
     /// Location
     pub path: PathBuf,
     /// Content. It is wrapped in Arc to minimise unnecessary memory copying.
     pub content: Arc<C>,
 }
 
+impl<C> Item<C> {
+    pub fn map<O, F>(self, f: F) -> Item<O>
+    where
+        F: Fn(&C) -> O,
+    {
+        Item {
+            id: self.id,
+            format: self.format,
+            path: self.path,
+            content: Arc::new(f(self.content.deref())),
+        }
+    }
+}
+//
+// impl<C: Clone, E> Item<Result<C, E>> {
+//     pub fn collect(self) -> Result<Item<C>, E> {
+//         self.content.map(|c| Item {
+//             id: self.id,
+//             format: self.format,
+//             path: self.path,
+//             content: Arc::new(c.clone()),
+//         })
+//     }
+// }
+
 /// The top-level configuration of a project's content.TTT
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config<C> {
+pub struct Project<C> {
     pub project_path: PathBuf,
-    pub(crate) index: DocumentSpec<C>,
+    pub(crate) index: Item<C>,
     pub(crate) content: Vec<Part<C>>,
-}
-
-/// Refers to a configuration.yml file in the project that specifies a variety
-/// of options for the project.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectConfig {
-    #[serde(default)]
-    pub url_prefix: String,
-    #[serde(default)]
-    pub build: BuildConfigSet,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BuildConfigSet {
-    pub dev: BuildConfig,
-    pub release: BuildConfig,
-}
-
-impl BuildConfigSet {
-    pub fn get_config(&self, mode: &str) -> anyhow::Result<BuildConfig> {
-        match mode {
-            "dev" => Ok(self.dev.clone()),
-            "release" => Ok(self.release.clone()),
-            _ => Err(anyhow!("Invalid build mode")),
-        }
-    }
-}
-
-impl Default for BuildConfigSet {
-    fn default() -> Self {
-        BuildConfigSet {
-            dev: BuildConfig {
-                katex_output: false,
-            },
-            release: BuildConfig { katex_output: true },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BuildConfig {
-    pub katex_output: bool,
 }
 
 impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
     fn transform<F>(&self, f: &F) -> Chapter<O>
     where
-        F: Fn(&DocumentSpec<I>) -> O,
+        F: Fn(&Item<I>) -> O,
     {
         Chapter {
             id: self.id.clone(),
@@ -391,7 +381,7 @@ impl<I, O> Transform<Chapter<O>, I, O> for Chapter<I> {
 impl<I> Chapter<I> {
     fn transform_parents_helper<F, O>(&self, part: &Part<I>, f: &F) -> Chapter<O>
     where
-        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+        F: Fn(&Item<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Chapter {
             id: self.id.clone(),
@@ -411,7 +401,7 @@ impl<I> Chapter<I> {
 impl<I, O> Transform<Part<O>, I, O> for Part<I> {
     fn transform<F>(&self, f: &F) -> Part<O>
     where
-        F: Fn(&DocumentSpec<I>) -> O,
+        F: Fn(&Item<I>) -> O,
     {
         Part {
             id: self.id.clone(),
@@ -424,7 +414,7 @@ impl<I, O> Transform<Part<O>, I, O> for Part<I> {
 impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
     fn transform_parents<F>(&self, f: &F) -> Part<O>
     where
-        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+        F: Fn(&Item<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
         Part {
             id: self.id.clone(),
@@ -438,12 +428,12 @@ impl<I, O> TransformParents<Part<O>, I, O> for Part<I> {
     }
 }
 
-impl<I, O> Transform<Config<O>, I, O> for Config<I> {
-    fn transform<F>(&self, f: &F) -> Config<O>
+impl<I, O> Transform<Project<O>, I, O> for Project<I> {
+    fn transform<F>(&self, f: &F) -> Project<O>
     where
-        F: Fn(&DocumentSpec<I>) -> O,
+        F: Fn(&Item<I>) -> O,
     {
-        Config {
+        Project {
             project_path: self.project_path.clone(),
             index: self.index.transform(f),
             content: self.content.iter().map(|p| p.transform(f)).collect(),
@@ -451,12 +441,12 @@ impl<I, O> Transform<Config<O>, I, O> for Config<I> {
     }
 }
 
-impl<I, O> TransformParents<Config<O>, I, O> for Config<I> {
-    fn transform_parents<F>(&self, f: &F) -> Config<O>
+impl<I, O> TransformParents<Project<O>, I, O> for Project<I> {
+    fn transform_parents<F>(&self, f: &F) -> Project<O>
     where
-        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+        F: Fn(&Item<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
-        Config {
+        Project {
             project_path: self.project_path.clone(),
             index: self.index.transform_parents_helper(None, None, f),
             content: self
@@ -468,45 +458,45 @@ impl<I, O> TransformParents<Config<O>, I, O> for Config<I> {
     }
 }
 
-impl<I, O> Transform<DocumentSpec<O>, I, O> for DocumentSpec<I> {
-    fn transform<F>(&self, f: &F) -> DocumentSpec<O>
+impl<I, O> Transform<Item<O>, I, O> for Item<I> {
+    fn transform<F>(&self, f: &F) -> Item<O>
     where
-        F: Fn(&DocumentSpec<I>) -> O,
+        F: Fn(&Item<I>) -> O,
     {
-        DocumentSpec {
+        Item {
             id: self.id.clone(),
-            format: self.format.clone(),
+            format: self.format,
             path: self.path.clone(),
             content: Arc::new(f(self)),
         }
     }
 }
 
-impl<I> DocumentSpec<I> {
+impl<I> Item<I> {
     fn transform_parents_helper<F, O>(
         &self,
         part: Option<&Part<I>>,
         chapter: Option<&Chapter<I>>,
         f: &F,
-    ) -> DocumentSpec<O>
+    ) -> Item<O>
     where
-        F: Fn(&DocumentSpec<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
+        F: Fn(&Item<I>, Option<&Part<I>>, Option<&Chapter<I>>) -> O,
     {
-        DocumentSpec {
+        Item {
             id: self.id.clone(),
-            format: self.format.clone(),
+            format: self.format,
             path: self.path.clone(),
             content: Arc::new(f(self, part, chapter)),
         }
     }
 }
 
-impl Format {
+impl DocFormat {
     /// Get format from path (md/ipynb).
     pub fn from_path<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         match path.as_ref().extension().unwrap().to_str().unwrap() {
-            "md" => Ok(Format::Markdown),
-            "ipynb" => Ok(Format::Notebook),
+            "md" => Ok(DocFormat::Markdown),
+            "ipynb" => Ok(DocFormat::Notebook),
             _ => Err(anyhow!("Invalid file extension")),
         }
     }
@@ -530,13 +520,15 @@ fn chapter_id<P: AsRef<Path>>(path: P) -> Option<String> {
     Some(path.as_ref().file_name()?.to_str().unwrap().to_string())
 }
 
-impl DocumentSpec<()> {
+impl Item<()> {
     fn new<P: AsRef<Path>>(section_path: P) -> anyhow::Result<Self> {
-        Ok(DocumentSpec {
+        Ok(Item {
             id: section_id(section_path.as_ref())
                 .ok_or_else(|| anyhow!("Could not get raw file name"))?,
             path: section_path.as_ref().to_path_buf(),
-            format: Format::from_path(section_path)?,
+            format: InputFormat::from_extension(
+                section_path.as_ref().extension().unwrap().to_str().unwrap(),
+            )?,
             content: Arc::new(()),
         })
     }
@@ -551,7 +543,7 @@ fn extension_in(extension: &str) -> bool {
 fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
     chapter_dir: &P,
     content_path: &PC,
-) -> anyhow::Result<DocumentSpec<()>> {
+) -> anyhow::Result<Item<()>> {
     let chapter_index_md = chapter_dir.as_ref().join("index.md");
     let chapter_index_ipynb = chapter_dir.as_ref().join("index.ipynb");
     let chapter_index = if chapter_index_md.is_file() {
@@ -560,7 +552,7 @@ fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
         chapter_index_ipynb
     };
 
-    DocumentSpec::new(chapter_index.strip_prefix(content_path.as_ref())?)
+    Item::new(chapter_index.strip_prefix(content_path.as_ref())?)
 }
 
 impl Chapter<()> {
@@ -596,9 +588,9 @@ impl Chapter<()> {
             .map(|entry| entry.path())
             .collect();
 
-        let documents: Vec<DocumentSpec<()>> = paths
-            .map(|entry| DocumentSpec::new(entry.path().strip_prefix(content_path.as_ref())?))
-            .collect::<anyhow::Result<Vec<DocumentSpec<()>>>>()?;
+        let documents: Vec<Item<()>> = paths
+            .map(|entry| Item::new(entry.path().strip_prefix(content_path.as_ref())?))
+            .collect::<anyhow::Result<Vec<Item<()>>>>()?;
 
         let index_doc = index_helper(&chapter_dir, &content_path);
 
@@ -636,7 +628,7 @@ fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
     Ok(paths)
 }
 
-impl Config<()> {
+impl Project<()> {
     /// Construct configuration from a directory (generally the project directory). The function
     /// finds and verifies the structure of the project.
     pub fn generate_from_directory<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
@@ -656,7 +648,7 @@ impl Config<()> {
 
         let index_doc = index_helper(&content_path, &content_path)?;
 
-        Ok(Config {
+        Ok(Project {
             project_path: path.as_ref().to_path_buf(),
             index: index_doc,
             content: parts,
@@ -666,12 +658,14 @@ impl Config<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::iter::zip;
+
+    use super::*;
 
     #[test]
     fn gen_config_from_dir() {
-        let cfg = Config::generate_from_directory("resources/test").expect("Could not read config");
+        let cfg =
+            Project::generate_from_directory("resources/test").expect("Could not read config");
         assert_eq!(cfg.content.len(), 1); // 1 part
         assert_eq!(cfg.content[0].chapters.len(), 4); // 4 chapters in part 1
         assert_eq!(cfg.content[0].chapters[0].id, "01_getting_started");
@@ -682,14 +676,14 @@ mod tests {
 
     #[test]
     fn test_iteration_collect() {
-        let doc = DocumentSpec {
+        let doc = Item {
             id: "doc".to_string(),
-            format: Format::Markdown,
+            format: InputFormat::Markdown,
             path: Default::default(),
             content: Arc::new(()),
         };
 
-        let cfg = Config {
+        let cfg = Project {
             project_path: Default::default(),
             index: doc.clone(),
             content: vec![
@@ -719,7 +713,7 @@ mod tests {
             ],
         };
 
-        let cfg_mapped: Config<()> = cfg.clone().into_iter().collect();
+        let cfg_mapped: Project<()> = cfg.clone().into_iter().collect();
 
         for (p1, p2) in zip(cfg.content, cfg_mapped.content) {
             assert_eq!(p1.id, p2.id);

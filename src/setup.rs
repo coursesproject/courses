@@ -1,5 +1,6 @@
-use rust_embed::RustEmbed;
 use std::{env, fs};
+
+use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "resources/bundle/"]

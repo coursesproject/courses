@@ -1,24 +1,25 @@
-use crate::cfg::ProjectConfig;
-use crate::extensions::Preprocessor;
-use crate::parsers::shortcodes::{parse_shortcode, Rule};
-use pulldown_cmark::html::push_html;
-use pulldown_cmark::{Options, Parser};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+
+use pulldown_cmark::html::push_html;
+use pulldown_cmark::{Options, Parser};
+use serde::{Deserialize, Serialize};
 use tera::Tera;
 use thiserror::Error;
 
-pub enum OutputFormat {
-    Markdown,
-    Html,
-}
+use crate::parsers::shortcodes::{parse_shortcode, Rule};
+use crate::processors::{Preprocessor, PreprocessorConfig, ProcessorContext};
 
-impl Display for OutputFormat {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OutputFormat::Markdown => write!(f, "md"),
-            OutputFormat::Html => write!(f, "html"),
-        }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ShortCodeProcessConfig;
+
+#[typetag::serde(name = "shortcodes")]
+impl PreprocessorConfig for ShortCodeProcessConfig {
+    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
+        Ok(Box::new(ShortCodeProcessor {
+            tera: ctx.tera.clone(),
+            file_ext: ctx.output_format.template_extension().to_string(),
+        }))
     }
 }
 
@@ -123,53 +124,106 @@ impl Display for ShortCodeProcessError {
         }
     }
 }
+//
+// #[derive(Debug)]
+// pub struct BoundTera {
+//     tera: Tera,
+//     pattern: String,
+// }
+//
+// impl Serialize for BoundTera {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         serializer.serialize_str(&self.pattern)
+//     }
+// }
+//
+// struct StringVisitor;
+//
+// impl<'de> Visitor<'de> for StringVisitor {
+//     type Value = String;
+//
+//     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+//         formatter.write_str("A string representing the template search pattern")
+//     }
+//
+//     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+//     where
+//         E: serde::de::Error,
+//     {
+//         Ok(String::from(v))
+//     }
+//
+//     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+//     where
+//         E: serde::de::Error,
+//     {
+//         Ok(v)
+//     }
+// }
+//
+// impl<'de> Deserialize<'de> for BoundTera {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         let pattern = deserializer.deserialize_str(StringVisitor)?;
+//         Ok(BoundTera {
+//             tera: Tera::new(&pattern).map_err(|e| D::Error::custom(e.to_string()))?,
+//             pattern,
+//         })
+//     }
+// }
 
+#[derive(Debug)]
 pub struct ShortCodeProcessor {
     tera: Tera,
-    project_config: ProjectConfig,
     file_ext: String,
 }
 
 impl ShortCodeProcessor {
-    pub fn new(tera: Tera, file_ext: String, project_config: ProjectConfig) -> Self {
-        ShortCodeProcessor {
-            tera,
-            file_ext,
-            project_config,
-        }
+    pub fn new(pattern: &str, file_ext: &str) -> Result<Self, tera::Error> {
+        Ok(ShortCodeProcessor {
+            tera: Tera::new(pattern)?,
+            file_ext: file_ext.to_string(),
+        })
     }
 
-    fn render_inline_template(&self, shortcode: &str) -> Result<String, ShortCodeProcessError> {
+    fn render_inline_template(
+        &self,
+        shortcode: &str,
+        ctx: &tera::Context,
+    ) -> Result<String, ShortCodeProcessError> {
         let code = parse_shortcode(shortcode)?;
-        let mut context = tera::Context::new();
         let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
 
-        context.insert("project", &self.project_config);
+        let mut ctx = ctx.clone();
         for (k, v) in code.parameters {
-            context.insert(k, &v);
+            ctx.insert(k, &v);
         }
-        Ok(self.tera.render(&name, &context)?)
+
+        Ok(self.tera.render(&name, &ctx)?)
     }
 
     fn render_block_template(
         &self,
         shortcode: &str,
         body: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+        ctx: &tera::Context,
+    ) -> Result<String, anyhow::Error> {
         let code = parse_shortcode(shortcode)?;
-        let mut context = tera::Context::new();
         let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
-        context.insert("project", &self.project_config);
+
+        let mut ctx = ctx.clone();
+
         for (k, v) in code.parameters {
-            context.insert(k, &v);
+            ctx.insert(k, &v);
         }
 
-        let processed = ShortCodeProcessor::new(
-            self.tera.clone(),
-            self.file_ext.clone(),
-            self.project_config.clone(),
-        )
-        .process(body)?;
+        let processed = self.process(body, &ctx)?;
+
         let body_final = if self.file_ext == "html" {
             let parser = Parser::new_ext(&processed, Options::all());
             let mut html = String::new();
@@ -179,13 +233,17 @@ impl ShortCodeProcessor {
             processed
         };
 
-        context.insert("body", &body_final);
-        Ok(self.tera.render(&name, &context)?)
+        ctx.insert("body", &body_final);
+        Ok(self.tera.render(&name, &ctx)?)
     }
 }
 
 impl Preprocessor for ShortCodeProcessor {
-    fn process(&self, input: &str) -> Result<String, Box<dyn std::error::Error>> {
+    fn name(&self) -> String {
+        "Shortcode processor".to_string()
+    }
+
+    fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error> {
         let mut rest = input;
         let mut offset = 0;
 
@@ -212,7 +270,7 @@ impl Preprocessor for ShortCodeProcessor {
                                     let post = &rest[(end + 2)..];
                                     let tmp_name = rest[(start + 2)..(end - 1)].trim();
 
-                                    let res = self.render_inline_template(tmp_name)?;
+                                    let res = self.render_inline_template(tmp_name, ctx)?;
 
                                     result.push_str(pre);
                                     result.push_str(&res);
@@ -241,7 +299,7 @@ impl Preprocessor for ShortCodeProcessor {
                                     let tmp_name = rest[(def.0 + 2)..(def.1 - 1)].trim();
                                     let body = rest[(def.1 + 2)..end.0].trim();
 
-                                    let res = self.render_block_template(tmp_name, body)?;
+                                    let res = self.render_block_template(tmp_name, body, ctx)?;
 
                                     result.push_str(pre);
                                     result.push_str(&res);

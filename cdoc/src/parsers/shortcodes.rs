@@ -1,4 +1,5 @@
 use pest::Parser;
+use pest_derive::Parser;
 use std::collections::HashMap;
 
 #[derive(Parser)]

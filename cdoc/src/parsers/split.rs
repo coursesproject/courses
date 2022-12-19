@@ -1,5 +1,6 @@
 use pest::iterators::Pair;
 use pest::Parser;
+use pest_derive::Parser;
 use std::collections::HashMap;
 
 use crate::parsers::split_types::{
@@ -218,4 +219,32 @@ pub fn format_pest_err(error: pest::error::Error<Rule>) -> String {
     //     error.location, error.line_col, error.variant
     // )
     format!("{}", error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let str = include_str!("../../../resources/test/sample.py");
+        let _doc = parse_code_string(str).unwrap();
+    }
+
+    // #[test]
+    // fn test_output() {
+    //     let str = include_str!("../../../resources/test/sample.rs");
+    //     let doc = parse_code_string(str).unwrap();
+    //
+    //     let _output_solution = doc.write_string(true);
+    //     let _output_placeholder = doc.write_string(false);
+    // }
+
+    #[test]
+    fn test_serialize() {
+        let str = include_str!("../../../resources/test/sample.rs");
+        let doc = parse_code_string(str).unwrap();
+
+        let _res = serde_json::to_string(&doc).unwrap();
+    }
 }
