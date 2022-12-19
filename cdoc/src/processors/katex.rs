@@ -2,15 +2,15 @@ use katex::Opts;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::processors::{Preprocessor, PreprocessorConfig, ProcessorContext};
+use crate::processors::{MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct KaTeXPreprocessorConfig;
+pub struct KaTeXConfig;
 
 #[typetag::serde(name = "katex")]
-impl PreprocessorConfig for KaTeXPreprocessorConfig {
-    fn build(&self, _ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
-        Ok(Box::new(KaTeXPreprocessor))
+impl PreprocessorConfig for KaTeXConfig {
+    fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>> {
+        Ok(Box::new(KaTeX))
     }
 }
 
@@ -18,7 +18,7 @@ impl PreprocessorConfig for KaTeXPreprocessorConfig {
 pub enum KaTeXPreprocessorError {}
 
 #[derive(Debug)]
-pub struct KaTeXPreprocessor;
+pub struct KaTeX;
 
 fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     let begin = input.find('$')?;
@@ -33,7 +33,7 @@ fn find_block(input: &str) -> Option<(usize, usize, usize)> {
     Some((begin, end, end_delim.len()))
 }
 
-impl Preprocessor for KaTeXPreprocessor {
+impl MarkdownPreprocessor for KaTeX {
     fn name(&self) -> String {
         "KaTeX preprocessor".to_string()
     }

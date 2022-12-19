@@ -1,30 +1,30 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{ACodeBlockKind, AEvent, ATag};
-use crate::document::{DocPos, EventDocument};
+use crate::document::{DocPos, Document, EventContent};
 use crate::parsers::split::{human_errors, parse_code_string};
 use crate::processors::Error::CodeParseError;
-use crate::processors::{Error, EventProcessor, EventProcessorConfig, ProcessorContext};
+use crate::processors::{Error, EventPreprocessor, EventPreprocessorConfig, PreprocessorContext};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CodeSplitConfig;
+pub struct ExercisesConfig;
 
 #[typetag::serde(name = "code_split")]
-impl EventProcessorConfig for CodeSplitConfig {
-    fn build(&self, _ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>> {
-        Ok(Box::new(CodeSplit))
+impl EventPreprocessorConfig for ExercisesConfig {
+    fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>> {
+        Ok(Box::new(Exercises))
     }
 }
 
 #[derive(Debug)]
-pub struct CodeSplit;
+pub struct Exercises;
 
-impl EventProcessor for CodeSplit {
+impl EventPreprocessor for Exercises {
     fn name(&self) -> String {
         "Code split".to_string()
     }
 
-    fn process(&self, input: EventDocument) -> Result<EventDocument, Error> {
+    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
         let mut code_block = false;
         let mut source = "".to_string();
         let mut code_attr = String::new();
@@ -72,7 +72,7 @@ impl EventProcessor for CodeSplit {
             })
             .collect::<Result<Vec<(AEvent, DocPos)>, Error>>()?;
 
-        Ok(EventDocument {
+        Ok(Document {
             metadata: input.metadata,
             variables: input.variables,
             content,

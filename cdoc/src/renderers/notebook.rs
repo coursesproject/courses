@@ -4,7 +4,7 @@ use std::fmt::Write;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use serde::{Deserialize, Serialize};
 
-use crate::document::{DocPos, EventDocument};
+use crate::document::{DocPos, Document, EventContent};
 use crate::notebook::{Cell, CellCommon, CellMeta, Notebook, NotebookMeta};
 use crate::renderers::{RenderResult, Renderer};
 
@@ -13,11 +13,11 @@ pub struct NotebookRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for NotebookRenderer {
-    fn render(&self, doc: &EventDocument) -> RenderResult {
+    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult> {
         let notebook: Notebook = render_notebook(doc.to_events_with_pos());
         let output = serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)");
 
-        RenderResult {
+        Document {
             content: output,
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),

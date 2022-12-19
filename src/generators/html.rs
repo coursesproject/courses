@@ -3,13 +3,14 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use cdoc::document::Document;
 use tera::Tera;
 
 use cdoc::renderers::RenderResult;
 
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
-use crate::project::{Project, ProjectItem};
+use crate::project::{ItemDescriptor, Project};
 
 pub struct HtmlGenerator {
     tera: Tera,
@@ -57,7 +58,7 @@ impl Generator for HtmlGenerator {
                 context.insert("current_part", &item.part_id);
                 context.insert("current_chapter", &item.chapter_id);
                 context.insert("current_doc", &item.doc.id);
-                context.insert("html", &c.content);
+                context.insert("html", &c);
                 context.insert("title", "Test");
 
                 let result = self.tera.render("section.tera.html", &context)?;
@@ -70,8 +71,8 @@ impl Generator for HtmlGenerator {
 
     fn generate_single(
         &self,
-        content: RenderResult,
-        doc_info: ProjectItem<()>,
+        content: Document<RenderResult>,
+        doc_info: ItemDescriptor<()>,
         config: ProjectConfig,
         build_dir: PathBuf,
     ) -> anyhow::Result<()> {

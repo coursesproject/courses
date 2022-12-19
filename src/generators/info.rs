@@ -1,14 +1,15 @@
+use cdoc::document::Document;
 use std::path::PathBuf;
 
 use cdoc::renderers::RenderResult;
 
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
-use crate::project::ProjectItem;
+use crate::project::ItemDescriptor;
 
-pub struct ConfigGenerator;
+pub struct InfoGenerator;
 
-impl Generator for ConfigGenerator {
+impl Generator for InfoGenerator {
     fn generate(&self, _ctx: GeneratorContext) -> anyhow::Result<()> {
         // TODO: Generate notebook files AND copy resources!
         todo!()
@@ -24,8 +25,8 @@ impl Generator for ConfigGenerator {
 
     fn generate_single(
         &self,
-        _content: RenderResult,
-        _doc_info: ProjectItem<()>,
+        _content: Document<RenderResult>,
+        _doc_info: ItemDescriptor<()>,
         _config: ProjectConfig,
         _build_dir: PathBuf,
     ) -> anyhow::Result<()> {

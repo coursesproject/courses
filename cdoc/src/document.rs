@@ -12,29 +12,43 @@ use thiserror::Error;
 use crate::ast::AEvent;
 use crate::config::OutputFormat;
 use crate::notebook::{Cell, CellOutput, Notebook};
-use crate::processors::shortcode_extender::ShortCodeProcessError;
-use crate::processors::Preprocessor;
+use crate::processors::shortcodes::ShortCodeProcessError;
+use crate::processors::MarkdownPreprocessor;
 
-#[derive(Debug, Clone, Default)]
-pub struct RawDocument {
-    pub metadata: DocumentMetadata,
-    content: Content,
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct DocumentMetadata {
+    pub title: Option<String>,
+    pub code_split: Option<bool>,
+    pub notebook_output: Option<bool>,
+    pub code_solutions: Option<bool>,
+    #[serde(default)]
+    pub layout: LayoutSettings,
+
+    #[serde(default = "default_outputs")]
+    pub output: HashSet<OutputFormat>,
 }
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
-pub struct DocumentVariables {
-    pub first_heading: Option<String>,
+fn default_outputs() -> HashSet<OutputFormat> {
+    let mut map = HashSet::new();
+    map.insert(OutputFormat::Notebook);
+    map.insert(OutputFormat::Html);
+    map
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct EventDocument {
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct LayoutSettings {
+    pub hide_sidebar: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Document<C> {
+    pub content: C,
     pub metadata: DocumentMetadata,
     pub variables: DocumentVariables,
-    pub content: Vec<(AEvent, DocPos)>,
 }
 
-#[derive(Debug, Clone, Default)]
-pub(crate) struct Content(Vec<Element>);
+pub type RawContent = Vec<Element>;
+pub type EventContent = Vec<(AEvent, DocPos)>;
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -63,35 +77,9 @@ pub struct DocPos {
     local_position: Range<usize>,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct DocumentMetadata {
-    pub title: Option<String>,
-    #[serde(rename = "type", default = "default_title")]
-    pub doc_type: String,
-    pub code_split: Option<bool>,
-    pub notebook_output: Option<bool>,
-    pub code_solutions: Option<bool>,
-    #[serde(default)]
-    pub layout: LayoutSettings,
-
-    #[serde(default = "default_outputs")]
-    pub output: HashSet<OutputFormat>,
-}
-
-fn default_outputs() -> HashSet<OutputFormat> {
-    let mut map = HashSet::new();
-    map.insert(OutputFormat::Notebook);
-    map.insert(OutputFormat::Html);
-    map
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct LayoutSettings {
-    pub hide_sidebar: bool,
-}
-
-fn default_title() -> String {
-    "text".to_string()
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct DocumentVariables {
+    pub first_heading: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -125,15 +113,14 @@ impl DocPos {
     }
 }
 
-impl RawDocument {
+impl Document<RawContent> {
     pub fn preprocess(
         self,
-        processor: &dyn Preprocessor,
+        processor: &dyn MarkdownPreprocessor,
         ctx: &tera::Context,
-    ) -> Result<RawDocument, anyhow::Error> {
+    ) -> Result<Document<RawContent>, anyhow::Error> {
         let elements = self
             .content
-            .0
             .iter()
             .map(|e| match e {
                 Element::Markdown { content } => Ok(Element::Markdown {
@@ -142,22 +129,24 @@ impl RawDocument {
                 _ => Ok(e.clone()),
             })
             .collect::<Result<Vec<Element>, anyhow::Error>>()?;
-        Ok(RawDocument {
-            content: Content(elements),
+        Ok(Document {
+            content: elements,
             metadata: self.metadata,
+            variables: DocumentVariables::default(),
         })
     }
 
-    pub(crate) fn new<C: Into<Content>>(content: C, metadata: DocumentMetadata) -> Self {
-        RawDocument {
-            content: content.into(),
+    pub(crate) fn new<C: IntoRawContent>(content: C, metadata: DocumentMetadata) -> Self {
+        Document {
             metadata,
+            variables: DocumentVariables::default(),
+            content: content.into(),
         }
     }
 
-    pub fn to_events(&self, config: IteratorConfig) -> EventDocument {
+    pub fn to_events(&self, config: IteratorConfig) -> Document<EventContent> {
         let content = self.configure_iterator(config).map(|(e, p)| (e.into(), p));
-        EventDocument {
+        Document {
             metadata: self.metadata.clone(),
             variables: DocumentVariables::default(),
             content: content.collect(),
@@ -165,7 +154,7 @@ impl RawDocument {
     }
 }
 
-impl EventDocument {
+impl Document<EventContent> {
     pub fn to_events(&self) -> impl Iterator<Item = Event<'static>> {
         self.content.clone().into_iter().map(|(e, _p)| e.into())
     }
@@ -175,15 +164,19 @@ impl EventDocument {
     }
 }
 
-impl From<String> for Content {
-    fn from(s: String) -> Self {
-        Content(vec![Element::Markdown { content: s }])
+pub trait IntoRawContent {
+    fn into(self) -> RawContent;
+}
+
+impl IntoRawContent for String {
+    fn into(self) -> RawContent {
+        vec![Element::Markdown { content: self }]
     }
 }
 
-impl From<Notebook> for Content {
-    fn from(n: Notebook) -> Self {
-        let elements = n
+impl IntoRawContent for Notebook {
+    fn into(self) -> RawContent {
+        let elements = self
             .cells
             .into_iter()
             .fold((1, Vec::new()), |(num, mut acc), cell| {
@@ -213,7 +206,7 @@ impl From<Notebook> for Content {
             })
             .collect();
 
-        Content(elements)
+        elements
     }
 }
 
@@ -352,14 +345,13 @@ impl<'a> ConfigureCollector for &'a Element {
     }
 }
 
-impl<'a> ConfigureCollector for &'a RawDocument {
+impl<'a> ConfigureCollector for &'a Document<RawContent> {
     type Item = (Event<'a>, DocPos);
     type IntoIter = Box<dyn Iterator<Item = Self::Item> + 'a>;
 
     fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {
         Box::new(
             self.content
-                .0
                 .iter()
                 .flat_map(move |elem: &Element| elem.configure_iterator(config)),
         )

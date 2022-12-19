@@ -1,4 +1,4 @@
-use crate::document::{DocPos, EventDocument};
+use crate::document::{DocPos, Document, EventContent};
 use crate::renderers::notebook::heading_num;
 use crate::renderers::{RenderResult, Renderer};
 use pulldown_cmark::{CodeBlockKind, Event, Tag};
@@ -10,9 +10,9 @@ pub struct MarkdownRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for MarkdownRenderer {
-    fn render(&self, doc: &EventDocument) -> RenderResult {
+    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult> {
         let output = render_markdown(doc.to_events_with_pos());
-        RenderResult {
+        Document {
             content: output,
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),

@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
-use crate::processors::code_split::CodeSplitConfig;
-use crate::processors::katex::KaTeXPreprocessorConfig;
-use crate::processors::shortcode_extender::ShortCodeProcessConfig;
+use crate::processors::exercises::ExercisesConfig;
+use crate::processors::katex::KaTeXConfig;
+use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
 use crate::renderers::markdown::MarkdownRenderer;
 use crate::renderers::notebook::NotebookRenderer;
@@ -129,11 +129,8 @@ impl OutputFormat {
 #[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
-        preprocessors: vec![
-            Arc::new(ShortCodeProcessConfig),
-            Arc::new(KaTeXPreprocessorConfig),
-        ],
-        event_processors: vec![Arc::new(CodeSplitConfig)],
+        preprocessors: vec![Arc::new(ShortcodesConfig), Arc::new(KaTeXConfig)],
+        event_processors: vec![Arc::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,
             notebook_outputs: false,

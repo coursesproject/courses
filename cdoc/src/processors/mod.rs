@@ -4,13 +4,13 @@ use tera::Tera;
 use thiserror::Error;
 
 use crate::config::OutputFormat;
-use crate::document::{DocPos, EventDocument};
+use crate::document::{DocPos, Document, EventContent};
 use crate::parsers::split::Rule;
 
-pub mod code_split;
 mod escapes;
+pub mod exercises;
 pub mod katex;
-pub mod shortcode_extender;
+pub mod shortcodes;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -20,27 +20,27 @@ pub enum Error {
     AttrParseError(#[from] toml::de::Error),
 }
 
-pub struct ProcessorContext {
+pub struct PreprocessorContext {
     pub tera: Tera,
     pub output_format: OutputFormat,
 }
 
-pub trait Preprocessor {
+pub trait MarkdownPreprocessor {
     fn name(&self) -> String;
     fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error>;
 }
 
-pub trait EventProcessor {
+pub trait EventPreprocessor {
     fn name(&self) -> String;
-    fn process(&self, input: EventDocument) -> Result<EventDocument, Error>;
+    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error>;
 }
 
 #[typetag::serde(tag = "type")]
 pub trait PreprocessorConfig: Debug + Send + Sync {
-    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>>;
+    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>>;
 }
 
 #[typetag::serde(tag = "type")]
-pub trait EventProcessorConfig: Debug + Send + Sync {
-    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>>;
+pub trait EventPreprocessorConfig: Debug + Send + Sync {
+    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>>;
 }

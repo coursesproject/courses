@@ -8,15 +8,15 @@ use tera::Tera;
 use thiserror::Error;
 
 use crate::parsers::shortcodes::{parse_shortcode, Rule};
-use crate::processors::{Preprocessor, PreprocessorConfig, ProcessorContext};
+use crate::processors::{MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ShortCodeProcessConfig;
+pub struct ShortcodesConfig;
 
 #[typetag::serde(name = "shortcodes")]
-impl PreprocessorConfig for ShortCodeProcessConfig {
-    fn build(&self, ctx: &ProcessorContext) -> anyhow::Result<Box<dyn Preprocessor>> {
-        Ok(Box::new(ShortCodeProcessor {
+impl PreprocessorConfig for ShortcodesConfig {
+    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>> {
+        Ok(Box::new(Shortcodes {
             tera: ctx.tera.clone(),
             file_ext: ctx.output_format.template_extension().to_string(),
         }))
@@ -178,14 +178,14 @@ impl Display for ShortCodeProcessError {
 // }
 
 #[derive(Debug)]
-pub struct ShortCodeProcessor {
+pub struct Shortcodes {
     tera: Tera,
     file_ext: String,
 }
 
-impl ShortCodeProcessor {
+impl Shortcodes {
     pub fn new(pattern: &str, file_ext: &str) -> Result<Self, tera::Error> {
-        Ok(ShortCodeProcessor {
+        Ok(Shortcodes {
             tera: Tera::new(pattern)?,
             file_ext: file_ext.to_string(),
         })
@@ -238,7 +238,7 @@ impl ShortCodeProcessor {
     }
 }
 
-impl Preprocessor for ShortCodeProcessor {
+impl MarkdownPreprocessor for Shortcodes {
     fn name(&self) -> String {
         "Shortcode processor".to_string()
     }

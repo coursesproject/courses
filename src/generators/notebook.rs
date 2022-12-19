@@ -1,3 +1,4 @@
+use cdoc::document::Document;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
@@ -8,7 +9,7 @@ use cdoc::renderers::RenderResult;
 
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
-use crate::project::ProjectItem;
+use crate::project::ItemDescriptor;
 
 pub struct CodeOutputGenerator;
 
@@ -30,8 +31,8 @@ impl Generator for CodeOutputGenerator {
 
     fn generate_single(
         &self,
-        content: RenderResult,
-        doc_info: ProjectItem<()>,
+        content: Document<RenderResult>,
+        doc_info: ItemDescriptor<()>,
         _config: ProjectConfig,
         build_dir: PathBuf,
     ) -> anyhow::Result<()> {
