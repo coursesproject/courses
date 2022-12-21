@@ -12,9 +12,8 @@ use cdoc::renderers::RenderResult;
 
 use crate::generators::html::HtmlGenerator;
 use crate::generators::info::InfoGenerator;
-use crate::generators::markdown::MarkdownGenerator;
 use crate::generators::notebook::CodeOutputGenerator;
-use crate::generators::{Generator, GeneratorContext};
+use crate::generators::{Generator, GeneratorContext, MoveContext, Mover};
 use crate::project::config::ProjectConfig;
 use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem};
 
@@ -60,22 +59,17 @@ impl Pipeline {
 
     fn get_generator(&self, format: OutputFormat) -> Box<dyn Generator> {
         match format {
-            OutputFormat::Markdown => Box::new(MarkdownGenerator),
             OutputFormat::Notebook => Box::new(CodeOutputGenerator),
-            OutputFormat::Html => Box::new(HtmlGenerator::new(
-                self.base_tera.clone(),
-                self.project.clone(),
-            )),
-            OutputFormat::Config => Box::new(InfoGenerator),
+            OutputFormat::Html => Box::new(HtmlGenerator::new(self.base_tera.clone())),
+            OutputFormat::Info => Box::new(InfoGenerator),
         }
     }
 
     fn get_build_path(&self, format: OutputFormat) -> PathBuf {
         match format {
-            OutputFormat::Markdown => self.project_path.join("build").join("md"),
             OutputFormat::Notebook => self.project_path.join("build").join("notebooks"),
             OutputFormat::Html => self.project_path.join("build").join("html"),
-            OutputFormat::Config => self.project_path.join("build").join("config"),
+            OutputFormat::Info => self.project_path.join("build"),
         }
     }
 
@@ -94,11 +88,15 @@ impl Pipeline {
             let output = self.process_document(&loaded.doc, *format)?;
 
             if let Some(output) = output {
+                let context = self
+                    .cached_contexts
+                    .get(format)
+                    .ok_or_else(|| anyhow!("Cached context is missing"))?;
+
                 self.get_generator(*format).generate_single(
                     output,
                     item2.clone(),
-                    self.project_config.clone(),
-                    self.get_build_path(*format),
+                    context.clone(),
                 )?;
             }
         }
@@ -159,6 +157,12 @@ impl Pipeline {
     }
 
     pub fn build_all(&mut self) -> Result<(), anyhow::Error> {
+        let build_path = self.project_path.join("build");
+
+        if build_path.exists() {
+            fs::remove_dir_all(build_path)?;
+        }
+
         let loaded = self.load_all()?;
 
         for format in &self.project_config.outputs {
@@ -171,7 +175,21 @@ impl Pipeline {
             };
             self.cached_contexts.insert(*format, context.clone());
 
-            self.get_generator(*format).generate(context)?;
+            self.get_generator(*format)
+                .generate(context.clone())
+                .with_context(|| format!("Error while generating {}", format))?;
+
+            self.cached_contexts.insert(*format, context);
+
+            if let Some(parser) = self.project_config.parsers.get(format) {
+                let move_ctx = MoveContext {
+                    project_path: self.project_path.to_path_buf(),
+                    build_dir: self.get_build_path(*format),
+                    settings: parser.settings.clone(),
+                };
+
+                Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx)?;
+            }
         }
         Ok(())
     }
@@ -184,7 +202,7 @@ impl Pipeline {
                 item.map_doc(|doc| {
                     let path = self.project_path.join("content").join(doc.path);
                     let val = fs::read_to_string(path.as_path())
-                        .context(format!("Error loading document at {}", path.display()))?;
+                        .context(format!("Error loading document {}", path.display()))?;
 
                     Ok(val)
                 })
@@ -201,18 +219,23 @@ impl Pipeline {
     ) -> anyhow::Result<Project<Option<Document<RenderResult>>>> {
         project
             .into_iter()
-            .map(|i| i.map_doc(|doc| self.process_document(&doc, format)))
+            .map(|i| {
+                i.map_doc(|doc| {
+                    self.process_document(&doc, format)
+                        .with_context(|| format!("Failed to parse document {}", doc.path.display()))
+                })
+            })
             .collect()
     }
 
     fn process_document(
         &self,
-        doc: &ProjectItem<String>,
+        item: &ProjectItem<String>,
         format: OutputFormat,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
-        let doc = doc.format.loader().load(&doc.content)?;
+        let doc = item.format.loader().load(&item.content)?;
 
-        if doc.metadata.output.contains(&format) {
+        if doc.metadata.outputs.contains(&format) {
             let processor_ctx = PreprocessorContext {
                 tera: self.shortcode_tera.clone(),
                 output_format: format,

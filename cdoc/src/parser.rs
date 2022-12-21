@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use anyhow::Context;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -52,7 +53,7 @@ impl Parser {
             .collect::<anyhow::Result<Vec<Box<dyn MarkdownPreprocessor>>>>()?;
 
         let content = built.iter().fold(Ok(doc.clone()), |c, preprocessor| {
-            c.and_then(|c| c.preprocess(preprocessor.as_ref(), template_context))
+            c.and_then(|c| c.preprocess(preprocessor.as_ref(), template_context).with_context(|| format!("Preprocessing error in {}", preprocessor)))
         })?;
 
         Ok(content)

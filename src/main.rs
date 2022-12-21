@@ -104,14 +104,6 @@ async fn main() -> anyhow::Result<()> {
                         if let DebouncedEventKind::Any = &event.kind {
                             let p = &event.path;
 
-                            let mut pipeline = Pipeline::new(
-                                path.as_path(),
-                                mode.clone(),
-                                config.clone(),
-                                proj.clone(),
-                            )
-                            .expect("Could not create pipeline");
-
                             if p.starts_with(path.as_path().join("content")) {
                                 // pipeline.build_file(p, &c2, &cf);
                                 pipeline

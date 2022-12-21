@@ -1,5 +1,6 @@
 use katex::Opts;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 use crate::processors::{MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext};
@@ -66,5 +67,11 @@ impl MarkdownPreprocessor for KaTeX {
         }
 
         Ok(res)
+    }
+}
+
+impl Display for KaTeX {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
     }
 }

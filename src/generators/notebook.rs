@@ -33,17 +33,14 @@ impl Generator for CodeOutputGenerator {
         &self,
         content: Document<RenderResult>,
         doc_info: ItemDescriptor<()>,
-        _config: ProjectConfig,
-        build_dir: PathBuf,
+        ctx: GeneratorContext,
     ) -> anyhow::Result<()> {
-        let mut notebook_build_dir = build_dir.as_path().join(&doc_info.doc.path);
+        let mut notebook_build_dir = ctx.build_dir.as_path().join(&doc_info.doc.path);
         notebook_build_dir.pop(); // Pop filename
         let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", doc_info.doc.id));
 
         fs::create_dir_all(notebook_build_dir)?;
-        let f = File::create(notebook_build_path)?;
-        let writer = BufWriter::new(f);
-        serde_json::to_writer(writer, &content)?;
+        fs::write(notebook_build_path, content.content)?;
         Ok(())
     }
 }

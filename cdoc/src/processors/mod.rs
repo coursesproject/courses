@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 
 use tera::Tera;
 use thiserror::Error;
@@ -25,12 +25,12 @@ pub struct PreprocessorContext {
     pub output_format: OutputFormat,
 }
 
-pub trait MarkdownPreprocessor {
+pub trait MarkdownPreprocessor: Display {
     fn name(&self) -> String;
     fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error>;
 }
 
-pub trait EventPreprocessor {
+pub trait EventPreprocessor: Display {
     fn name(&self) -> String;
     fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error>;
 }

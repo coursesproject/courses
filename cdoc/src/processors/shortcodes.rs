@@ -327,6 +327,12 @@ impl MarkdownPreprocessor for Shortcodes {
     }
 }
 
+impl Display for Shortcodes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

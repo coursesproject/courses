@@ -4,6 +4,7 @@ katex_output: true
 outputs:
   - html
   - notebook
+  - info
 
 parsers:
   html:

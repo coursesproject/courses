@@ -25,14 +25,11 @@ pub struct DocumentMetadata {
     pub layout: LayoutSettings,
 
     #[serde(default = "default_outputs")]
-    pub output: HashSet<OutputFormat>,
+    pub outputs: Vec<OutputFormat>,
 }
 
-fn default_outputs() -> HashSet<OutputFormat> {
-    let mut map = HashSet::new();
-    map.insert(OutputFormat::Notebook);
-    map.insert(OutputFormat::Html);
-    map
+fn default_outputs() -> Vec<OutputFormat> {
+    vec![OutputFormat::Notebook, OutputFormat::Html]
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

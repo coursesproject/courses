@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 use crate::ast::AEvent;
 use crate::document::{Document, EventContent};
@@ -42,5 +43,11 @@ impl EventPreprocessor for Escapes {
             variables: input.variables,
             content: iter.collect(),
         })
+    }
+}
+
+impl Display for Escapes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
     }
 }

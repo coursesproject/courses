@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 use crate::ast::{ACodeBlockKind, AEvent, ATag};
 use crate::document::{DocPos, Document, EventContent};
@@ -77,5 +78,11 @@ impl EventPreprocessor for Exercises {
             variables: input.variables,
             content,
         })
+    }
+}
+
+impl Display for Exercises {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
     }
 }

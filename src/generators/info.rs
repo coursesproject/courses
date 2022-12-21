@@ -1,4 +1,5 @@
 use cdoc::document::Document;
+use std::fs;
 use std::path::PathBuf;
 
 use cdoc::renderers::RenderResult;
@@ -12,8 +13,11 @@ pub struct InfoGenerator;
 impl Generator for InfoGenerator {
     fn generate(&self, _ctx: GeneratorContext) -> anyhow::Result<()> {
         // TODO: Generate notebook files AND copy resources!
-        todo!()
 
+        let output = serde_yaml::to_string(&_ctx.project)?;
+        let path = _ctx.build_dir.join("config.yml");
+        fs::write(path, output)?;
+        Ok(())
         //
         //
         // serde_yaml::to_writer(
@@ -27,8 +31,7 @@ impl Generator for InfoGenerator {
         &self,
         _content: Document<RenderResult>,
         _doc_info: ItemDescriptor<()>,
-        _config: ProjectConfig,
-        _build_dir: PathBuf,
+        _ctx: GeneratorContext,
     ) -> anyhow::Result<()> {
         todo!()
     }

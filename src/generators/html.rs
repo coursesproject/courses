@@ -4,6 +4,9 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use cdoc::document::Document;
+use cdoc::parsers::split::parse_code_string;
+use cdoc::parsers::split_types::CodeTaskDefinition;
+use cdoc::processors::exercises::Exercises;
 use tera::Tera;
 
 use cdoc::renderers::RenderResult;
@@ -14,14 +17,14 @@ use crate::project::{ItemDescriptor, Project};
 
 pub struct HtmlGenerator {
     tera: Tera,
-    project_config: Project<()>,
+    project_config: Option<Project<Option<Document<RenderResult>>>>,
 }
 
 impl HtmlGenerator {
-    pub fn new(tera: Tera, project: Project<()>) -> Self {
+    pub fn new(tera: Tera) -> Self {
         HtmlGenerator {
             tera,
-            project_config: project,
+            project_config: None,
         }
     }
 }
@@ -49,6 +52,7 @@ impl HtmlGenerator {
 impl Generator for HtmlGenerator {
     fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
         let proj = ctx.project.clone();
+
         for item in ctx.project {
             if let Some(c) = item.doc.content.deref() {
                 // TODO: Merge with single
@@ -58,7 +62,7 @@ impl Generator for HtmlGenerator {
                 context.insert("current_part", &item.part_id);
                 context.insert("current_chapter", &item.chapter_id);
                 context.insert("current_doc", &item.doc.id);
-                context.insert("html", &c);
+                context.insert("html", &c.content);
                 context.insert("title", "Test");
 
                 let result = self.tera.render("section.tera.html", &context)?;
@@ -73,13 +77,12 @@ impl Generator for HtmlGenerator {
         &self,
         content: Document<RenderResult>,
         doc_info: ItemDescriptor<()>,
-        config: ProjectConfig,
-        build_dir: PathBuf,
+        ctx: GeneratorContext,
     ) -> anyhow::Result<()> {
-        let proj = self.project_config.clone();
+        let proj = ctx.project.clone();
         let mut context = tera::Context::new();
         context.insert("config", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-        context.insert("project", &config);
+        context.insert("project", &ctx.config.clone());
         context.insert("current_part", &doc_info.part_id);
         context.insert("current_chapter", &doc_info.chapter_id);
         context.insert("current_doc", &doc_info.doc.id);
@@ -87,7 +90,7 @@ impl Generator for HtmlGenerator {
         context.insert("title", "Test");
 
         let result = self.tera.render("section.tera.html", &context)?;
-        self.write_document(result, doc_info.doc.id, doc_info.doc.path, build_dir)?;
+        self.write_document(result, doc_info.doc.id, doc_info.doc.path, ctx.build_dir)?;
 
         Ok(())
     }
