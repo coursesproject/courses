@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use std::vec::IntoIter;
@@ -29,7 +28,11 @@ pub struct DocumentMetadata {
 }
 
 fn default_outputs() -> Vec<OutputFormat> {
-    vec![OutputFormat::Notebook, OutputFormat::Html]
+    vec![
+        OutputFormat::Notebook,
+        OutputFormat::Html,
+        OutputFormat::Info,
+    ]
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -173,8 +176,7 @@ impl IntoRawContent for String {
 
 impl IntoRawContent for Notebook {
     fn into(self) -> RawContent {
-        let elements = self
-            .cells
+        self.cells
             .into_iter()
             .fold((1, Vec::new()), |(num, mut acc), cell| {
                 let next = match &cell {
@@ -201,9 +203,7 @@ impl IntoRawContent for Notebook {
                     content: common.source,
                 },
             })
-            .collect();
-
-        elements
+            .collect()
     }
 }
 

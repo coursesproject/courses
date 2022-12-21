@@ -27,6 +27,7 @@ impl<D> ItemDescriptor<D> {
         part_idx: Option<usize>,
         chapter_idx: Option<usize>,
         doc: ProjectItem<D>,
+        doc_idx: Option<usize>,
         files: Option<Vec<PathBuf>>,
     ) -> Self {
         ItemDescriptor {
@@ -35,6 +36,7 @@ impl<D> ItemDescriptor<D> {
             part_idx,
             chapter_idx,
             doc,
+            doc_idx,
             files,
         }
     }
@@ -56,6 +58,7 @@ impl<D> ItemDescriptor<D> {
             self.part_idx,
             self.chapter_idx,
             doc,
+            self.doc_idx,
             self.files,
         ))
     }
@@ -77,6 +80,7 @@ impl<D> ItemDescriptor<D> {
             self.part_idx,
             self.chapter_idx,
             doc,
+            self.doc_idx,
             self.files,
         ))
     }
@@ -168,6 +172,7 @@ where
                     None,
                     self.config.index.clone(),
                     None,
+                    None,
                 ))
             }
             part_idx if part_idx <= self.config.content.len() => {
@@ -189,6 +194,7 @@ where
                             Some(part_idx),
                             Some(0),
                             part.index.clone(),
+                            None,
                             None,
                         ))
                     }
@@ -219,6 +225,7 @@ where
                                     Some(part_idx),
                                     Some(chapter_idx),
                                     chapter.index.clone(),
+                                    None,
                                     Some(chapter.files.clone()),
                                 ))
                             }
@@ -228,6 +235,7 @@ where
                                 Some(part_idx),
                                 Some(chapter_idx),
                                 chapter.documents[doc_pos - 1].clone(),
+                                Some(doc_pos - 1),
                                 Some(chapter.files.clone()),
                             )),
                         }

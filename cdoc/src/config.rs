@@ -11,7 +11,6 @@ use crate::processors::exercises::ExercisesConfig;
 use crate::processors::katex::KaTeXConfig;
 use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
-use crate::renderers::markdown::MarkdownRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::Renderer;
 
@@ -70,6 +69,14 @@ impl InputFormat {
 }
 
 impl OutputFormat {
+    pub fn no_parse(&self) -> bool {
+        match self {
+            OutputFormat::Notebook => false,
+            OutputFormat::Html => false,
+            OutputFormat::Info => true,
+        }
+    }
+
     pub fn from_extension(ext: &str) -> Result<Self, anyhow::Error> {
         match ext {
             "ipynb" => Ok(OutputFormat::Notebook),

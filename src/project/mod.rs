@@ -79,6 +79,7 @@ pub struct ItemDescriptor<D> {
     pub chapter_id: Option<String>,
     pub part_idx: Option<usize>,
     pub chapter_idx: Option<usize>,
+    pub doc_idx: Option<usize>,
     pub doc: ProjectItem<D>,
     pub files: Option<Vec<PathBuf>>, // Temporary solution for carrying file info
 }

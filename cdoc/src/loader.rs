@@ -1,6 +1,4 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
-use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 use yaml_front_matter::YamlFrontMatter;
@@ -40,7 +38,7 @@ pub struct MarkdownLoader;
 impl Loader for MarkdownLoader {
     fn load(&self, input: &str) -> Result<Document<RawContent>, anyhow::Error> {
         let yml: yaml_front_matter::Document<DocumentMetadata> =
-            YamlFrontMatter::parse(input).map_err(|e| anyhow!("Could not parse front matter"))?;
+            YamlFrontMatter::parse(input).map_err(|_e| anyhow!("Could not parse front matter"))?;
         Ok(Document::new(yml.content.clone(), yml.metadata))
     }
 }

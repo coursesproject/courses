@@ -1,14 +1,10 @@
-use cdoc::document::Document;
 use std::fs;
-use std::fs::File;
-use std::io::BufWriter;
 use std::ops::Deref;
-use std::path::PathBuf;
 
+use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 
 use crate::generators::{Generator, GeneratorContext};
-use crate::project::config::ProjectConfig;
 use crate::project::ItemDescriptor;
 
 pub struct CodeOutputGenerator;

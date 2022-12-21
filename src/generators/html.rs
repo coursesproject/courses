@@ -3,29 +3,21 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use anyhow::Context;
-use cdoc::document::Document;
-use cdoc::parsers::split::parse_code_string;
-use cdoc::parsers::split_types::CodeTaskDefinition;
-use cdoc::processors::exercises::Exercises;
 use tera::Tera;
 
+use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 
 use crate::generators::{Generator, GeneratorContext};
-use crate::project::config::ProjectConfig;
-use crate::project::{ItemDescriptor, Project};
+use crate::project::ItemDescriptor;
 
 pub struct HtmlGenerator {
     tera: Tera,
-    project_config: Option<Project<Option<Document<RenderResult>>>>,
 }
 
 impl HtmlGenerator {
     pub fn new(tera: Tera) -> Self {
-        HtmlGenerator {
-            tera,
-            project_config: None,
-        }
+        HtmlGenerator { tera }
     }
 }
 
@@ -70,6 +62,17 @@ impl Generator for HtmlGenerator {
                 self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
             }
         }
+
+        let resource_path_src = ctx.root.join("resources");
+        let resource_path_build_dir = ctx.build_dir.join("resources");
+
+        fs::create_dir_all(resource_path_build_dir.as_path())?;
+        fs_extra::copy_items(
+            &[resource_path_src],
+            ctx.build_dir,
+            &fs_extra::dir::CopyOptions::default(),
+        )?;
+
         Ok(())
     }
 
@@ -82,7 +85,7 @@ impl Generator for HtmlGenerator {
         let proj = ctx.project.clone();
         let mut context = tera::Context::new();
         context.insert("config", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-        context.insert("project", &ctx.config.clone());
+        context.insert("project", &ctx.config);
         context.insert("current_part", &doc_info.part_id);
         context.insert("current_chapter", &doc_info.chapter_id);
         context.insert("current_doc", &doc_info.doc.id);

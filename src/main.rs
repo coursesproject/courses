@@ -53,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Build { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
+
             let proj = Project::generate_from_directory(path.as_path())?;
 
             println!("[1/4] ‍💡 Reading project directory...");
@@ -70,6 +71,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Serve { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
+
             let proj = Project::generate_from_directory(path.as_path())?;
 
             println!("[1/4] ‍💡 Reading project directory...");

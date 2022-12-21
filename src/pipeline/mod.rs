@@ -1,6 +1,9 @@
+mod mover;
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use tera::Tera;
@@ -9,11 +12,12 @@ use cdoc::config::OutputFormat;
 use cdoc::document::Document;
 use cdoc::processors::PreprocessorContext;
 use cdoc::renderers::RenderResult;
+use mover::{MoveContext, Mover};
 
 use crate::generators::html::HtmlGenerator;
 use crate::generators::info::InfoGenerator;
 use crate::generators::notebook::CodeOutputGenerator;
-use crate::generators::{Generator, GeneratorContext, MoveContext, Mover};
+use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
 use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem};
 
@@ -74,6 +78,7 @@ impl Pipeline {
     }
 
     pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
+        println!("build single");
         let item = self.doc_from_path(path)?;
         let item2 = item.clone();
 
@@ -84,29 +89,60 @@ impl Pipeline {
             Ok::<String, anyhow::Error>(val)
         })?;
 
-        for format in &self.project_config.outputs {
-            let output = self.process_document(&loaded.doc, *format)?;
+        for format in self.project_config.outputs.clone() {
+            let output = self.process_document(&loaded.doc, format)?;
 
             if let Some(output) = output {
                 let context = self
                     .cached_contexts
-                    .get(format)
-                    .ok_or_else(|| anyhow!("Cached context is missing"))?;
+                    .get(&format)
+                    .ok_or_else(|| anyhow!("Cached context is missing"))?
+                    .clone();
 
-                self.get_generator(*format).generate_single(
-                    output,
-                    item2.clone(),
-                    context.clone(),
-                )?;
+                let context = self.update_cache(&item2, &format, &output, context.clone());
+
+                self.get_generator(format)
+                    .generate_single(output, item2.clone(), context)?;
             }
         }
 
         Ok(())
     }
 
+    fn update_cache(
+        &mut self,
+        item2: &ItemDescriptor<()>,
+        format: &OutputFormat,
+        output: &Document<RenderResult>,
+        mut context: GeneratorContext,
+    ) -> GeneratorContext {
+        let i3 = item2.clone();
+        if let Some(part_id) = i3.part_idx {
+            let part = &mut context.project.content[part_id];
+            if let Some(chapter_id) = i3.chapter_idx {
+                let chapter = &mut part.chapters[chapter_id];
+                if let Some(doc_id) = i3.doc_idx {
+                    chapter.documents[doc_id].content = Arc::new(Some(output.clone()));
+                } else {
+                    chapter.index.content = Arc::new(Some(output.clone()));
+                }
+            } else {
+                part.index.content = Arc::new(Some(output.clone()));
+            }
+        } else {
+            context.project.index.content = Arc::new(Some(output.clone()));
+        }
+
+        self.cached_contexts.insert(*format, context.clone());
+        context
+    }
+
     fn doc_from_path(&self, path: PathBuf) -> anyhow::Result<ItemDescriptor<()>> {
         let mut part_id = None;
         let mut chapter_id = None;
+        let mut part_idx = None;
+        let mut chapter_idx = None;
+        let mut doc_idx = None;
 
         let doc_path = path
             .as_path()
@@ -131,14 +167,37 @@ impl Pipeline {
             let elem = part.chapters.iter().find(|c| c.id == first_elem);
             part_id = Some(part.id.clone());
 
+            let pid = self
+                .project
+                .content
+                .iter()
+                .position(|e| e.id == el)
+                .expect("Part index not found");
+            part_idx = Some(pid);
+
             match elem {
                 None => &part.index,
                 Some(c) => {
                     chapter_id = Some(c.id.clone());
+                    let cid = part
+                        .chapters
+                        .iter()
+                        .position(|c| c.id == first_elem)
+                        .expect("Part index not found");
+                    chapter_idx = Some(cid);
                     let doc = c.documents.iter().find(|d| d.id == file_id);
                     match doc {
                         None => &c.index,
-                        Some(d) => d,
+                        Some(d) => {
+                            let did = c
+                                .documents
+                                .iter()
+                                .position(|d| d.id == file_id)
+                                .expect("Part index not found");
+                            doc_idx = Some(did);
+
+                            d
+                        }
                     }
                 }
             }
@@ -147,9 +206,10 @@ impl Pipeline {
         let item = ItemDescriptor {
             part_id,
             chapter_id,
-            part_idx: None,
-            chapter_idx: None,
+            part_idx,
+            chapter_idx,
             doc: doc.clone(),
+            doc_idx,
             files: None,
         };
 
@@ -235,7 +295,13 @@ impl Pipeline {
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         let doc = item.format.loader().load(&item.content)?;
 
-        if doc.metadata.outputs.contains(&format) {
+        if format.no_parse() {
+            Ok(Some(Document {
+                content: "".to_string(),
+                metadata: doc.metadata,
+                variables: doc.variables,
+            }))
+        } else if doc.metadata.outputs.contains(&format) {
             let processor_ctx = PreprocessorContext {
                 tera: self.shortcode_tera.clone(),
                 output_format: format,
@@ -256,18 +322,6 @@ impl Pipeline {
             } else {
                 Ok(None)
             }
-
-            // let mut build_dir = self
-            //     .ctx
-            //     .build_path
-            //     .as_path()
-            //     .join(&self.format)
-            //     .join(&item.doc.path);
-            // build_dir.pop(); // Pop filename so only directory remains
-            //
-            // let file_path = build_dir.join(format!("{}.{}", item.doc.id, self.format));
-            // fs::create_dir_all(build_dir)?;
-            // fs::write(file_path, output)?;
         } else {
             Ok(None)
         }
