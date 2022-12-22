@@ -1,24 +1,17 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 
-use serde::{Deserialize, Serialize};
-
-use crate::document::{DocumentMetadata, DocumentVariables, EventDocument};
+use crate::document::{Document, EventContent};
 
 pub mod html;
 pub mod markdown;
 pub mod notebook;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RenderResult {
-    pub content: String,
-    pub metadata: DocumentMetadata,
-    pub variables: DocumentVariables,
-}
+pub type RenderResult = String;
 
 #[typetag::serde(tag = "type")]
 pub trait Renderer {
-    fn render(&self, doc: &EventDocument) -> RenderResult;
+    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult>;
 }
 
 pub struct RendererConfig {

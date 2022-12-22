@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::OutputFormat;
@@ -12,8 +11,8 @@ use cdoc::parser::Parser;
 pub struct ProjectConfig {
     #[serde(default)]
     pub url_prefix: String,
-    #[serde(default)]
-    pub build: BuildConfigSet,
+    #[serde(default = "default_config")]
+    pub build: HashMap<String, BuildConfig>,
     pub outputs: Vec<OutputFormat>,
     pub parsers: HashMap<OutputFormat, Parser>,
 }
@@ -24,25 +23,16 @@ pub struct BuildConfigSet {
     pub release: BuildConfig,
 }
 
-impl BuildConfigSet {
-    pub fn get_config(&self, mode: &str) -> anyhow::Result<BuildConfig> {
-        match mode {
-            "dev" => Ok(self.dev.clone()),
-            "release" => Ok(self.release.clone()),
-            _ => Err(anyhow!("Invalid build mode")),
-        }
-    }
-}
-
-impl Default for BuildConfigSet {
-    fn default() -> Self {
-        BuildConfigSet {
-            dev: BuildConfig {
-                katex_output: false,
-            },
-            release: BuildConfig { katex_output: true },
-        }
-    }
+fn default_config() -> HashMap<String, BuildConfig> {
+    let mut map = HashMap::new();
+    map.insert(
+        "dev".to_string(),
+        BuildConfig {
+            katex_output: false,
+        },
+    );
+    map.insert("release".to_string(), BuildConfig { katex_output: true });
+    map
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

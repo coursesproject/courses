@@ -1,54 +1,62 @@
+use anyhow::Context;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document::{EventDocument, IteratorConfig, PreprocessError, RawDocument};
-use crate::processors::shortcode_extender::ShortCodeProcessError;
+use crate::document::{Document, EventContent, IteratorConfig, PreprocessError, RawContent};
+use crate::processors::shortcodes::ShortCodeProcessError;
 use crate::processors::{
-    EventProcessor, EventProcessorConfig, Preprocessor, PreprocessorConfig, ProcessorContext,
+    EventPreprocessor, EventPreprocessorConfig, MarkdownPreprocessor, PreprocessorConfig,
+    PreprocessorContext,
 };
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ParserSettings {
-    #[serde(default)]
-    pub(crate) solutions: bool,
-    #[serde(default)]
-    pub(crate) notebook_outputs: bool,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
     pub preprocessors: Vec<Arc<dyn PreprocessorConfig>>,
-    pub event_processors: Vec<Arc<dyn EventProcessorConfig>>,
+    pub event_processors: Vec<Arc<dyn EventPreprocessorConfig>>,
     pub settings: ParserSettings,
+}
+
+/// Additional parser configuration.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ParserSettings {
+    /// Include solutions for the [Exercises] preprocessor.
+    #[serde(default)]
+    pub solutions: bool,
+    /// Include notebook outputs (from cells) in the loaded output.
+    #[serde(default)]
+    pub notebook_outputs: bool,
 }
 
 impl Parser {
     pub fn parse(
         &self,
-        doc: &RawDocument,
+        doc: &Document<RawContent>,
         template_context: &tera::Context,
-        ctx: &ProcessorContext,
-    ) -> Result<EventDocument, anyhow::Error> {
+        ctx: &PreprocessorContext,
+    ) -> Result<Document<EventContent>, anyhow::Error> {
         let doc = self.run_preprocessors(doc, template_context, ctx)?;
         self.run_event_processors(&doc, ctx)
     }
 
     pub fn run_preprocessors(
         &self,
-        doc: &RawDocument,
+        doc: &Document<RawContent>,
         template_context: &tera::Context,
-        ctx: &ProcessorContext,
-    ) -> Result<RawDocument, anyhow::Error> {
+        ctx: &PreprocessorContext,
+    ) -> Result<Document<RawContent>, anyhow::Error> {
         let built = self
             .preprocessors
             .iter()
             .map(|p| p.build(ctx))
-            .collect::<anyhow::Result<Vec<Box<dyn Preprocessor>>>>()?;
+            .collect::<anyhow::Result<Vec<Box<dyn MarkdownPreprocessor>>>>()?;
 
         let content = built.iter().fold(Ok(doc.clone()), |c, preprocessor| {
-            c.and_then(|c| c.preprocess(preprocessor.as_ref(), template_context))
+            c.and_then(|c| {
+                c.preprocess(preprocessor.as_ref(), template_context)
+                    .with_context(|| format!("Preprocessing error in {}", preprocessor))
+            })
         })?;
 
         Ok(content)
@@ -56,9 +64,9 @@ impl Parser {
 
     pub fn run_event_processors(
         &self,
-        doc: &RawDocument,
-        ctx: &ProcessorContext,
-    ) -> Result<EventDocument, anyhow::Error> {
+        doc: &Document<RawContent>,
+        ctx: &PreprocessorContext,
+    ) -> Result<Document<EventContent>, anyhow::Error> {
         let v = doc.to_events(IteratorConfig {
             include_output: doc
                 .metadata
@@ -74,7 +82,7 @@ impl Parser {
             .event_processors
             .iter()
             .map(|p| p.build(ctx))
-            .collect::<anyhow::Result<Vec<Box<dyn EventProcessor>>>>()?;
+            .collect::<anyhow::Result<Vec<Box<dyn EventPreprocessor>>>>()?;
 
         let events = built.iter().fold(Ok(v), |c, event_processor| {
             c.and_then(|c| event_processor.process(c))

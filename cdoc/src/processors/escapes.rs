@@ -1,28 +1,29 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 use crate::ast::AEvent;
-use crate::document::EventDocument;
-use crate::processors::{Error, EventProcessor, EventProcessorConfig, ProcessorContext};
+use crate::document::{Document, EventContent};
+use crate::processors::{Error, EventPreprocessor, EventPreprocessorConfig, PreprocessorContext};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EscapeProcessorConfig;
+pub struct EscapesConfig;
 
 #[typetag::serde(name = "escapes")]
-impl EventProcessorConfig for EscapeProcessorConfig {
-    fn build(&self, _ctx: &ProcessorContext) -> anyhow::Result<Box<dyn EventProcessor>> {
-        Ok(Box::new(EscapeProcessor))
+impl EventPreprocessorConfig for EscapesConfig {
+    fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>> {
+        Ok(Box::new(Escapes))
     }
 }
 
 #[derive(Debug)]
-pub struct EscapeProcessor;
+pub struct Escapes;
 
-impl EventProcessor for EscapeProcessor {
+impl EventPreprocessor for Escapes {
     fn name(&self) -> String {
         "Escape processor".to_string()
     }
 
-    fn process(&self, input: EventDocument) -> Result<EventDocument, Error> {
+    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
         let iter = input.content.into_iter().map(|(e, pos)| {
             (
                 if let AEvent::Text(txt) = e {
@@ -37,10 +38,16 @@ impl EventProcessor for EscapeProcessor {
                 pos,
             )
         });
-        Ok(EventDocument {
+        Ok(Document {
             metadata: input.metadata,
             variables: input.variables,
             content: iter.collect(),
         })
+    }
+}
+
+impl Display for Escapes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
     }
 }

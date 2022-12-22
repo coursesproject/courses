@@ -5,23 +5,19 @@ use std::path::PathBuf;
 use anyhow::Context;
 use tera::Tera;
 
+use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 
 use crate::generators::{Generator, GeneratorContext};
-use crate::project::config::ProjectConfig;
-use crate::project::{Project, ProjectItem};
+use crate::project::ItemDescriptor;
 
 pub struct HtmlGenerator {
     tera: Tera,
-    project_config: Project<()>,
 }
 
 impl HtmlGenerator {
-    pub fn new(tera: Tera, project: Project<()>) -> Self {
-        HtmlGenerator {
-            tera,
-            project_config: project,
-        }
+    pub fn new(tera: Tera) -> Self {
+        HtmlGenerator { tera }
     }
 }
 
@@ -48,6 +44,7 @@ impl HtmlGenerator {
 impl Generator for HtmlGenerator {
     fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
         let proj = ctx.project.clone();
+
         for item in ctx.project {
             if let Some(c) = item.doc.content.deref() {
                 // TODO: Merge with single
@@ -65,20 +62,30 @@ impl Generator for HtmlGenerator {
                 self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
             }
         }
+
+        let resource_path_src = ctx.root.join("resources");
+        let resource_path_build_dir = ctx.build_dir.join("resources");
+
+        fs::create_dir_all(resource_path_build_dir.as_path())?;
+        fs_extra::copy_items(
+            &[resource_path_src],
+            ctx.build_dir,
+            &fs_extra::dir::CopyOptions::default(),
+        )?;
+
         Ok(())
     }
 
     fn generate_single(
         &self,
-        content: RenderResult,
-        doc_info: ProjectItem<()>,
-        config: ProjectConfig,
-        build_dir: PathBuf,
+        content: Document<RenderResult>,
+        doc_info: ItemDescriptor<()>,
+        ctx: GeneratorContext,
     ) -> anyhow::Result<()> {
-        let proj = self.project_config.clone();
+        let proj = ctx.project.clone();
         let mut context = tera::Context::new();
         context.insert("config", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-        context.insert("project", &config);
+        context.insert("project", &ctx.config);
         context.insert("current_part", &doc_info.part_id);
         context.insert("current_chapter", &doc_info.chapter_id);
         context.insert("current_doc", &doc_info.doc.id);
@@ -86,7 +93,7 @@ impl Generator for HtmlGenerator {
         context.insert("title", "Test");
 
         let result = self.tera.render("section.tera.html", &context)?;
-        self.write_document(result, doc_info.doc.id, doc_info.doc.path, build_dir)?;
+        self.write_document(result, doc_info.doc.id, doc_info.doc.path, ctx.build_dir)?;
 
         Ok(())
     }

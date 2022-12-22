@@ -53,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Build { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
+
             let proj = Project::generate_from_directory(path.as_path())?;
 
             println!("[1/4] ‍💡 Reading project directory...");
@@ -70,6 +71,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Serve { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
+
             let proj = Project::generate_from_directory(path.as_path())?;
 
             println!("[1/4] ‍💡 Reading project directory...");
@@ -103,14 +105,6 @@ async fn main() -> anyhow::Result<()> {
                     Ok(events) => events.iter().for_each(|event| {
                         if let DebouncedEventKind::Any = &event.kind {
                             let p = &event.path;
-
-                            let mut pipeline = Pipeline::new(
-                                path.as_path(),
-                                mode.clone(),
-                                config.clone(),
-                                proj.clone(),
-                            )
-                            .expect("Could not create pipeline");
 
                             if p.starts_with(path.as_path().join("content")) {
                                 // pipeline.build_file(p, &c2, &cf);
