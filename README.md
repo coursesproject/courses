@@ -3,6 +3,8 @@
 Courses is a publishing system for interactive content written in `rust`. Its aimed primarily at code-related learning 
 resources, including books, course materials, and blogs.
 
+[Documentation page](https://antonmeskildsen.github.io/courses/)
+
 *Important: This project is very early in its development process and may change significantly in scope or function before an 
 initial stable version is released.* 
 

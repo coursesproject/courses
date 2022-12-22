@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
-use std::sync::Arc;
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -142,8 +141,8 @@ impl Display for OutputFormat {
 #[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
-        preprocessors: vec![Arc::new(ShortcodesConfig), Arc::new(KaTeXConfig)],
-        event_processors: vec![Arc::new(ExercisesConfig)],
+        preprocessors: vec![Box::new(ShortcodesConfig), Box::new(KaTeXConfig)],
+        event_processors: vec![Box::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,
             notebook_outputs: false,

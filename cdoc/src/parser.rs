@@ -1,6 +1,4 @@
 use anyhow::Context;
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,8 +11,8 @@ use crate::processors::{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
-    pub preprocessors: Vec<Arc<dyn PreprocessorConfig>>,
-    pub event_processors: Vec<Arc<dyn EventPreprocessorConfig>>,
+    pub preprocessors: Vec<Box<dyn PreprocessorConfig>>,
+    pub event_processors: Vec<Box<dyn EventPreprocessorConfig>>,
     pub settings: ParserSettings,
 }
 

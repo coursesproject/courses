@@ -5,7 +5,7 @@ use crate::ast::AEvent;
 use crate::document::{Document, EventContent};
 use crate::processors::{Error, EventPreprocessor, EventPreprocessorConfig, PreprocessorContext};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EscapesConfig;
 
 #[typetag::serde(name = "escapes")]

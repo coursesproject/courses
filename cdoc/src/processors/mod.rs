@@ -1,3 +1,4 @@
+use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 
 use tera::Tera;
@@ -20,6 +21,7 @@ pub enum Error {
     AttrParseError(#[from] toml::de::Error),
 }
 
+#[derive(Clone, Debug)]
 pub struct PreprocessorContext {
     pub tera: Tera,
     pub output_format: OutputFormat,
@@ -36,11 +38,14 @@ pub trait EventPreprocessor: Display {
 }
 
 #[typetag::serde(tag = "type")]
-pub trait PreprocessorConfig: Debug + Send + Sync {
+pub trait PreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>>;
 }
 
 #[typetag::serde(tag = "type")]
-pub trait EventPreprocessorConfig: Debug + Send + Sync {
+pub trait EventPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>>;
 }
+
+dyn_clone::clone_trait_object!(PreprocessorConfig);
+dyn_clone::clone_trait_object!(EventPreprocessorConfig);

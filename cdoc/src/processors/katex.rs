@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::processors::{MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KaTeXConfig;
 
 #[typetag::serde(name = "katex")]

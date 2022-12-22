@@ -7,7 +7,7 @@ use crate::parsers::split::{human_errors, parse_code_string};
 use crate::processors::Error::CodeParseError;
 use crate::processors::{Error, EventPreprocessor, EventPreprocessorConfig, PreprocessorContext};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExercisesConfig;
 
 #[typetag::serde(name = "code_split")]

@@ -10,7 +10,7 @@ use thiserror::Error;
 use crate::parsers::shortcodes::{parse_shortcode, Rule};
 use crate::processors::{MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ShortcodesConfig;
 
 #[typetag::serde(name = "shortcodes")]
