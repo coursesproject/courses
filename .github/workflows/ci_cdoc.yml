@@ -1,10 +1,19 @@
-on: [pull_request, workflow_dispatch]
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
 
-name: Continuous integration
+name: Continuous integration (cdoc)
 
 jobs:
   check:
-    name: Check
+    name: Check (cdoc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -15,10 +24,10 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: check
+          command: check --package cdoc
 
   test:
-    name: Test Suite
+    name: Test Suite (cdoc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -29,10 +38,10 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: test
+          command: test --package cdoc
 
   fmt:
-    name: Rustfmt
+    name: Rustfmt (cdoc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -45,10 +54,10 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: --package cdoc --all -- --check
 
   clippy:
-    name: Clippy
+    name: Clippy (cdoc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -61,4 +70,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --package cdoc -- -D warnings

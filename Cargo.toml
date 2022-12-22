@@ -50,3 +50,6 @@ penguin = "0.1.7"
 tokio = { version = "1.21.2", features = ["full"] }
 notify = { version = "5.0.0" }
 notify-debouncer-mini = "0.2.1"
+
+[dev-dependencies]
+tempfile = "3.3.0"
