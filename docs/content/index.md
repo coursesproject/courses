@@ -7,8 +7,9 @@ layout:
 
 {{ image(url=logo.svg) }}
 
-
 {{ hero(title="Courses", subtitle="A publishing system for interactive content") }}
+
+
 
 ## Features
 

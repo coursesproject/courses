@@ -40,10 +40,14 @@ rust-embed = "6.4.2"
 fs_extra = "1.2.0"
 thiserror = { version = "1.0.37" }
 anyhow = { version = "1.0.65" }
+beau_collector = "0.2.1"
 
 # CLI libraries
 inquire = "0.5.2"
 clap = { version = "4.0.0-rc.2", features = ["derive"] }
+console = "0.15.2"
+indicatif = "0.17.2"
+
 
 # Async + server stuff
 penguin = "0.1.7"

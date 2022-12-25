@@ -1,5 +1,7 @@
 use std::fs;
 use std::ops::Deref;
+use console::style;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
@@ -11,8 +13,15 @@ pub struct CodeOutputGenerator;
 
 impl Generator for CodeOutputGenerator {
     fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
+        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}").unwrap().tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+        let pb = ProgressBar::new(0);
+        pb.set_style(spinner);
+
         for item in ctx.project {
             if let Some(c) = item.doc.content.deref() {
+                pb.set_message(format!("{}", item.doc.path.display()));
+                pb.inc(1);
+
                 let mut notebook_build_dir = ctx.build_dir.as_path().join(&item.doc.path);
                 notebook_build_dir.pop(); // Pop filename
                 let notebook_build_path = notebook_build_dir.join(format!("{}.ipynb", item.doc.id));
@@ -21,6 +30,8 @@ impl Generator for CodeOutputGenerator {
                 fs::write(notebook_build_path, &c.content)?;
             }
         }
+
+        pb.finish_with_message(format!("notebook rendering {}", style("success").green()));
 
         Ok(())
     }
@@ -37,6 +48,7 @@ impl Generator for CodeOutputGenerator {
 
         fs::create_dir_all(notebook_build_dir)?;
         fs::write(notebook_build_path, content.content)?;
+
         Ok(())
     }
 }

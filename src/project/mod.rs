@@ -8,6 +8,7 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::InputFormat;
+use cdoc::document::Document;
 
 pub mod config;
 
@@ -84,6 +85,30 @@ pub struct ItemDescriptor<D> {
     pub files: Option<Vec<PathBuf>>, // Temporary solution for carrying file info
 }
 
+impl<C> Project<C> {
+    pub fn len(&self) -> usize {
+        1 + self.content.iter().map(|e| e.len()).sum::<usize>()
+    }
+}
+
+impl<C> Part<C> {
+    pub fn len(&self) -> usize {
+        1 + self.chapters.iter().map(|c| c.len()).sum::<usize>()
+    }
+}
+
+impl<C> Chapter<C> {
+    pub fn len(&self) -> usize {
+        1 + self.documents.iter().map(|_| 1).sum::<usize>()
+    }
+}
+
+// impl<C> ProjectItem<C> {
+//     pub fn len(&self) -> usize {
+//         1
+//     }
+// }
+
 impl Project<()> {
     /// Construct configuration from a directory (generally the project directory). The function
     /// finds and verifies the structure of the project.
@@ -110,6 +135,8 @@ impl Project<()> {
             content: parts,
         })
     }
+
+
 }
 
 impl Part<()> {
@@ -129,6 +156,8 @@ impl Part<()> {
             chapters,
         })
     }
+
+
 }
 
 impl Chapter<()> {
@@ -177,6 +206,8 @@ impl Chapter<()> {
             files: file_paths,
         })
     }
+
+
 }
 
 impl<I> ProjectItem<I> {
