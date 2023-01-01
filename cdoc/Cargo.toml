@@ -10,7 +10,7 @@ description = "A markdown-based document parser and processor"
 
 homepage = "https://antonmeskildsen.github.io/courses/"
 repository = "https://github.com/antonmeskildsen/courses/tree/main/cdoc"
-documentation = ""
+documentation = "https://docs.rs/cdoc/0.1.1/cdoc/"
 readme = "README.md"
 
 keywords = ["generator", "markdown", "notebooks"]
