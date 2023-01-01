@@ -1,15 +1,11 @@
-mod mover;
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use console::{style, Term};
+use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
-use serde::de::Error;
 use tera::Tera;
 
 use cdoc::config::OutputFormat;
@@ -25,6 +21,8 @@ use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
 use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem};
 
+mod mover;
+
 pub struct Pipeline {
     #[allow(unused)]
     mode: String,
@@ -36,13 +34,14 @@ pub struct Pipeline {
     cached_contexts: HashMap<OutputFormat, GeneratorContext>,
 }
 
-
 pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
     match res {
         Ok(s) => Some(s),
         Err(e) => {
             eprintln!("{} {}", style("Error:").red().bold(), e);
-            e.chain().skip(1).for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+            e.chain()
+                .skip(1)
+                .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
             None
         }
     }
@@ -102,8 +101,8 @@ impl Pipeline {
     }
 
     pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
-        println!("build single");
-        println!("{} {}", style("Building file").bold(), path.display());
+        let relpath = path.strip_prefix(self.project_path.join("content"))?;
+        println!("{} {}", style("Building file").bold(), relpath.display());
         println!("{}", style("-".repeat(60)).blue());
         let item = self.doc_from_path(path)?;
         let item2 = item.clone();
@@ -115,27 +114,64 @@ impl Pipeline {
             Ok::<String, anyhow::Error>(val)
         })?;
 
+        let mut all_errors = Vec::new();
+
         for format in self.project_config.outputs.clone() {
             print!("format: {}", style(format).bold());
             let output = self.process_document(&loaded.doc, format);
-            let output = print_err(output).flatten();
 
-            if let Some(output) = output {
-                let context = self
-                    .cached_contexts
-                    .get(&format)
-                    .ok_or_else(|| anyhow!("Cached context is missing"))?
-                    .clone();
+            match output {
+                Err(e) => {
+                    all_errors.push(e);
+                    println!(" {}", style("error").red());
+                }
+                Ok(output) => {
+                    if let Some(output) = output {
+                        let context = self
+                            .cached_contexts
+                            .get(&format)
+                            .ok_or_else(|| anyhow!("Cached context is missing"))?
+                            .clone();
 
-                let context = self.update_cache(&item2, &format, &output, context.clone());
+                        let context = self.update_cache(&item2, &format, &output, context.clone());
 
-                self.get_generator(format)
-                    .generate_single(output, item2.clone(), context)?;
+                        self.get_generator(format).generate_single(
+                            output,
+                            item2.clone(),
+                            context,
+                        )?;
 
-                println!(" {}", style("done").green());
-            } else {
-                println!(" {}", style("no output").yellow());
+                        println!(" {}", style("done").green());
+                    } else {
+                        println!(" {}", style("no output").yellow());
+                    }
+                }
             }
+            // let output = print_err(output).flatten();
+        }
+
+        println!("{}", style("-".repeat(60)).blue());
+        if all_errors.is_empty() {
+            println!("{}", style("Success").green().bold());
+        } else {
+            let len = all_errors.len();
+            all_errors.into_iter().for_each(|e| {
+                eprintln!("{} {}", style("Error:").red().bold(), e);
+                e.chain()
+                    .skip(1)
+                    .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+            });
+            println!("{}", style("-".repeat(60)).blue());
+
+            println!(
+                "{}",
+                style(format!(
+                    "File built with non-critical errors ({} total)",
+                    len
+                ))
+                .yellow()
+                .bold()
+            );
         }
 
         Ok(())
@@ -258,15 +294,24 @@ impl Pipeline {
         let loaded = self.load_all()?;
 
         println!("{}", style("=".repeat(60)).blue());
-        println!("{} ({} files)", style("Building project").bold(), loaded.len());
+        println!(
+            "{} ({} files)",
+            style("Building project").bold(),
+            loaded.len()
+        );
         println!("{}", style("-".repeat(60)).blue());
 
         let mut all_errs = Vec::new();
 
         for format in &self.project_config.outputs {
-            println!("format: {}", style(format).bold());
+            print!(
+                "{}{}",
+                style(format).bold(),
+                " ".repeat(10 - format.to_string().len())
+            );
+            let mut format_errs = Vec::new();
             let (output, mut errs) = self.process_all(loaded.clone(), *format);
-            all_errs.append(&mut errs);
+            format_errs.append(&mut errs);
             let context = GeneratorContext {
                 root: self.project_path.to_path_buf(),
                 project: output,
@@ -277,29 +322,40 @@ impl Pipeline {
 
             // print!("[generating output");
 
-            let res = self.get_generator(*format)
+            let res = self
+                .get_generator(*format)
                 .generate(context.clone())
                 .with_context(|| format!("Could not generate {}", format));
 
             match res {
-                Err(e) => all_errs.push(e),
+                Err(e) => format_errs.push(e),
                 Ok(_) => {
+                    // println!("   output generation \t{}", style("success").green());
                     self.cached_contexts.insert(*format, context);
-
-                    if let Some(parser) = self.project_config.parsers.get(format) {
-                        // print!(", copying additional files");
-                        let move_ctx = MoveContext {
-                            project_path: self.project_path.to_path_buf(),
-                            build_dir: self.get_build_path(*format),
-                            settings: parser.settings.clone(),
-                        };
-
-                        Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx)?;
-                    }
                 }
             }
-        }
 
+            // Move extra files
+            if let Some(parser) = self.project_config.parsers.get(format) {
+                // print!(", copying additional files");
+                let move_ctx = MoveContext {
+                    project_path: self.project_path.to_path_buf(),
+                    build_dir: self.get_build_path(*format),
+                    settings: parser.settings.clone(),
+                };
+
+                Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx)?;
+            }
+
+            // Error display
+            if format_errs.is_empty() {
+                println!("{}", style("success").green());
+            } else {
+                println!("{}", style(format!("({} errors)", format_errs.len())).red());
+            }
+
+            all_errs.append(&mut format_errs);
+        }
 
         println!("{}", style("-".repeat(60)).blue());
         if all_errs.is_empty() {
@@ -308,14 +364,23 @@ impl Pipeline {
             let len = all_errs.len();
             all_errs.into_iter().for_each(|e| {
                 eprintln!("{} {}", style("Error:").red().bold(), e);
-                e.chain().skip(1).for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+                e.chain()
+                    .skip(1)
+                    .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
             });
             println!("{}", style("-".repeat(60)).blue());
 
-            println!("{}", style(format!("Project built with non-critical errors ({} total)", len)).yellow().bold());
+            println!(
+                "{}",
+                style(format!(
+                    "Project built with non-critical errors ({} total)",
+                    len
+                ))
+                .yellow()
+                .bold()
+            );
         }
         println!("{}", style("=".repeat(60)).blue());
-
 
         Ok(())
     }
@@ -343,7 +408,9 @@ impl Pipeline {
         project: Project<String>,
         format: OutputFormat,
     ) -> (Project<Option<Document<RenderResult>>>, Vec<anyhow::Error>) {
-        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}").unwrap().tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
+            .unwrap()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
         let pb = ProgressBar::new(0);
         pb.set_style(spinner);
         // pb.set_prefix(format!("[{}/?]", i + 1));
@@ -356,8 +423,12 @@ impl Pipeline {
                 pb.set_message(format!("{}", i.doc.path.display()));
                 pb.inc(1);
 
-                let res = self.process_document(&i.doc, format)
-                    .with_context(|| format!("Failed to process document – {}", style(format!("content/{}", i.doc.path.display())).italic()));
+                let res = self.process_document(&i.doc, format).with_context(|| {
+                    format!(
+                        "Failed to process document – {}",
+                        style(format!("content/{}", i.doc.path.display())).italic()
+                    )
+                });
 
                 let res = match res {
                     Ok(good) => good,
@@ -385,11 +456,8 @@ impl Pipeline {
             })
             .collect::<Project<Option<Document<RenderResult>>>>();
 
-        if errs.is_empty() {
-            pb.finish_with_message(format!("document processing {}", style("success").green()));
-        } else {
-            pb.finish_with_message(format!("document processing {}", style(format!("({} errors)", errs.len())).red()));
-        }
+        pb.finish_and_clear();
+
         // pb.finish_with_message(format!("Done"));
 
         (res, errs)
@@ -420,7 +488,8 @@ impl Pipeline {
             let res = self
                 .project_config
                 .parsers
-                .get(&format).ok_or_else(|| anyhow!("Invalid format"))?
+                .get(&format)
+                .ok_or_else(|| anyhow!("Invalid format"))?
                 .parse(&doc, &meta, &processor_ctx)?;
 
             // let res = print_err(res)?;

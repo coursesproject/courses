@@ -1,6 +1,6 @@
 use std::fs;
 use std::ops::Deref;
-use console::style;
+
 use indicatif::{ProgressBar, ProgressStyle};
 
 use cdoc::document::Document;
@@ -13,7 +13,9 @@ pub struct CodeOutputGenerator;
 
 impl Generator for CodeOutputGenerator {
     fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
-        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}").unwrap().tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
+            .unwrap()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
         let pb = ProgressBar::new(0);
         pb.set_style(spinner);
 
@@ -31,7 +33,8 @@ impl Generator for CodeOutputGenerator {
             }
         }
 
-        pb.finish_with_message(format!("notebook rendering {}", style("success").green()));
+        // pb.finish_with_message(format!("notebook rendering {}", style("success").green()));
+        pb.finish_and_clear();
 
         Ok(())
     }

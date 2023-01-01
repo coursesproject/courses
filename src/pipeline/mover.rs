@@ -1,9 +1,9 @@
+use std::fs;
+use std::path::PathBuf;
+
 use cdoc::parser::ParserSettings;
 use cdoc::parsers::split::parse_code_string;
 use cdoc::parsers::split_types::Output;
-use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
 
 pub struct Mover;
 

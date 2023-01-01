@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
-use yaml_front_matter::YamlFrontMatter;
 
 use anyhow::{anyhow, Context};
 use thiserror::Error;
@@ -41,8 +40,6 @@ impl Loader for NotebookLoader {
     }
 }
 
-
-
 /// Loads a markdown document. It reads the yml frontmatter and creates the document from the remaining input.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MarkdownLoader;
@@ -53,11 +50,18 @@ impl Loader for MarkdownLoader {
         // let yml: yaml_front_matter::Document<DocumentMetadata> =
         //     // YamlFrontMatter::parse(input).map_err(|_e| anyhow!("Could not parse front matter"))?;
         //     YamlFrontMatter::parse(input)?;
-        let start = input.find("---").ok_or(anyhow!("Missing frontmatter specifier"))?;
-        let end = start+3 + input[start+3..].find("---").ok_or(anyhow!("Missing frontmatter specifier"))?;
+        let start = input
+            .find("---")
+            .ok_or_else(|| anyhow!("Missing frontmatter specifier"))?;
+        let end = start
+            + 3
+            + input[start + 3..]
+                .find("---")
+                .ok_or_else(|| anyhow!("Missing frontmatter specifier"))?;
 
-        let meta: DocumentMetadata = serde_yaml::from_str(&input[start+3..end]).context("Could not parse frontmatter")?;
-        Ok(Document::new(input[end+3..].to_string(), meta))
+        let meta: DocumentMetadata =
+            serde_yaml::from_str(&input[start + 3..end]).context("Could not parse frontmatter")?;
+        Ok(Document::new(input[end + 3..].to_string(), meta))
     }
 }
 

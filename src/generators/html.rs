@@ -1,11 +1,8 @@
 use std::fs;
-use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::time::Duration;
 
 use anyhow::Context;
-use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use tera::Tera;
 
@@ -49,7 +46,20 @@ impl HtmlGenerator {
 
 impl Generator for HtmlGenerator {
     fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
-        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}").unwrap().tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+        // Copy resources
+        let resource_path_src = ctx.root.join("resources");
+        let resource_path_build_dir = ctx.build_dir.as_path().join("resources");
+
+        fs::create_dir_all(resource_path_build_dir.as_path())?;
+        let mut options = fs_extra::dir::CopyOptions::new();
+        options.overwrite = true;
+
+        fs_extra::copy_items(&[resource_path_src], ctx.build_dir.as_path(), &options)?;
+        // end of resource copy
+
+        let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
+            .unwrap()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
         let pb = ProgressBar::new(0);
         pb.set_style(spinner);
 
@@ -73,7 +83,6 @@ impl Generator for HtmlGenerator {
 
                 let result = self.tera.render("section.tera.html", &context)?;
                 self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
-
             }
         }
         pb.finish_and_clear();
@@ -82,19 +91,6 @@ impl Generator for HtmlGenerator {
         // } else {
         //     pb.finish_with_message(format!("template rendering {}", style(format!("({} errors)", errs.len())).red()));
         // }
-
-        let resource_path_src = ctx.root.join("resources");
-        let resource_path_build_dir = ctx.build_dir.join("resources");
-
-        fs::create_dir_all(resource_path_build_dir.as_path())?;
-        let mut options = fs_extra::dir::CopyOptions::new();
-        options.overwrite = true;
-
-        fs_extra::copy_items(
-            &[resource_path_src],
-            ctx.build_dir,
-            &options,
-        )?;
 
         // println!("   resources copy {}", style("done").green());
 

@@ -8,15 +8,13 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::InputFormat;
-use cdoc::document::Document;
+pub use iterator::*;
+pub use transform::*;
 
 pub mod config;
 
 mod iterator;
 mod transform;
-
-pub use iterator::*;
-pub use transform::*;
 
 /// The top-level configuration of a project's content.TTT
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,18 +84,30 @@ pub struct ItemDescriptor<D> {
 }
 
 impl<C> Project<C> {
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn len(&self) -> usize {
         1 + self.content.iter().map(|e| e.len()).sum::<usize>()
     }
 }
 
 impl<C> Part<C> {
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn len(&self) -> usize {
         1 + self.chapters.iter().map(|c| c.len()).sum::<usize>()
     }
 }
 
 impl<C> Chapter<C> {
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn len(&self) -> usize {
         1 + self.documents.iter().map(|_| 1).sum::<usize>()
     }
@@ -135,8 +145,6 @@ impl Project<()> {
             content: parts,
         })
     }
-
-
 }
 
 impl Part<()> {
@@ -156,8 +164,6 @@ impl Part<()> {
             chapters,
         })
     }
-
-
 }
 
 impl Chapter<()> {
@@ -206,8 +212,6 @@ impl Chapter<()> {
             files: file_paths,
         })
     }
-
-
 }
 
 impl<I> ProjectItem<I> {

@@ -9,6 +9,7 @@ layout:
 
 {{ hero(title="Courses", subtitle="A publishing system for interactive content") }}
 
+{{ banner }}
 
 
 ## Features

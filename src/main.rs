@@ -2,12 +2,11 @@
 
 use std::path::PathBuf;
 use std::time::Duration;
-use std::io::{Read, Write};
 use std::{env, fs};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use console::{set_colors_enabled_stderr, style, Term};
+use console::style;
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
@@ -59,7 +58,6 @@ async fn cli_run() -> anyhow::Result<()> {
             let proj = Project::generate_from_directory(path.as_path())?;
             println!(" {}", style("done").green());
 
-
             let config_path = path.join("config.yml");
             let config_input = fs::read_to_string(config_path)?;
             let config: ProjectConfig = serde_yaml::from_str(&config_input)
@@ -78,7 +76,6 @@ async fn cli_run() -> anyhow::Result<()> {
             let proj = Project::generate_from_directory(path.as_path())?;
             println!(" {}", style("done").green());
 
-
             let config_path = path.join("config.yml");
             let config_input = fs::read_to_string(config_path)?;
             let config: ProjectConfig = serde_yaml::from_str(&config_input)
@@ -93,8 +90,6 @@ async fn cli_run() -> anyhow::Result<()> {
             let p2 = path.as_path().join("content");
             let tp = path.as_path().join("templates");
             let p_build = path.as_path().join("build/html");
-
-
 
             let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
                 .add_mount(config.url_prefix.clone(), p_build)?
@@ -112,15 +107,16 @@ async fn cli_run() -> anyhow::Result<()> {
                     Ok(events) => events.iter().for_each(|event| {
                         if let DebouncedEventKind::Any = &event.kind {
                             let p = &event.path;
-                            print!("\n");
+                            println!();
 
                             if p.starts_with(path.as_path().join("content")) {
                                 // pipeline.build_file(p, &c2, &cf);
-                                let res = pipeline
-                                    .build_single(p.to_path_buf());
+                                let res = pipeline.build_single(p.to_path_buf());
                                 err_print(res);
                             } else {
-                                if p.starts_with(path.as_path().join("templates").join("shortcodes")) {
+                                if p.starts_with(
+                                    path.as_path().join("templates").join("shortcodes"),
+                                ) {
                                     let res = pipeline.reload_shortcode_tera();
                                     err_print(res);
                                     println!("{}", style("reloaded shortcode templates").green());
@@ -134,7 +130,7 @@ async fn cli_run() -> anyhow::Result<()> {
                             }
 
                             controller.reload();
-                            print!("\n");
+                            println!();
                             println!("Page reloaded");
                             println!("Server open at: http://localhost:8000{}", config.url_prefix);
                         }
@@ -173,17 +169,17 @@ async fn cli_run() -> anyhow::Result<()> {
 
 fn err_print(res: anyhow::Result<()>) {
     match res {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             eprintln!("{} {}", style("Error:").red().bold(), e);
-            e.chain().skip(1).for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
-
+            e.chain()
+                .skip(1)
+                .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
-   err_print(cli_run().await)
-
+    err_print(cli_run().await)
 }
