@@ -1,6 +1,6 @@
 [package]
 name = "courses"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -28,7 +28,7 @@ path = "src/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cdoc = { path = "cdoc", version = "0.1.0" }
+cdoc = { path = "cdoc", version = "0.1.1" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }
