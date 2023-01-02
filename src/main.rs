@@ -1,5 +1,6 @@
 //! Then what is this??
 
+use std::fs::create_dir;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{env, fs};
@@ -7,6 +8,7 @@ use std::{env, fs};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use console::style;
+use inquire::{InquireError, Select};
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
@@ -41,7 +43,9 @@ enum Commands {
         mode: String,
     },
     Init {
-        name: String,
+        name: Option<String>,
+        #[arg(short, long)]
+        repository: Option<String>,
     },
     Test {},
     Publish {},
@@ -153,13 +157,32 @@ async fn cli_run() -> anyhow::Result<()> {
 
             Ok(())
         }
-        Commands::Init { .. } => {
-            let options = vec!["Default", "Empty"];
-            let mut s = inquire::Select::new("What template set-up would you like?", options);
-            s.starting_cursor = 0;
-            let res = s.prompt()?;
+        Commands::Init { name, repository } => {
+            println!("{}", style("Project initialisation").bold().blue());
 
-            setup::setup(res)?;
+            let repository = repository.map(Ok::<String, InquireError>).unwrap_or_else(|| {
+                let options = vec!["Default", "Empty"];
+                let values = vec!["https://github.com/coursesproject/courses-template-default/archive/main.zip", ""];
+
+                let mut s: Select<&str> = Select::new("Select a project template:", options);
+
+                s.starting_cursor = 0;
+                Ok(values[s.raw_prompt()?.index].to_string())
+            })?;
+
+            let dir = name
+                .map(|n| {
+                    let dir = env::current_dir()?.join(n);
+                    create_dir(dir.as_path())?;
+                    Ok(dir)
+                })
+                .unwrap_or_else(env::current_dir)?;
+
+            print!("Template downloading ...");
+
+            setup::setup(dir, repository)?;
+
+            println!("{}", style("Success").green().bold());
 
             Ok(())
         }
