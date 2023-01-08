@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use anyhow::Context;
 
 use cdoc::parser::ParserSettings;
 use cdoc::parsers::split::parse_code_string;
@@ -44,14 +45,14 @@ impl Mover {
                     match ext {
                         "md" | "ipynb" => {}
                         "py" => {
-                            let input = fs::read_to_string(entry_path.as_path())?;
-                            let parsed = parse_code_string(&input)?;
+                            let input = fs::read_to_string(entry_path.as_path()).with_context(|| format!("reading file: {}", entry_path.display()))?;
+                            let parsed = parse_code_string(&input).context("code parsing error")?;
                             let output = parsed.write_string(ctx.settings.solutions);
 
                             // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
                             // file.write_all(output.as_bytes())?;
 
-                            fs::write(dest, output)?;
+                            fs::write(dest.as_path(), output).with_context(|| format!("writing file: {}", dest.display()))?;
                         }
                         _ => {
                             fs::copy(entry_path, dest)?;

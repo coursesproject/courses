@@ -1,14 +1,13 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
-use pulldown_cmark::html::push_html;
 use pulldown_cmark::{Options, Parser};
+use pulldown_cmark::html::push_html;
 use serde::{Deserialize, Serialize};
-use tera::Tera;
 use thiserror::Error;
 
-use crate::parsers::shortcodes::{parse_shortcode, Rule};
 use crate::processors::{MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext};
+use crate::processors::shortcodes::{parse_shortcode, Rule, ShortCodeRenderer};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ShortcodesConfig;
@@ -17,8 +16,10 @@ pub struct ShortcodesConfig;
 impl PreprocessorConfig for ShortcodesConfig {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>> {
         Ok(Box::new(Shortcodes {
-            tera: ctx.tera.clone(),
-            file_ext: ctx.output_format.template_extension().to_string(),
+            renderer: ShortCodeRenderer {
+                tera: ctx.tera.clone(),
+                file_ext: ctx.output_format.template_extension().to_string(),
+            }
         }))
     }
 }
@@ -179,17 +180,10 @@ impl Display for ShortCodeProcessError {
 
 #[derive(Debug)]
 pub struct Shortcodes {
-    tera: Tera,
-    file_ext: String,
+    renderer: ShortCodeRenderer
 }
 
 impl Shortcodes {
-    pub fn new(pattern: &str, file_ext: &str) -> Result<Self, tera::Error> {
-        Ok(Shortcodes {
-            tera: Tera::new(pattern)?,
-            file_ext: file_ext.to_string(),
-        })
-    }
 
     fn render_inline_template(
         &self,
@@ -197,16 +191,7 @@ impl Shortcodes {
         ctx: &tera::Context,
     ) -> anyhow::Result<String> {
         let code = parse_shortcode(shortcode)?;
-        let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
-
-        let mut ctx = ctx.clone();
-        for (k, v) in code.parameters {
-            ctx.insert(k, &v);
-        }
-
-        let res = self.tera.render(&name, &ctx)?;
-        let res = res.replace("\n\n", "\n");
-        Ok(res)
+        self.renderer.render(&code, ctx)
     }
 
     fn render_block_template(
@@ -216,17 +201,11 @@ impl Shortcodes {
         ctx: &tera::Context,
     ) -> Result<String, anyhow::Error> {
         let code = parse_shortcode(shortcode)?;
-        let name = format!("{}/{}.tera.{}", self.file_ext, code.name, self.file_ext);
-
         let mut ctx = ctx.clone();
-
-        for (k, v) in code.parameters {
-            ctx.insert(k, &v);
-        }
 
         let processed = self.process(body, &ctx)?;
 
-        let body_final = if self.file_ext == "html" {
+        let body_final = if self.renderer.file_ext == "html" {
             let parser = Parser::new_ext(&processed, Options::all());
             let mut html = String::new();
             push_html(&mut html, parser);
@@ -236,11 +215,11 @@ impl Shortcodes {
         };
 
         ctx.insert("body", &body_final);
-        let res = self.tera.render(&name, &ctx)?;
-        let res = res.replace("\n\n", "\n");
-        Ok(res)
+
+        self.renderer.render(&code, &ctx)
     }
 }
+
 
 impl MarkdownPreprocessor for Shortcodes {
     fn name(&self) -> String {

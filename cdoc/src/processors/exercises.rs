@@ -25,7 +25,7 @@ impl EventPreprocessor for Exercises {
         "Code split".to_string()
     }
 
-    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
+    fn process(&self, input: Document<EventContent>,  ctx: &tera::Context) -> Result<Document<EventContent>, Error> {
         let mut code_block = false;
         let mut source = "".to_string();
         let mut code_attr = String::new();

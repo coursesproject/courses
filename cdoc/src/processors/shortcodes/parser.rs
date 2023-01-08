@@ -1,15 +1,11 @@
 use pest::Parser;
 use pest_derive::Parser;
 use std::collections::HashMap;
+use crate::processors::shortcodes::ShortCode;
 
 #[derive(Parser)]
-#[grammar = "parsers/shortcodes.pest"]
+#[grammar = "processors/shortcodes/grammar.pest"]
 pub struct ShortCodeParser;
-
-pub struct ShortCode {
-    pub(crate) name: String,
-    pub(crate) parameters: HashMap<String, String>,
-}
 
 pub fn parse_shortcode(content: &str) -> Result<ShortCode, Box<pest::error::Error<Rule>>> {
     let padded = content.to_string();

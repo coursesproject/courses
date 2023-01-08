@@ -35,10 +35,10 @@ impl HtmlGenerator {
 
         let section_build_path = html_build_dir.join(format!("{}.html", doc_id));
 
-        fs::create_dir_all(html_build_dir).context("Could not create directory")?;
+        fs::create_dir_all(html_build_dir.as_path()).with_context(|| format!("could not create directory: {}", html_build_dir.display()))?;
         // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
         // file.write_all(output.as_bytes())?;
-        fs::write(section_build_path, output).unwrap();
+        fs::write(section_build_path.as_path(), output).with_context(|| format!("could not write output at: {}", section_build_path.display()))?;
 
         Ok(())
     }
@@ -81,8 +81,8 @@ impl Generator for HtmlGenerator {
                 context.insert("html", &c.content);
                 context.insert("title", "Test");
 
-                let result = self.tera.render("section.tera.html", &context)?;
-                self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
+                let result = self.tera.render("section.tera.html", &context).with_context(|| format!("rendering output of: {}", item.doc.path.display()))?;
+                self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone());
             }
         }
         pb.finish_and_clear();
@@ -114,7 +114,7 @@ impl Generator for HtmlGenerator {
         context.insert("html", &content.content);
         context.insert("title", "Test");
 
-        let result = self.tera.render("section.tera.html", &context)?;
+        let result = self.tera.render("section.tera.html", &context).with_context(|| format!("rendering output of: {}", doc_info.doc.path.display()))?;
 
         self.write_document(result, doc_info.doc.id, doc_info.doc.path, ctx.build_dir)?;
 

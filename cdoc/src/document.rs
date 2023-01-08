@@ -2,17 +2,17 @@ use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use std::vec::IntoIter;
 
+use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::ast::AEvent;
 use crate::config::OutputFormat;
 use crate::notebook::{Cell, CellOutput, Notebook};
-use crate::processors::shortcodes::ShortCodeProcessError;
 use crate::processors::MarkdownPreprocessor;
+use crate::processors::shortcodes::{ShortCodeProcessError, ShortCodeRenderer};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -254,18 +254,31 @@ impl<'a, 'b> Iterator for ElementIterator<'a, 'b> {
     }
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Clone)]
 pub struct IteratorConfig {
     pub include_output: bool,
     pub include_solutions: bool,
+    pub template_context: tera::Context,
+    pub shortcode_renderer: ShortCodeRenderer,
 }
 
 impl IteratorConfig {
+    pub fn new(shortcode_renderer: ShortCodeRenderer, template_context: tera::Context) -> Self {
+        IteratorConfig {
+            include_output: false,
+            include_solutions: false,
+            template_context,
+            shortcode_renderer,
+        }
+    }
+
     #[allow(unused)]
     pub fn include_output(self) -> Self {
         IteratorConfig {
             include_output: true,
             include_solutions: self.include_solutions,
+            shortcode_renderer: self.shortcode_renderer,
+            template_context: self.template_context,
         }
     }
 
@@ -274,6 +287,8 @@ impl IteratorConfig {
         IteratorConfig {
             include_output: self.include_output,
             include_solutions: true,
+            shortcode_renderer: self.shortcode_renderer,
+            template_context: self.template_context,
         }
     }
 }
@@ -319,7 +334,7 @@ impl<'a> ConfigureCollector for &'a Element {
                 if config.include_output {
                     if let Some(os) = outputs {
                         for o in os {
-                            events.append(&mut o.to_events());
+                            events.append(&mut o.to_events(&config));
                         }
                     }
                 }
@@ -351,7 +366,7 @@ impl<'a> ConfigureCollector for &'a Document<RawContent> {
         Box::new(
             self.content
                 .iter()
-                .flat_map(move |elem: &Element| elem.configure_iterator(config)),
+                .flat_map(move |elem: &Element| elem.configure_iterator(config.clone())),
         )
     }
 }

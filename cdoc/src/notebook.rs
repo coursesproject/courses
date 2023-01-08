@@ -1,19 +1,17 @@
-use crate::document::DocumentMetadata;
-use crate::parsers::split::parse_code_string;
-use crate::parsers::split_types::Output;
+use std::collections::HashMap;
+use std::ops::Range;
+
 use base64;
-use pulldown_cmark::CodeBlockKind::Fenced;
-use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser, Tag};
-use serde::de::Error;
+use pulldown_cmark::{CowStr, Event};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::Error;
 use serde_json::Value;
 use serde_with::EnumMap;
-use std::collections::HashMap;
-use std::iter::FlatMap;
-use std::ops::Range;
-use std::slice::Iter;
-use std::vec::IntoIter;
+
+use crate::document::{DocumentMetadata, IteratorConfig};
+use crate::parsers::split::parse_code_string;
+use crate::parsers::split_types::Output;
+use crate::processors::shortcodes::ShortCode;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Notebook {
@@ -51,8 +49,8 @@ pub enum Cell {
 pub struct CellCommon {
     pub metadata: CellMeta,
     #[serde(
-        deserialize_with = "concatenate_deserialize",
-        serialize_with = "concatenate_serialize"
+    deserialize_with = "concatenate_deserialize",
+    serialize_with = "concatenate_serialize"
     )]
     pub source: String,
 }
@@ -65,8 +63,8 @@ pub enum CellOutput {
     Stream {
         name: String,
         #[serde(
-            deserialize_with = "concatenate_deserialize",
-            serialize_with = "concatenate_serialize"
+        deserialize_with = "concatenate_deserialize",
+        serialize_with = "concatenate_serialize"
         )]
         text: String,
     },
@@ -90,8 +88,8 @@ pub enum OutputValue {
     #[serde(rename = "text/plain")]
     Plain(
         #[serde(
-            deserialize_with = "concatenate_deserialize",
-            serialize_with = "concatenate_serialize"
+        deserialize_with = "concatenate_deserialize",
+        serialize_with = "concatenate_serialize"
         )]
         String,
     ),
@@ -104,8 +102,8 @@ pub enum OutputValue {
     #[serde(rename = "text/html")]
     Html(
         #[serde(
-            deserialize_with = "concatenate_deserialize",
-            serialize_with = "concatenate_serialize"
+        deserialize_with = "concatenate_deserialize",
+        serialize_with = "concatenate_serialize"
         )]
         String,
     ),
@@ -176,7 +174,7 @@ impl Notebook {
 }
 
 impl CellOutput {
-    pub fn to_events(&self) -> Vec<(Event, Range<usize>)> {
+    pub fn to_events(&self, config: &IteratorConfig) -> Vec<(Event, Range<usize>)> {
         match self {
             CellOutput::Stream { text, .. } => {
                 vec![(
@@ -189,7 +187,7 @@ impl CellOutput {
                 "#,
                             text
                         )
-                        .into_boxed_str(),
+                            .into_boxed_str(),
                     )),
                     (0..0),
                 )]
@@ -197,21 +195,24 @@ impl CellOutput {
             CellOutput::Data { data, .. } => data
                 .iter()
                 .flat_map(|value| match value {
-                    OutputValue::Plain(v) => {
-                        let block = Tag::CodeBlock(Fenced(CowStr::Boxed(
-                            "plaintext".to_string().into_boxed_str(),
-                        )));
-                        vec![
-                            (Event::Start(block.clone()), (0..0)),
-                            (Event::Text(CowStr::Borrowed(v)), (0..0)),
-                            (Event::End(block), (0..0)),
-                        ]
+                    OutputValue::Plain(_) => {
+                        // let block = CodeBlock(Fenced(CowStr::Boxed(
+                        //     "plaintext".to_string().into_boxed_str(),
+                        // )));
+                        // vec![
+                        //     (Event::Start(block.clone()), (0..0)),
+                        //     (Event::Text(CowStr::Borrowed(v)), (0..0)),
+                        //     (Event::End(block), (0..0)),
+                        // ]
+                        vec![]
                     }
                     OutputValue::Image(v) => {
+
+                        let code = ShortCode::new("output_image".to_string()).with_param("src".to_string(), format!("data:image/png;base64,{}", v));
+                        let output = config.shortcode_renderer.render(&code, &config.template_context).expect("Could not render output");
                         vec![(
                             Event::Html(CowStr::Boxed(
-                                format!("<img src=\"data:image/png;base64,{}\"></img>", v)
-                                    .into_boxed_str(),
+                                output.into_boxed_str(),
                             )),
                             (0..0),
                         )]
@@ -220,10 +221,10 @@ impl CellOutput {
                         vec![(
                             Event::Html(CowStr::Boxed(
                                 format!(
-                                    "<img><svg width=\"640px\" height=\"480px\">{}</svg></img>",
+                                    "<figure><img><svg width=\"640px\" height=\"480px\">{}</svg></img></figure>",
                                     v
                                 )
-                                .into_boxed_str(),
+                                    .into_boxed_str(),
                             )),
                             (0..0),
                         )]
@@ -261,8 +262,8 @@ impl CellOutput {
 }
 
 fn concatenate_deserialize<'de, D>(input: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
 {
     let base: Vec<String> = Deserialize::deserialize(input)?;
     let source = base.into_iter().collect();
@@ -270,8 +271,8 @@ where
 }
 
 fn concatenate_serialize<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
+    where
+        S: Serializer,
 {
     serializer.collect_seq(value.split('\n'))
 }
@@ -293,8 +294,8 @@ fn escape_string_deserialize(source: String) -> String {
 
 #[allow(unused)]
 fn deserialize_png<'de, D>(input: D) -> Result<Vec<u8>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
 {
     let base: String = Deserialize::deserialize(input)?;
     let bytes = base64::decode(base).map_err(|e| D::Error::custom(e.to_string()))?;
@@ -304,8 +305,8 @@ where
 
 #[allow(unused)]
 fn serialize_png<S>(value: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
+    where
+        S: Serializer,
 {
     // serializer.collect_str(&base64::encode(value.as_bytes()))
     serializer.collect_str(&base64::encode(value))
@@ -321,106 +322,15 @@ where
 //     Json,
 // }
 
-pub enum CellEventIterator<'a, 'b> {
-    Markdown {
-        parser: Box<OffsetIter<'a, 'b>>,
-    },
-    Code {
-        events: Box<IntoIter<(Event<'a>, Range<usize>)>>,
-    },
-    Raw {
-        source: &'a str,
-    },
-}
-
-impl<'a> IntoIterator for &'a Cell {
-    type Item = (Event<'a>, Range<usize>);
-    type IntoIter = CellEventIterator<'a, 'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            Cell::Markdown { common } => CellEventIterator::Markdown {
-                parser: Box::new(
-                    Parser::new_ext(&common.source, Options::all()).into_offset_iter(),
-                ),
-            },
-            Cell::Code {
-                common, outputs, ..
-            } => {
-                let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));
-                let mut events = vec![
-                    (Event::Start(cblock.clone()), (0..0)),
-                    (
-                        Event::Text(CowStr::Borrowed(&common.source)),
-                        (0..common.source.len()),
-                    ),
-                    (
-                        Event::End(cblock),
-                        (common.source.len()..common.source.len()),
-                    ),
-                ];
-                outputs
-                    .iter()
-                    .for_each(|o| events.append(&mut o.to_events()));
-                CellEventIterator::Code {
-                    events: Box::new(events.into_iter()),
-                }
-            }
-            Cell::Raw { common } => CellEventIterator::Raw {
-                source: &common.source,
-            },
-        }
-    }
-}
-
-impl<'a, 'b> Iterator for CellEventIterator<'a, 'b> {
-    type Item = (Event<'a>, Range<usize>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            CellEventIterator::Markdown { parser, .. } => parser.next(),
-            CellEventIterator::Code { events, .. } => events.next(),
-            CellEventIterator::Raw { source } => {
-                Some((Event::Text(CowStr::Borrowed(source)), 0..0))
-            }
-        }
-    }
-}
-
-pub struct NotebookIterator<'a, 'b> {
-    iter: FlatMap<
-        Iter<'a, Cell>,
-        CellEventIterator<'a, 'b>,
-        fn(&'a Cell) -> CellEventIterator<'a, 'b>,
-    >,
-}
-
-impl<'a> IntoIterator for &'a Notebook {
-    type Item = (Event<'a>, Range<usize>);
-    type IntoIter = NotebookIterator<'a, 'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        NotebookIterator {
-            iter: self.cells.iter().flat_map(|c| c.into_iter()),
-        }
-    }
-}
-
-impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
-    type Item = (Event<'a>, Range<usize>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::notebook::Notebook;
-    use pulldown_cmark::html;
     use std::fs::File;
     use std::io::BufReader;
     use std::path::PathBuf;
+
+    use pulldown_cmark::html;
+
+    use crate::notebook::Notebook;
 
     #[test]
     fn deserialize() {

@@ -61,7 +61,7 @@ impl Pipeline {
         let pattern = path_str.to_string() + "/templates/**/*.tera.html";
         let base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
 
-        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*";
+        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
         let shortcode_tera =
             Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
 
@@ -335,6 +335,15 @@ impl Pipeline {
                 }
             }
 
+            // Error display
+            if format_errs.is_empty() {
+                println!("{}", style("success").green());
+            } else {
+                println!("{}", style(format!("({} errors)", format_errs.len())).red());
+            }
+
+            all_errs.append(&mut format_errs);
+
             // Move extra files
             if let Some(parser) = self.project_config.parsers.get(format) {
                 // print!(", copying additional files");
@@ -344,17 +353,9 @@ impl Pipeline {
                     settings: parser.settings.clone(),
                 };
 
-                Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx)?;
+                let res = Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
+                print_err(res);
             }
-
-            // Error display
-            if format_errs.is_empty() {
-                println!("{}", style("success").green());
-            } else {
-                println!("{}", style(format!("({} errors)", format_errs.len())).red());
-            }
-
-            all_errs.append(&mut format_errs);
         }
 
         println!("{}", style("-".repeat(60)).blue());

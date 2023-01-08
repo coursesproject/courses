@@ -1,9 +1,9 @@
 url_prefix: /courses
 katex_output: true
 
-custom:
+
   crates:
-    cdoc: https://crates.io/crates/cdoc
+    cdocustom:c: https://crates.io/crates/cdoc
     courses: https://crates.io/crates/courses
 
 repository:

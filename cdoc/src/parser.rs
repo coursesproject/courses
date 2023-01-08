@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::document::{Document, EventContent, IteratorConfig, PreprocessError, RawContent};
-use crate::processors::shortcodes::ShortCodeProcessError;
+use crate::processors::shortcodes::{ShortCodeProcessError, ShortCodeRenderer};
 use crate::processors::{
     EventPreprocessor, EventPreprocessorConfig, MarkdownPreprocessor, PreprocessorConfig,
     PreprocessorContext,
@@ -35,7 +35,7 @@ impl Parser {
         ctx: &PreprocessorContext,
     ) -> Result<Document<EventContent>, anyhow::Error> {
         let doc = self.run_preprocessors(doc, template_context, ctx)?;
-        self.run_event_processors(&doc, ctx)
+        self.run_event_processors(&doc, template_context, ctx)
     }
 
     pub fn run_preprocessors(
@@ -63,6 +63,7 @@ impl Parser {
     pub fn run_event_processors(
         &self,
         doc: &Document<RawContent>,
+        template_context: &tera::Context,
         ctx: &PreprocessorContext,
     ) -> Result<Document<EventContent>, anyhow::Error> {
         let v = doc.to_events(IteratorConfig {
@@ -74,6 +75,12 @@ impl Parser {
                 .metadata
                 .code_solutions
                 .unwrap_or(self.settings.solutions),
+            template_context: template_context.clone(),
+            shortcode_renderer: ShortCodeRenderer {
+                tera: ctx.tera.clone(),
+                file_ext: ctx.output_format.template_extension().to_string(),
+
+            }
         });
 
         let built = self
@@ -83,7 +90,7 @@ impl Parser {
             .collect::<anyhow::Result<Vec<Box<dyn EventPreprocessor>>>>()?;
 
         let events = built.iter().fold(Ok(v), |c, event_processor| {
-            c.and_then(|c| event_processor.process(c))
+            c.and_then(|c| event_processor.process(c, template_context))
         })?;
 
         Ok(events)

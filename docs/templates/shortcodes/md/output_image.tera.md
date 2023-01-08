@@ -1,0 +1,1 @@
+\![{{caption | default(value='')}}]({{src}})

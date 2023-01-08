@@ -12,6 +12,7 @@ mod escapes;
 pub mod exercises;
 pub mod katex;
 pub mod shortcodes;
+mod builtins;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -34,7 +35,7 @@ pub trait MarkdownPreprocessor: Display {
 
 pub trait EventPreprocessor: Display {
     fn name(&self) -> String;
-    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error>;
+    fn process(&self, input: Document<EventContent>, ctx: &tera::Context) -> Result<Document<EventContent>, Error>;
 }
 
 #[typetag::serde(tag = "type")]

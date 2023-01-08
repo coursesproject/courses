@@ -134,6 +134,7 @@ async fn cli_run() -> anyhow::Result<()> {
                             }
 
                             controller.reload();
+
                             println!();
                             println!("Page reloaded");
                             println!("Server open at: http://localhost:8000{}", config.url_prefix);

@@ -23,7 +23,7 @@ impl EventPreprocessor for Escapes {
         "Escape processor".to_string()
     }
 
-    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
+    fn process(&self, input: Document<EventContent>, ctx: &tera::Context) -> Result<Document<EventContent>, Error> {
         let iter = input.content.into_iter().map(|(e, pos)| {
             (
                 if let AEvent::Text(txt) = e {
