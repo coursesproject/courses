@@ -61,7 +61,7 @@ impl Pipeline {
         let pattern = path_str.to_string() + "/templates/**/*.tera.html";
         let base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
 
-        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*";
+        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
         let shortcode_tera =
             Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
 
@@ -87,7 +87,7 @@ impl Pipeline {
     fn get_build_path(&self, format: OutputFormat) -> PathBuf {
         match format {
             OutputFormat::Notebook => self.project_path.join("build").join("notebooks"),
-            OutputFormat::Html => self.project_path.join("build").join("html"),
+            OutputFormat::Html=> self.project_path.join("build").join("html"),
             OutputFormat::Info => self.project_path.join("build"),
         }
     }

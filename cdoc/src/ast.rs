@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use pulldown_cmark::{Alignment, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, Tag};
 use serde_json::Value;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub enum ACodeBlockKind {
@@ -87,19 +87,21 @@ impl<'a> From<Tag<'a>> for ATag {
     }
 }
 
-impl From<ATag> for Tag<'static> {
-    fn from(t: ATag) -> Self {
+impl<'a> From<&'a ATag> for Tag<'a> {
+    fn from(t: &'a ATag) -> Self {
         match t {
             ATag::Paragraph => Tag::Paragraph,
-            ATag::Heading(lvl, _, _) => Tag::Heading(lvl, None, vec![]),
+            ATag::Heading(lvl, id, _) => {
+                Tag::Heading(lvl.clone(), id.as_ref().map(|s| s.as_str()), vec![])
+            }
             ATag::BlockQuote => Tag::BlockQuote,
-            ATag::CodeBlock(c) => Tag::CodeBlock(c.into()),
-            ATag::List(n) => Tag::List(n),
+            ATag::CodeBlock(c) => Tag::CodeBlock(c.clone().into()),
+            ATag::List(n) => Tag::List(n.clone()),
             ATag::Item => Tag::Item,
             ATag::FootnoteDefinition(s) => {
-                Tag::FootnoteDefinition(CowStr::Boxed(s.into_boxed_str()))
+                Tag::FootnoteDefinition(CowStr::Boxed(s.clone().into_boxed_str()))
             }
-            ATag::Table(align) => Tag::Table(align),
+            ATag::Table(align) => Tag::Table(align.clone()),
             ATag::TableHead => Tag::TableHead,
             ATag::TableRow => Tag::TableRow,
             ATag::TableCell => Tag::TableCell,
@@ -107,14 +109,14 @@ impl From<ATag> for Tag<'static> {
             ATag::Strong => Tag::Strong,
             ATag::Strikethrough => Tag::Strikethrough,
             ATag::Link(typ, url, alt) => Tag::Link(
-                typ,
-                CowStr::Boxed(url.into_boxed_str()),
-                CowStr::Boxed(alt.into_boxed_str()),
+                typ.clone(),
+                CowStr::Boxed(url.clone().into_boxed_str()),
+                CowStr::Boxed(alt.clone().into_boxed_str()),
             ),
             ATag::Image(typ, url, alt) => Tag::Image(
-                typ,
-                CowStr::Boxed(url.into_boxed_str()),
-                CowStr::Boxed(alt.into_boxed_str()),
+                typ.clone(),
+                CowStr::Boxed(url.clone().into_boxed_str()),
+                CowStr::Boxed(alt.clone().into_boxed_str()),
             ),
         }
     }
@@ -137,25 +139,22 @@ impl<'a> From<Event<'a>> for AEvent {
     }
 }
 
-impl From<AEvent> for Event<'static> {
-    fn from(e: AEvent) -> Self {
+impl<'a> From<&'a AEvent> for Event<'a> {
+    fn from(e: &'a AEvent) -> Self {
         match e {
             AEvent::Start(t) => Event::Start(t.into()),
             AEvent::End(t) => Event::End(t.into()),
-            AEvent::Text(s) => Event::Text(CowStr::Boxed(s.into_boxed_str())),
-            AEvent::Code(s) => Event::Code(CowStr::Boxed(s.into_boxed_str())),
-            AEvent::Html(s) => Event::Html(CowStr::Boxed(s.into_boxed_str())),
-            AEvent::FootnoteReference(s) => {
-                Event::FootnoteReference(CowStr::Boxed(s.into_boxed_str()))
-            }
+            AEvent::Text(s) => Event::Text(CowStr::Borrowed(s.as_str())),
+            AEvent::Code(s) => Event::Code(CowStr::Borrowed(s.as_str())),
+            AEvent::Html(s) => Event::Html(CowStr::Borrowed(s.as_str())),
+            AEvent::FootnoteReference(s) => Event::FootnoteReference(CowStr::Borrowed(s.as_str())),
             AEvent::SoftBreak => Event::SoftBreak,
             AEvent::HardBreak => Event::HardBreak,
             AEvent::Rule => Event::Rule,
-            AEvent::TaskListMarker(set) => Event::TaskListMarker(set),
+            AEvent::TaskListMarker(set) => Event::TaskListMarker(*set),
         }
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub enum Inline {
@@ -164,14 +163,37 @@ pub enum Inline {
     Strong(Vec<Inline>),
     Strikethrough(Vec<Inline>),
     Code(String),
-    ListItem(Vec<Inline>),
     SoftBreak,
     HardBreak,
     Rule,
+    Image(LinkType, String, String),
+    Link(LinkType, String, String),
+    Html(String),
+}
+
+fn vec_inline_to_string(vec: &Vec<Inline>) -> String {
+    vec.iter().map(|item| item.to_string()).collect()
+}
+
+impl ToString for Inline {
+    fn to_string(&self) -> String {
+        match self {
+            Inline::Text(s) => s.clone(),
+            Inline::Emphasis(inner) => vec_inline_to_string(inner),
+            Inline::Strong(inner) => vec_inline_to_string(inner),
+            Inline::Strikethrough(inner) => vec_inline_to_string(inner),
+            Inline::Code(s) => s.clone(),
+            Inline::SoftBreak => String::default(),
+            Inline::HardBreak => String::default(),
+            Inline::Rule => String::default(),
+            Inline::Html(s) => s.to_string(),
+            _ => String::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
-pub struct Document(Vec<Block>);
+pub struct Ast(Vec<Block>);
 
 #[derive(Clone, Debug)]
 pub struct CodeAttributes {}
@@ -193,114 +215,272 @@ pub enum Block {
         classes: Vec<String>,
         inner: Vec<Inline>,
     },
+    Plain(Inline),
     Paragraph(Vec<Inline>),
     BlockQuote(Vec<Inline>),
     CodeBlock {
-        source: Vec<Inline>,
+        source: String,
         reference: Option<String>,
         attr: CodeAttributes,
         outputs: Vec<CodeOutput>,
     },
-    List(Option<u64>, Vec<Inline>),
-    Html(String),
-    Image(LinkType, String, String),
+    List(Option<u64>, Vec<Block>),
+    ListItem(Vec<Block>),
 }
 
-fn wrap_events<'a>(tag: &'a Tag, mut events: Vec<Event<'a>>) -> std::vec::IntoIter<Event<'a>> {
-    let mut res = vec![Event::Start(tag.clone())];
+fn wrap_events(tag: ATag, mut events: Vec<AEvent>) -> std::vec::IntoIter<AEvent> {
+    let mut res = vec![AEvent::Start(tag.clone())];
     res.append(&mut events);
-    res.append(&mut vec![Event::End(tag.clone())]);
+    res.append(&mut vec![AEvent::End(tag)]);
     res.into_iter()
 }
 
-fn iter_inlines(inlines: &Vec<Inline>) -> Vec<Event<'static>> {
-    inlines.into_iter().flat_map(|i| i.clone().into_iter()).collect()
+fn iter_inlines(inlines: &Vec<Inline>) -> Vec<AEvent> {
+    inlines
+        .into_iter()
+        .flat_map(|i| i.clone().into_iter())
+        .collect()
+}
+
+fn iter_blocks(blocks: &Vec<Block>) -> Vec<AEvent> {
+    blocks
+        .into_iter()
+        .flat_map(|block| block.clone().into_iter())
+        .collect()
 }
 
 impl IntoIterator for Inline {
-    type Item = Event<'static>;
+    type Item = AEvent;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Inline::Text(s) => vec![Event::Text(CowStr::Boxed(s.into_boxed_str()))].into_iter(),
-            Inline::Emphasis(inner) => wrap_events(&Tag::Emphasis, iter_inlines(&inner)),
-            Inline::Strong(inner) => wrap_events(&Tag::Strong, iter_inlines(&inner)),
-            Inline::Strikethrough(inner) => wrap_events(&Tag::Strikethrough, iter_inlines(&inner)),
-            Inline::Code(s) => vec![Event::Code(CowStr::Boxed(s.into_boxed_str()))].into_iter(),
-            Inline::ListItem(inner) => wrap_events(&Tag::Item, iter_inlines(&inner)),
-            Inline::SoftBreak => vec![Event::SoftBreak].into_iter(),
-            Inline::HardBreak => vec![Event::HardBreak].into_iter(),
-            Inline::Rule => vec![Event::Rule].into_iter(),
+            Inline::Text(s) => vec![AEvent::Text(s)].into_iter(),
+            Inline::Emphasis(inner) => wrap_events(ATag::Emphasis, iter_inlines(&inner)),
+            Inline::Strong(inner) => wrap_events(ATag::Strong, iter_inlines(&inner)),
+            Inline::Strikethrough(inner) => wrap_events(ATag::Strikethrough, iter_inlines(&inner)),
+            Inline::Code(s) => vec![AEvent::Code(s)].into_iter(),
+            Inline::SoftBreak => vec![AEvent::SoftBreak].into_iter(),
+            Inline::HardBreak => vec![AEvent::HardBreak].into_iter(),
+            Inline::Rule => vec![AEvent::Rule].into_iter(),
+            Inline::Html(s) => vec![AEvent::Html(s)].into_iter(),
+            Inline::Image(tp, url, title) => vec![
+                AEvent::Start(ATag::Image(tp, url.clone(), title.clone())),
+                AEvent::End(ATag::Image(tp, url, title)),
+            ]
+            .into_iter(),
+            Inline::Link(tp, url, title) => vec![
+                AEvent::Start(ATag::Link(tp, url.clone(), title.clone())),
+                AEvent::End(ATag::Link(tp, url, title)),
+            ]
+            .into_iter(),
         }
     }
 }
 
 impl IntoIterator for Block {
-    type Item = Event<'static>;
+    type Item = AEvent;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
-    fn into_iter(self) -> Self::IntoIter { // id.map(|s| s.as_str()) <> classes.into_iter().map(|s| s.as_str()).collect()
+    fn into_iter(self) -> Self::IntoIter {
+        // id.map(|s| s.as_str()) <> classes.into_iter().map(|s| s.as_str()).collect()
         match self {
-            Block::Heading { lvl, id, classes, inner } => wrap_events(&Tag::Heading(lvl, None, vec![]), iter_inlines(&inner)),
-            Block::Paragraph(inner) => wrap_events(&Tag::Paragraph, iter_inlines(&inner)),
-            Block::BlockQuote(inner) => wrap_events(&Tag::BlockQuote, iter_inlines(&inner)),
-            Block::CodeBlock { .. } => vec![Event::Html(CowStr::from("<strong>CODE</strong>"))].into_iter(),
-            Block::List(_, _) => vec![Event::Html(CowStr::from("<strong>LIST</strong>"))].into_iter(),
-            Block::Html(s) => vec![Event::Html(CowStr::Boxed(s.into_boxed_str()))].into_iter(),
-            Block::Image(tp, url, title) => wrap_events(&Tag::Image(tp, CowStr::Boxed(url.into_boxed_str()), CowStr::Boxed(title.into_boxed_str())), Vec::new()),
+            Block::Heading {
+                lvl,
+                id,
+                classes,
+                inner,
+            } => wrap_events(ATag::Heading(lvl, None, vec![]), iter_inlines(&inner)),
+            Block::Paragraph(inner) => wrap_events(ATag::Paragraph, iter_inlines(&inner)),
+            Block::Plain(inline) => inline.into_iter(),
+            Block::BlockQuote(inner) => wrap_events(ATag::BlockQuote, iter_inlines(&inner)),
+            Block::CodeBlock {
+                source,
+                reference,
+                attr,
+                outputs,
+            } => {
+                let string = format!("<pre><code>{}</code></pre>", source);
+                vec![AEvent::Html(string)].into_iter()
+            }
+            Block::List(idx, items) => {
+                let item_events = items.into_iter().flat_map(|inner| inner.into_iter());
+                let full_iter = vec![AEvent::Start(ATag::List(idx))]
+                    .into_iter()
+                    .chain(item_events)
+                    .chain(vec![AEvent::End(ATag::List(idx))]);
+                let v: Vec<AEvent> = full_iter.collect();
+                v.into_iter()
+                // TODO: Change iter type to dynamic
+            }
+            Block::ListItem(inner) => wrap_events(ATag::Item, iter_blocks(&inner)),
+            // Block::Html(s) => vec![AEvent::Html(s.into_boxed_str().to_string())].into_iter(),
         }
     }
 }
 
-impl<'a> FromIterator<Event<'a>> for Document {
-    fn from_iter<T: IntoIterator<Item=Event<'a>>>(iter: T) -> Self {
-        let mut iter = iter.into_iter();
-        let mut blocks = Vec::new();
+impl IntoIterator for Ast {
+    type Item = AEvent;
+    type IntoIter = Box<dyn Iterator<Item = Self::Item>>;
 
-        let mut inners = Vec::new();
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(self.0.into_iter().flat_map(|block| block.into_iter()))
+    }
+}
+
+enum InnerContent {
+    Blocks(Vec<Block>),
+    Inlines(Vec<Inline>),
+}
+
+impl InnerContent {
+    fn to_blocks(self) -> Vec<Block> {
+        if let InnerContent::Blocks(b) = self {
+            b
+        } else {
+            panic!("Expected blocks")
+        }
+    }
+
+    fn to_inlines(self) -> Vec<Inline> {
+        if let InnerContent::Inlines(i) = self {
+            i
+        } else {
+            panic!("Expected inlines")
+        }
+    }
+
+    fn blocks_mut(&mut self) -> &mut Vec<Block> {
+        if let InnerContent::Blocks(b) = self {
+            b
+        } else {
+            panic!("Expected blocks")
+        }
+    }
+
+    fn inlines_mut(&mut self) -> &mut Vec<Inline> {
+        if let InnerContent::Inlines(i) = self {
+            i
+        } else {
+            panic!("Expected inlines")
+        }
+    }
+
+    fn push_inline(&mut self, item: Inline) {
+        match self {
+            InnerContent::Blocks(b) => b.push(Block::Plain(item)),
+            InnerContent::Inlines(i) => i.push(item),
+        }
+    }
+}
+
+impl<'a> FromIterator<Event<'a>> for Ast {
+    fn from_iter<T: IntoIterator<Item = Event<'a>>>(iter: T) -> Self {
+        let mut iter = iter.into_iter();
+
+        let mut inners = vec![InnerContent::Blocks(Vec::new())];
 
         while let Some(event) = iter.next() {
+            println!("{:?}", event);
             match event {
-                Event::Start(_) => {
-                    // tags.push(t);
-                    inners.push(Vec::new());
-                }
+                Event::Start(t) => match t {
+                    Tag::Paragraph
+                    | Tag::Heading(_, _, _)
+                    | Tag::BlockQuote
+                    | Tag::CodeBlock(_)
+                    | Tag::TableHead
+                    | Tag::TableRow
+                    | Tag::TableCell
+                    | Tag::Emphasis
+                    | Tag::Strong
+                    | Tag::Strikethrough
+                    | Tag::Image(_, _, _) => inners.push(InnerContent::Inlines(Vec::new())),
+                    Tag::Link(_, _, _) => inners.push(InnerContent::Inlines(Vec::new())),
+                    Tag::List(_) | Tag::Item | Tag::Table(_) | Tag::FootnoteDefinition(_) => {
+                        inners.push(InnerContent::Blocks(Vec::new()))
+                    }
+                },
                 Event::End(t) => {
                     let inner = inners.pop().expect("No inner content");
                     match t {
-                        Tag::Paragraph => blocks.push(Block::Paragraph(inner)),
-                        Tag::Heading(lvl, id, classes) => blocks.push(Block::Heading {
-                            lvl,
-                            id: id.map(|s| s.to_string()),
-                            classes: classes.into_iter().map(|s| s.to_string()).collect(),
-                            inner,
-                        }),
-                        Tag::BlockQuote => blocks.push(Block::BlockQuote(inner)),
+                        Tag::Paragraph => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::Paragraph(inner.to_inlines())),
+                        Tag::Heading(lvl, id, classes) => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::Heading {
+                                lvl,
+                                id: id.map(|s| s.to_string()),
+                                classes: classes.into_iter().map(|s| s.to_string()).collect(),
+                                inner: inner.to_inlines(),
+                            }),
+                        Tag::BlockQuote => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::BlockQuote(inner.to_inlines())),
                         Tag::CodeBlock(variant) => {
                             let info = match variant {
                                 CodeBlockKind::Indented => "".to_string(),
-                                CodeBlockKind::Fenced(s) => s.to_string()
+                                CodeBlockKind::Fenced(s) => s.to_string(),
                             };
-                            blocks.push(Block::CodeBlock {
-                                source: inner,
-                                reference: None,
-                                attr: CodeAttributes {},
-                                outputs: vec![],
-                            });
+                            inners
+                                .last_mut()
+                                .unwrap()
+                                .blocks_mut()
+                                .push(Block::CodeBlock {
+                                    source: inner
+                                        .to_inlines()
+                                        .iter()
+                                        .map(|item| item.to_string())
+                                        .collect(),
+                                    reference: None,
+                                    attr: CodeAttributes {},
+                                    outputs: vec![],
+                                });
                         }
-                        Tag::List(idx) => blocks.push(Block::List(idx, inner)),
-                        Tag::Item => inners.first().unwrap().push(Inline::ListItem(inner)),
-                        Tag::Emphasis => inners.first().unwrap().push(Inline::Emphasis(inner)),
-                        Tag::Strong => inners.first().unwrap().push(Inline::Strong(inner)),
-                        Tag::Strikethrough => inners.first().unwrap().push(Inline::Strikethrough(inner)),
-                        // Tag::Link(_, _, _) => {}
-                        Tag::Image(tp, url, title) => blocks.push(Block::Image(tp, url.to_string(), title.to_string())),
-                        _ => unreachable!(),
+                        Tag::List(idx) => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::List(idx, inner.to_blocks())),
+                        Tag::Item => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::ListItem(inner.to_blocks())),
+                        Tag::Emphasis => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Emphasis(inner.to_inlines())),
+                        Tag::Strong => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Strong(inner.to_inlines())),
+                        Tag::Strikethrough => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Strikethrough(inner.to_inlines())),
+                        Tag::Link(tp, url, title) => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Link(tp, url.to_string(), title.to_string())),
+                        Tag::Image(tp, url, title) => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Image(tp, url.to_string(), title.to_string())),
+                        _ => {} // TODO: Unreachable
                     }
                 }
                 Event::Html(s) => {
-                    blocks.push(Block::Html(s.into_string()));
+                    inners
+                        .last_mut()
+                        .unwrap()
+                        .push_inline(Inline::Html(s.into_string()));
                 }
                 other => {
                     let inner = match other {
@@ -309,14 +489,14 @@ impl<'a> FromIterator<Event<'a>> for Document {
                         Event::SoftBreak => Inline::SoftBreak,
                         Event::HardBreak => Inline::HardBreak,
                         Event::Rule => Inline::Rule,
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     };
 
-                    inners.first().map(|mut events| events.push(inner));
+                    inners.last_mut().map(|c| c.push_inline(inner));
                 }
             }
         }
-
-        Document(blocks)
+        let blocks = inners.remove(0).to_blocks();
+        Ast(blocks)
     }
 }

@@ -156,12 +156,12 @@ impl Document<RawContent> {
 }
 
 impl Document<EventContent> {
-    pub fn to_events(&self) -> impl Iterator<Item = Event<'static>> {
-        self.content.clone().into_iter().map(|(e, _p)| e.into())
+    pub fn to_events<'a>(&'a self) -> impl Iterator<Item = Event<'a>> {
+        self.content.iter().map(|(e, _p)| e.into())
     }
 
-    pub fn to_events_with_pos(&self) -> impl Iterator<Item = (Event<'static>, DocPos)> {
-        self.content.clone().into_iter().map(|(e, p)| (e.into(), p))
+    pub fn to_events_with_pos<'a>(&'a self) -> impl Iterator<Item = (Event<'a>, DocPos)> {
+        self.content.iter().map(|(e, p)| (e.into(), p.clone()))
     }
 }
 

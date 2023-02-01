@@ -3,6 +3,8 @@ use std::fmt::{Debug, Display};
 
 use tera::Tera;
 use thiserror::Error;
+use crate::ast::Ast;
+
 
 use crate::config::OutputFormat;
 use crate::document::{DocPos, Document, EventContent};
@@ -37,6 +39,11 @@ pub trait EventPreprocessor: Display {
     fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error>;
 }
 
+pub trait AstPreprocessor: Display {
+    fn name(&self) -> String;
+    fn process(&self, input: Document<Ast>) -> Result<Document<EventContent>, Error>;
+}
+
 #[typetag::serde(tag = "type")]
 pub trait PreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>>;
@@ -47,5 +54,11 @@ pub trait EventPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>>;
 }
 
+#[typetag::serde(tag = "type")]
+pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
+    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>>;
+}
+
 dyn_clone::clone_trait_object!(PreprocessorConfig);
 dyn_clone::clone_trait_object!(EventPreprocessorConfig);
+dyn_clone::clone_trait_object!(AstPreprocessorConfig);
