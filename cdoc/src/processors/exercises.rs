@@ -33,13 +33,13 @@ impl EventPreprocessor for Exercises {
         let content = input
             .content
             .into_iter()
-            .flat_map(|(event, pos)| match &event {
+            .flat_map(|event| match &event {
                 AEvent::Start(tag) => {
                     if let ATag::CodeBlock(ACodeBlockKind::Fenced(attr)) = &tag {
                         code_block = true;
                         code_attr = attr.to_string();
                     }
-                    vec![Ok((AEvent::Start(tag.clone()), pos))]
+                    vec![Ok(AEvent::Start(tag.clone()))]
                 }
                 AEvent::End(tag) => {
                     if let ATag::CodeBlock(ACodeBlockKind::Fenced(_)) = tag {
@@ -51,14 +51,14 @@ impl EventPreprocessor for Exercises {
                             Ok(doc) => {
                                 let (placeholder, _solution) = doc.split();
                                 vec![
-                                    Ok((AEvent::Text(placeholder.trim().to_string()), pos.clone())),
-                                    Ok((AEvent::End(tag.clone()), pos)),
+                                    Ok(AEvent::Text(placeholder.trim().to_string())),
+                                    Ok(AEvent::End(tag.clone())),
                                 ]
                             }
-                            Err(e) => vec![Err(CodeParseError(human_errors(*e), pos))],
+                            Err(e) => vec![Err(CodeParseError(human_errors(*e)))],
                         }
                     } else {
-                        vec![Ok((event, pos))]
+                        vec![Ok(event)]
                     }
                 }
                 AEvent::Text(txt) => {
@@ -66,12 +66,12 @@ impl EventPreprocessor for Exercises {
                         source.push_str(txt.as_ref());
                         vec![]
                     } else {
-                        vec![Ok((AEvent::Text(txt.clone()), pos))]
+                        vec![Ok(AEvent::Text(txt.clone()))]
                     }
                 }
-                _ => vec![Ok((event, pos))],
+                _ => vec![Ok(event)],
             })
-            .collect::<Result<Vec<(AEvent, DocPos)>, Error>>()?;
+            .collect::<Result<Vec<AEvent>, Error>>()?;
 
         Ok(Document {
             metadata: input.metadata,

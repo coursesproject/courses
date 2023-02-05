@@ -8,7 +8,7 @@ use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::ast::AEvent;
+use crate::ast::{AEvent, Ast, Block, CodeAttributes};
 use crate::config::OutputFormat;
 use crate::notebook::{Cell, CellOutput, Notebook};
 use crate::processors::shortcodes::ShortCodeProcessError;
@@ -49,7 +49,7 @@ pub struct Document<C> {
 }
 
 pub type RawContent = Vec<Element>;
-pub type EventContent = Vec<(AEvent, DocPos)>;
+pub type EventContent = Vec<AEvent>;
 
 #[derive(Debug, Clone, Default)]
 pub enum Element {
@@ -66,6 +66,46 @@ pub enum Element {
     },
     #[default]
     Default,
+}
+
+impl From<Element> for Vec<Block> {
+    fn from(value: Element) -> Self {
+        match value {
+            Element::Markdown { content } => {
+                let ast: Ast = Parser::new_ext(&content, Options::all())
+                    .into_iter()
+                    .collect();
+                ast.0
+            }
+            Element::Code {
+                cell_number,
+                content,
+                output,
+            } => {
+                vec![Block::CodeBlock {
+                    source: content,
+                    reference: None,
+                    attr: CodeAttributes {},
+                    outputs: output.unwrap_or(Vec::default()),
+                }]
+            }
+            Element::Raw { .. } => {
+                vec![]
+            }
+            Element::Default => {
+                vec![]
+            }
+        }
+    }
+}
+
+impl From<RawContent> for Ast {
+    fn from(value: RawContent) -> Self {
+        Ast(value
+            .into_iter()
+            .flat_map(|c| -> Vec<Block> { c.into() })
+            .collect())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +154,16 @@ impl DocPos {
     }
 }
 
+impl<T> Document<T> {
+    pub fn map<O, F: Fn(T) -> O>(self, f: F) -> Document<O> {
+        Document {
+            content: f(self.content),
+            metadata: self.metadata,
+            variables: self.variables,
+        }
+    }
+}
+
 impl Document<RawContent> {
     pub fn preprocess(
         self,
@@ -146,7 +196,7 @@ impl Document<RawContent> {
     }
 
     pub fn to_events(&self, config: IteratorConfig) -> Document<EventContent> {
-        let content = self.configure_iterator(config).map(|(e, p)| (e.into(), p));
+        let content = self.configure_iterator(config).map(|e| e.into());
         Document {
             metadata: self.metadata.clone(),
             variables: DocumentVariables::default(),
@@ -155,14 +205,25 @@ impl Document<RawContent> {
     }
 }
 
+impl Document<Ast> {
+    pub fn to_events(&self) -> Document<EventContent> {
+        let content = self.content.clone().into_iter().collect();
+        Document {
+            metadata: self.metadata.clone(),
+            variables: DocumentVariables::default(),
+            content,
+        }
+    }
+}
+
 impl Document<EventContent> {
-    pub fn to_events<'a>(&'a self) -> impl Iterator<Item = Event<'a>> {
-        self.content.iter().map(|(e, _p)| e.into())
+    pub fn to_events(&self) -> impl Iterator<Item = Event> {
+        self.content.iter().map(|e| e.into())
     }
 
-    pub fn to_events_with_pos<'a>(&'a self) -> impl Iterator<Item = (Event<'a>, DocPos)> {
-        self.content.iter().map(|(e, p)| (e.into(), p.clone()))
-    }
+    // pub fn to_events_with_pos<'a>(&'a self) -> impl Iterator<Item = (Event<'a>, DocPos)> {
+    //     self.content.iter().map(|(e, p)| (e.into(), p.clone()))
+    // }
 }
 
 pub trait IntoRawContent {
@@ -226,22 +287,19 @@ pub enum ElementIteratorCell<'a, 'b> {
 }
 
 impl<'a, 'b> ElementIterator<'a, 'b> {
-    fn map_doc_pos(&self, elem: (Event<'a>, Range<usize>)) -> (Event<'a>, DocPos) {
-        let cell_num = match &self.cell_iter {
-            ElementIteratorCell::Code { cell_number, .. } => Some(*cell_number),
-            _ => None,
-        };
-        let line = &self.source[elem.1.start..elem.1.end].lines().count();
+    fn map_doc_pos(&self, elem: (Event<'a>, Range<usize>)) -> Event<'a> {
+        // let cell_num = match &self.cell_iter {
+        //     ElementIteratorCell::Code { cell_number, .. } => Some(*cell_number),
+        //     _ => None,
+        // };
+        // let line = &self.source[elem.1.start..elem.1.end].lines().count();
 
-        (
-            elem.0,
-            DocPos::new(cell_num, self.global_offset, *line, elem.1),
-        )
+        elem.0
     }
 }
 
 impl<'a, 'b> Iterator for ElementIterator<'a, 'b> {
-    type Item = (Event<'a>, DocPos);
+    type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.cell_iter {
@@ -344,7 +402,7 @@ impl<'a> ConfigureCollector for &'a Element {
 }
 
 impl<'a> ConfigureCollector for &'a Document<RawContent> {
-    type Item = (Event<'a>, DocPos);
+    type Item = Event<'a>;
     type IntoIter = Box<dyn Iterator<Item = Self::Item> + 'a>;
 
     fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {

@@ -24,19 +24,16 @@ impl EventPreprocessor for Escapes {
     }
 
     fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
-        let iter = input.content.into_iter().map(|(e, pos)| {
-            (
-                if let AEvent::Text(txt) = e {
-                    if &txt == "\\" {
-                        AEvent::Text("\\\\".to_string())
-                    } else {
-                        AEvent::Text(txt)
-                    }
+        let iter = input.content.into_iter().map(|e| {
+            if let AEvent::Text(txt) = e {
+                if &txt == "\\" {
+                    AEvent::Text("\\\\".to_string())
                 } else {
-                    e
-                },
-                pos,
-            )
+                    AEvent::Text(txt)
+                }
+            } else {
+                e
+            }
         });
         Ok(Document {
             metadata: input.metadata,

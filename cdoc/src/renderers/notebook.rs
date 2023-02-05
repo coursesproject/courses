@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use crate::ast::Ast;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use serde::{Deserialize, Serialize};
 
@@ -13,8 +14,8 @@ pub struct NotebookRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for NotebookRenderer {
-    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult> {
-        let notebook: Notebook = render_notebook(doc.to_events_with_pos());
+    fn render(&self, doc: &Document<Ast>) -> Document<RenderResult> {
+        let notebook: Notebook = render_notebook(doc.to_events().to_events());
         let output = serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)");
 
         Document {
@@ -71,7 +72,7 @@ struct NotebookWriter<I> {
 
 impl<'a, I> NotebookWriter<I>
 where
-    I: Iterator<Item = (Event<'a>, DocPos)>,
+    I: Iterator<Item = Event<'a>>,
 {
     fn new(iter: I) -> Self {
         NotebookWriter {
@@ -177,7 +178,7 @@ where
     }
 
     fn run(mut self) -> Notebook {
-        while let Some((event, _range)) = self.iter.next() {
+        while let Some(event) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag),
                 Event::End(tag) => self.end_tag(tag),
@@ -214,7 +215,7 @@ where
 
 pub fn render_notebook<'a, I>(iter: I) -> Notebook
 where
-    I: Iterator<Item = (Event<'a>, DocPos)>,
+    I: Iterator<Item = Event<'a>>,
 {
     NotebookWriter::new(iter).run()
 }

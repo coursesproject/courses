@@ -1,3 +1,4 @@
+use crate::ast::Ast;
 use crate::document::{DocPos, Document, EventContent};
 use crate::renderers::notebook::heading_num;
 use crate::renderers::{RenderResult, Renderer};
@@ -10,8 +11,8 @@ pub struct MarkdownRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for MarkdownRenderer {
-    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult> {
-        let output = render_markdown(doc.to_events_with_pos());
+    fn render(&self, doc: &Document<Ast>) -> Document<RenderResult> {
+        let output = render_markdown(doc.to_events().to_events());
         Document {
             content: output,
             metadata: doc.metadata.clone(),
@@ -28,7 +29,7 @@ struct MarkdownWriter<I> {
 
 impl<'a, I> MarkdownWriter<I>
 where
-    I: Iterator<Item = (Event<'a>, DocPos)>,
+    I: Iterator<Item = Event<'a>>,
 {
     fn new(iter: I) -> Self {
         MarkdownWriter {
@@ -103,7 +104,7 @@ where
     }
 
     fn run(mut self) -> String {
-        while let Some((event, _range)) = self.iter.next() {
+        while let Some(event) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag),
                 Event::End(tag) => self.end_tag(tag),
@@ -131,7 +132,7 @@ where
 
 pub fn render_markdown<'a, I>(iter: I) -> String
 where
-    I: Iterator<Item = (Event<'a>, DocPos)>,
+    I: Iterator<Item = (Event<'a>)>,
 {
     MarkdownWriter::new(iter).run()
 }

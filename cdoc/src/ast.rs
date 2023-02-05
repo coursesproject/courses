@@ -1,3 +1,4 @@
+use crate::notebook::CellOutput;
 use pulldown_cmark::{Alignment, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, Tag};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -193,7 +194,7 @@ impl ToString for Inline {
 }
 
 #[derive(Clone, Debug)]
-pub struct Ast(Vec<Block>);
+pub struct Ast(pub(crate) Vec<Block>);
 
 #[derive(Clone, Debug)]
 pub struct CodeAttributes {}
@@ -222,7 +223,7 @@ pub enum Block {
         source: String,
         reference: Option<String>,
         attr: CodeAttributes,
-        outputs: Vec<CodeOutput>,
+        outputs: Vec<CellOutput>,
     },
     List(Option<u64>, Vec<Block>),
     ListItem(Vec<Block>),
@@ -376,12 +377,11 @@ impl InnerContent {
 
 impl<'a> FromIterator<Event<'a>> for Ast {
     fn from_iter<T: IntoIterator<Item = Event<'a>>>(iter: T) -> Self {
-        let mut iter = iter.into_iter();
+        let iter = iter.into_iter();
 
         let mut inners = vec![InnerContent::Blocks(Vec::new())];
 
-        while let Some(event) = iter.next() {
-            println!("{:?}", event);
+        for event in iter {
             match event {
                 Event::Start(t) => match t {
                     Tag::Paragraph
@@ -492,7 +492,134 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                         _ => unreachable!(),
                     };
 
-                    inners.last_mut().map(|c| c.push_inline(inner));
+                    if let Some(c) = inners.last_mut() {
+                        c.push_inline(inner)
+                    }
+                }
+            }
+        }
+        let blocks = inners.remove(0).to_blocks();
+        Ast(blocks)
+    }
+}
+
+impl FromIterator<AEvent> for Ast {
+    fn from_iter<T: IntoIterator<Item = AEvent>>(iter: T) -> Self {
+        let iter = iter.into_iter();
+
+        let mut inners = vec![InnerContent::Blocks(Vec::new())];
+
+        for event in iter {
+            match event {
+                AEvent::Start(t) => match t {
+                    ATag::Paragraph
+                    | ATag::Heading(_, _, _)
+                    | ATag::BlockQuote
+                    | ATag::CodeBlock(_)
+                    | ATag::TableHead
+                    | ATag::TableRow
+                    | ATag::TableCell
+                    | ATag::Emphasis
+                    | ATag::Strong
+                    | ATag::Strikethrough
+                    | ATag::Image(_, _, _) => inners.push(InnerContent::Inlines(Vec::new())),
+                    ATag::Link(_, _, _) => inners.push(InnerContent::Inlines(Vec::new())),
+                    ATag::List(_) | ATag::Item | ATag::Table(_) | ATag::FootnoteDefinition(_) => {
+                        inners.push(InnerContent::Blocks(Vec::new()))
+                    }
+                },
+                AEvent::End(t) => {
+                    let inner = inners.pop().expect("No inner content");
+                    match t {
+                        ATag::Paragraph => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::Paragraph(inner.to_inlines())),
+                        ATag::Heading(lvl, id, classes) => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::Heading {
+                                lvl,
+                                id: id.map(|s| s.to_string()),
+                                classes: classes.into_iter().map(|s| s.to_string()).collect(),
+                                inner: inner.to_inlines(),
+                            }),
+                        ATag::BlockQuote => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::BlockQuote(inner.to_inlines())),
+                        ATag::CodeBlock(variant) => {
+                            let info = match variant {
+                                ACodeBlockKind::Indented => "".to_string(),
+                                ACodeBlockKind::Fenced(s) => s.to_string(),
+                            };
+                            inners
+                                .last_mut()
+                                .unwrap()
+                                .blocks_mut()
+                                .push(Block::CodeBlock {
+                                    source: inner
+                                        .to_inlines()
+                                        .iter()
+                                        .map(|item| item.to_string())
+                                        .collect(),
+                                    reference: None,
+                                    attr: CodeAttributes {},
+                                    outputs: vec![],
+                                });
+                        }
+                        ATag::List(idx) => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::List(idx, inner.to_blocks())),
+                        ATag::Item => inners
+                            .last_mut()
+                            .unwrap()
+                            .blocks_mut()
+                            .push(Block::ListItem(inner.to_blocks())),
+                        ATag::Emphasis => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Emphasis(inner.to_inlines())),
+                        ATag::Strong => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Strong(inner.to_inlines())),
+                        ATag::Strikethrough => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Strikethrough(inner.to_inlines())),
+                        ATag::Link(tp, url, title) => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Link(tp, url.to_string(), title.to_string())),
+                        ATag::Image(tp, url, title) => inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Image(tp, url.to_string(), title.to_string())),
+                        _ => {} // TODO: Unreachable
+                    }
+                }
+                AEvent::Html(s) => {
+                    inners.last_mut().unwrap().push_inline(Inline::Html(s));
+                }
+                other => {
+                    let inner = match other {
+                        AEvent::Text(s) => Inline::Text(s),
+                        AEvent::Code(s) => Inline::Code(s),
+                        AEvent::SoftBreak => Inline::SoftBreak,
+                        AEvent::HardBreak => Inline::HardBreak,
+                        AEvent::Rule => Inline::Rule,
+                        _ => unreachable!(),
+                    };
+
+                    if let Some(c) = inners.last_mut() {
+                        c.push_inline(inner)
+                    }
                 }
             }
         }

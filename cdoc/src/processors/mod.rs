@@ -1,10 +1,9 @@
 use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 
+use crate::ast::Ast;
 use tera::Tera;
 use thiserror::Error;
-use crate::ast::Ast;
-
 
 use crate::config::OutputFormat;
 use crate::document::{DocPos, Document, EventContent};
@@ -17,8 +16,8 @@ pub mod shortcodes;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("code split syntax error at {}: {}", .1, .0)]
-    CodeParseError(#[source] Box<pest::error::Error<Rule>>, DocPos),
+    #[error("code split syntax error at {}", .0)]
+    CodeParseError(#[source] Box<pest::error::Error<Rule>>),
     #[error("could not parse attributes: {}", .0)]
     AttrParseError(#[from] toml::de::Error),
 }

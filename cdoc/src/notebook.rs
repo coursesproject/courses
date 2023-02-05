@@ -1,3 +1,4 @@
+use crate::ast::{Ast, Block, CodeAttributes};
 use crate::document::DocumentMetadata;
 use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
@@ -411,6 +412,44 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
+    }
+}
+
+impl From<Cell> for Vec<Block> {
+    fn from(value: Cell) -> Self {
+        match value {
+            Cell::Markdown { common } => {
+                let ast: Ast = Parser::new_ext(&common.source, Options::all())
+                    .into_iter()
+                    .collect();
+                ast.0
+            }
+            Cell::Code {
+                common,
+                execution_count,
+                outputs,
+            } => {
+                vec![Block::CodeBlock {
+                    source: common.source,
+                    reference: None,
+                    attr: CodeAttributes {},
+                    outputs: outputs,
+                }]
+            }
+            Cell::Raw { common } => {
+                vec![]
+            }
+        }
+    }
+}
+
+impl From<Notebook> for Ast {
+    fn from(value: Notebook) -> Self {
+        Ast(value
+            .cells
+            .into_iter()
+            .flat_map(|c| -> Vec<Block> { c.into() })
+            .collect())
     }
 }
 

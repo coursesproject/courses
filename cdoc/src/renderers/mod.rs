@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Deref;
+use crate::ast::Ast;
 
 use crate::document::{Document, EventContent};
 
@@ -11,7 +12,7 @@ pub type RenderResult = String;
 
 #[typetag::serde(tag = "type")]
 pub trait Renderer {
-    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult>;
+    fn render(&self, doc: &Document<Ast>) -> Document<RenderResult>;
 }
 
 pub struct RendererConfig {
