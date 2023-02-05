@@ -85,7 +85,10 @@ impl From<Element> for Vec<Block> {
                 vec![Block::CodeBlock {
                     source: content,
                     reference: None,
-                    attr: CodeAttributes {},
+                    attr: CodeAttributes {
+                        editable: true,
+                        fold: false,
+                    },
                     outputs: output.unwrap_or(Vec::default()),
                 }]
             }

@@ -432,8 +432,11 @@ impl From<Cell> for Vec<Block> {
                 vec![Block::CodeBlock {
                     source: common.source,
                     reference: None,
-                    attr: CodeAttributes {},
-                    outputs: outputs,
+                    attr: CodeAttributes {
+                        editable: true,
+                        fold: common.metadata.collapsed.unwrap_or(false),
+                    },
+                    outputs,
                 }]
             }
             Cell::Raw { common } => {

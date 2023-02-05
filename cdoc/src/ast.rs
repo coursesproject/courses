@@ -196,8 +196,11 @@ impl ToString for Inline {
 #[derive(Clone, Debug)]
 pub struct Ast(pub(crate) Vec<Block>);
 
-#[derive(Clone, Debug)]
-pub struct CodeAttributes {}
+#[derive(Clone, Debug, Default)]
+pub struct CodeAttributes {
+    pub(crate) editable: bool,
+    pub(crate) fold: bool,
+}
 
 #[derive(Clone, Debug)]
 pub enum CodeOutput {
@@ -439,7 +442,7 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                                         .map(|item| item.to_string())
                                         .collect(),
                                     reference: None,
-                                    attr: CodeAttributes {},
+                                    attr: CodeAttributes::default(),
                                     outputs: vec![],
                                 });
                         }
@@ -567,7 +570,7 @@ impl FromIterator<AEvent> for Ast {
                                         .map(|item| item.to_string())
                                         .collect(),
                                     reference: None,
-                                    attr: CodeAttributes {},
+                                    attr: CodeAttributes::default(),
                                     outputs: vec![],
                                 });
                         }
