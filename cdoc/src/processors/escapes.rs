@@ -1,16 +1,16 @@
+use crate::processors::PreprocessorContext;
+use crate::processors::{MarkdownPreprocessor, PreprocessorConfig};
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-
-use crate::ast::AEvent;
-use crate::document::{Document, EventContent};
-use crate::processors::{Error, EventPreprocessor, EventPreprocessorConfig, PreprocessorContext};
+use tera::Context;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EscapesConfig;
 
 #[typetag::serde(name = "escapes")]
-impl EventPreprocessorConfig for EscapesConfig {
-    fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>> {
+impl PreprocessorConfig for EscapesConfig {
+    fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>> {
         Ok(Box::new(Escapes))
     }
 }
@@ -18,33 +18,18 @@ impl EventPreprocessorConfig for EscapesConfig {
 #[derive(Debug)]
 pub struct Escapes;
 
-impl EventPreprocessor for Escapes {
-    fn name(&self) -> String {
-        "Escape processor".to_string()
-    }
-
-    fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
-        let iter = input.content.into_iter().map(|e| {
-            if let AEvent::Text(txt) = e {
-                if &txt == "\\" {
-                    AEvent::Text("\\\\".to_string())
-                } else {
-                    AEvent::Text(txt)
-                }
-            } else {
-                e
-            }
-        });
-        Ok(Document {
-            metadata: input.metadata,
-            variables: input.variables,
-            content: iter.collect(),
-        })
-    }
-}
-
 impl Display for Escapes {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name())
+    }
+}
+
+impl MarkdownPreprocessor for Escapes {
+    fn name(&self) -> String {
+        "escapes".to_string()
+    }
+
+    fn process(&self, input: &str, ctx: &Context) -> Result<String, Error> {
+        Ok(input.replace(r#"\"#, r#"\\"#).to_string())
     }
 }

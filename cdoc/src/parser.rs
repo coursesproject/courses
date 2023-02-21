@@ -50,7 +50,7 @@ impl Parser {
 
         let doc_events = self.run_event_processors(v, ctx)?;
 
-        let doc_ast: Document<Ast> = doc.map(|c| c.into());
+        let doc_ast: Document<Ast> = doc_events.map(|c| c.into_iter().collect());
         Ok(doc_ast)
     }
 
