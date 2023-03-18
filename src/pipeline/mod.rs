@@ -87,7 +87,7 @@ impl Pipeline {
     fn get_build_path(&self, format: OutputFormat) -> PathBuf {
         match format {
             OutputFormat::Notebook => self.project_path.join("build").join("notebooks"),
-            OutputFormat::Html=> self.project_path.join("build").join("html"),
+            OutputFormat::Html => self.project_path.join("build").join("html"),
             OutputFormat::Info => self.project_path.join("build"),
         }
     }
@@ -344,7 +344,11 @@ impl Pipeline {
                     settings: parser.settings.clone(),
                 };
 
-                Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx)?;
+                let res =
+                    Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
+                if let Err(e) = res {
+                    format_errs.push(e);
+                }
             }
 
             // Error display

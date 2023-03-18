@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
 use crate::processors::exercises::ExercisesConfig;
-use crate::processors::katex::KaTeXConfig;
 use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
 use crate::renderers::notebook::NotebookRenderer;
@@ -120,7 +119,9 @@ impl OutputFormat {
     pub fn renderer(&self) -> Option<Box<dyn Renderer>> {
         match self {
             OutputFormat::Notebook => Some(Box::new(NotebookRenderer)),
-            OutputFormat::Html => Some(Box::new(HtmlRenderer { interactive_cells: true })),
+            OutputFormat::Html => Some(Box::new(HtmlRenderer {
+                interactive_cells: true,
+            })),
             OutputFormat::Info => None,
         }
     }
@@ -141,7 +142,7 @@ impl Display for OutputFormat {
 #[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
-        preprocessors: vec![Box::new(ShortcodesConfig), Box::new(KaTeXConfig)],
+        preprocessors: vec![Box::new(ShortcodesConfig)],
         event_processors: vec![Box::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,

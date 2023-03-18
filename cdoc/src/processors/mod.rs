@@ -11,8 +11,10 @@ use crate::parsers::split::Rule;
 
 mod escapes;
 pub mod exercises;
-pub mod katex;
 pub mod shortcodes;
+
+#[cfg(feature = "katex")]
+pub mod katex;
 
 #[derive(Error, Debug)]
 pub enum Error {

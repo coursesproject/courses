@@ -38,7 +38,7 @@ impl HtmlGenerator {
         fs::create_dir_all(html_build_dir).context("Could not create directory")?;
         // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
         // file.write_all(output.as_bytes())?;
-        fs::write(section_build_path, output).unwrap();
+        fs::write(section_build_path, output).context("writing")?;
 
         Ok(())
     }
@@ -64,7 +64,6 @@ impl Generator for HtmlGenerator {
         pb.set_style(spinner);
 
         let proj = ctx.project.clone();
-
         for item in ctx.project {
             if let Some(c) = item.doc.content.deref() {
                 pb.set_message(format!("{}", item.doc.path.display()));
@@ -82,6 +81,7 @@ impl Generator for HtmlGenerator {
                 context.insert("title", "Test");
 
                 let result = self.tera.render("section.tera.html", &context)?;
+
                 self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
             }
         }

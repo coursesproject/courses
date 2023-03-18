@@ -39,7 +39,7 @@ tera = "1.17.1"
 rust-embed = "6.4.2"
 fs_extra = "1.2.0"
 thiserror = { version = "1.0.37" }
-anyhow = { version = "1.0.65" }
+anyhow = { version = "1.0.65", features=["backtrace"] }
 beau_collector = "0.2.1"
 
 # CLI libraries

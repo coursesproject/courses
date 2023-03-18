@@ -124,6 +124,7 @@ pub enum ParserError {
     #[error(transparent)]
     ShortCode(#[from] ShortCodeProcessError),
 
+    #[cfg(feature = "katex")]
     #[error(transparent)]
     KaTeX(#[from] katex::Error),
 

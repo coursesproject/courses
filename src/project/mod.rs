@@ -301,6 +301,7 @@ fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
 }
 
 fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
+    println!("{}", path.as_ref().display());
     let mut paths: Vec<_> = fs::read_dir(&path)?.filter_map(|r| r.ok()).collect();
     paths.sort_by_key(|p| p.path());
     Ok(paths)
