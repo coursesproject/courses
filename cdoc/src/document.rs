@@ -80,9 +80,7 @@ impl From<Element> for Vec<Block> {
     fn from(value: Element) -> Self {
         match value {
             Element::Markdown { content } => {
-                let ast: Ast = Parser::new_ext(&content, Options::all())
-                    .into_iter()
-                    .collect();
+                let ast: Ast = Parser::new_ext(&content, Options::all()).collect();
                 ast.0
             }
             Element::Code {

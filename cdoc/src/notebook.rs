@@ -428,9 +428,7 @@ impl From<Cell> for Vec<Block> {
     fn from(value: Cell) -> Self {
         match value {
             Cell::Markdown { common } => {
-                let ast: Ast = Parser::new_ext(&common.source, Options::all())
-                    .into_iter()
-                    .collect();
+                let ast: Ast = Parser::new_ext(&common.source, Options::all()).collect();
                 ast.0
             }
             Cell::Code {
