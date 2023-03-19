@@ -254,7 +254,6 @@ pub fn section_id<P: AsRef<Path>>(path: P) -> Option<String> {
             .file_name()?
             .to_str()?
             .split('.')
-            .into_iter()
             .next()?
             .to_string(),
     )
