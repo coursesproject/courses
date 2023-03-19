@@ -1,6 +1,7 @@
-use crate::document::{DocPos, Document, EventContent};
+use crate::ast::Ast;
+use crate::document::Document;
 use crate::renderers::notebook::heading_num;
-use crate::renderers::{RenderResult, Renderer};
+use crate::renderers::{RenderContext, RenderResult, Renderer};
 use pulldown_cmark::{CodeBlockKind, Event, Tag};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -10,13 +11,17 @@ pub struct MarkdownRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for MarkdownRenderer {
-    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult> {
-        let output = render_markdown(doc.to_events_with_pos());
-        Document {
+    fn render(
+        &self,
+        doc: &Document<Ast>,
+        _ctx: &RenderContext,
+    ) -> anyhow::Result<Document<RenderResult>> {
+        let output = render_markdown(doc.to_events().to_events());
+        Ok(Document {
             content: output,
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),
-        }
+        })
     }
 }
 
@@ -28,7 +33,7 @@ struct MarkdownWriter<I> {
 
 impl<'a, I> MarkdownWriter<I>
 where
-    I: Iterator<Item = (Event<'a>, DocPos)>,
+    I: Iterator<Item = Event<'a>>,
 {
     fn new(iter: I) -> Self {
         MarkdownWriter {
@@ -103,7 +108,7 @@ where
     }
 
     fn run(mut self) -> String {
-        while let Some((event, _range)) = self.iter.next() {
+        while let Some(event) = self.iter.next() {
             match event {
                 Event::Start(tag) => self.start_tag(tag),
                 Event::End(tag) => self.end_tag(tag),
@@ -131,7 +136,7 @@ where
 
 pub fn render_markdown<'a, I>(iter: I) -> String
 where
-    I: Iterator<Item = (Event<'a>, DocPos)>,
+    I: Iterator<Item = Event<'a>>,
 {
     MarkdownWriter::new(iter).run()
 }

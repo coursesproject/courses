@@ -85,19 +85,21 @@ impl<'a> From<Tag<'a>> for ATag {
     }
 }
 
-impl From<ATag> for Tag<'static> {
-    fn from(t: ATag) -> Self {
+impl<'a> From<&'a ATag> for Tag<'a> {
+    fn from(t: &'a ATag) -> Self {
         match t {
             ATag::Paragraph => Tag::Paragraph,
-            ATag::Heading(lvl, _, _) => Tag::Heading(lvl, None, vec![]),
+            ATag::Heading(lvl, id, _) => {
+                Tag::Heading(*lvl, id.as_ref().map(|s| s.as_str()), vec![])
+            }
             ATag::BlockQuote => Tag::BlockQuote,
-            ATag::CodeBlock(c) => Tag::CodeBlock(c.into()),
-            ATag::List(n) => Tag::List(n),
+            ATag::CodeBlock(c) => Tag::CodeBlock(c.clone().into()),
+            ATag::List(n) => Tag::List(*n),
             ATag::Item => Tag::Item,
             ATag::FootnoteDefinition(s) => {
-                Tag::FootnoteDefinition(CowStr::Boxed(s.into_boxed_str()))
+                Tag::FootnoteDefinition(CowStr::Boxed(s.clone().into_boxed_str()))
             }
-            ATag::Table(align) => Tag::Table(align),
+            ATag::Table(align) => Tag::Table(align.clone()),
             ATag::TableHead => Tag::TableHead,
             ATag::TableRow => Tag::TableRow,
             ATag::TableCell => Tag::TableCell,
@@ -105,14 +107,14 @@ impl From<ATag> for Tag<'static> {
             ATag::Strong => Tag::Strong,
             ATag::Strikethrough => Tag::Strikethrough,
             ATag::Link(typ, url, alt) => Tag::Link(
-                typ,
-                CowStr::Boxed(url.into_boxed_str()),
-                CowStr::Boxed(alt.into_boxed_str()),
+                *typ,
+                CowStr::Boxed(url.clone().into_boxed_str()),
+                CowStr::Boxed(alt.clone().into_boxed_str()),
             ),
             ATag::Image(typ, url, alt) => Tag::Image(
-                typ,
-                CowStr::Boxed(url.into_boxed_str()),
-                CowStr::Boxed(alt.into_boxed_str()),
+                *typ,
+                CowStr::Boxed(url.clone().into_boxed_str()),
+                CowStr::Boxed(alt.clone().into_boxed_str()),
             ),
         }
     }
@@ -135,21 +137,19 @@ impl<'a> From<Event<'a>> for AEvent {
     }
 }
 
-impl From<AEvent> for Event<'static> {
-    fn from(e: AEvent) -> Self {
+impl<'a> From<&'a AEvent> for Event<'a> {
+    fn from(e: &'a AEvent) -> Self {
         match e {
             AEvent::Start(t) => Event::Start(t.into()),
             AEvent::End(t) => Event::End(t.into()),
-            AEvent::Text(s) => Event::Text(CowStr::Boxed(s.into_boxed_str())),
-            AEvent::Code(s) => Event::Code(CowStr::Boxed(s.into_boxed_str())),
-            AEvent::Html(s) => Event::Html(CowStr::Boxed(s.into_boxed_str())),
-            AEvent::FootnoteReference(s) => {
-                Event::FootnoteReference(CowStr::Boxed(s.into_boxed_str()))
-            }
+            AEvent::Text(s) => Event::Text(CowStr::Borrowed(s.as_str())),
+            AEvent::Code(s) => Event::Code(CowStr::Borrowed(s.as_str())),
+            AEvent::Html(s) => Event::Html(CowStr::Borrowed(s.as_str())),
+            AEvent::FootnoteReference(s) => Event::FootnoteReference(CowStr::Borrowed(s.as_str())),
             AEvent::SoftBreak => Event::SoftBreak,
             AEvent::HardBreak => Event::HardBreak,
             AEvent::Rule => Event::Rule,
-            AEvent::TaskListMarker(set) => Event::TaskListMarker(set),
+            AEvent::TaskListMarker(set) => Event::TaskListMarker(*set),
         }
     }
 }

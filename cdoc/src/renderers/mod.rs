@@ -1,7 +1,9 @@
+use crate::ast::Ast;
 use std::collections::HashMap;
 use std::ops::Deref;
+use tera::Tera;
 
-use crate::document::{Document, EventContent};
+use crate::document::Document;
 
 pub mod html;
 pub mod markdown;
@@ -9,9 +11,17 @@ pub mod notebook;
 
 pub type RenderResult = String;
 
+pub struct RenderContext {
+    pub tera: Tera,
+}
+
 #[typetag::serde(tag = "type")]
 pub trait Renderer {
-    fn render(&self, doc: &Document<EventContent>) -> Document<RenderResult>;
+    fn render(
+        &self,
+        doc: &Document<Ast>,
+        ctx: &RenderContext,
+    ) -> anyhow::Result<Document<RenderResult>>;
 }
 
 pub struct RendererConfig {

@@ -254,7 +254,6 @@ pub fn section_id<P: AsRef<Path>>(path: P) -> Option<String> {
             .file_name()?
             .to_str()?
             .split('.')
-            .into_iter()
             .next()?
             .to_string(),
     )
@@ -301,6 +300,7 @@ fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
 }
 
 fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
+    println!("{}", path.as_ref().display());
     let mut paths: Vec<_> = fs::read_dir(&path)?.filter_map(|r| r.ok()).collect();
     paths.sort_by_key(|p| p.path());
     Ok(paths)

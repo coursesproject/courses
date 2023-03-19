@@ -194,10 +194,11 @@ fn err_print(res: anyhow::Result<()>) {
     match res {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("{} {}", style("Error:").red().bold(), e);
+            eprintln!("{} {:?}", style("Error:").red().bold(), e);
             e.chain()
                 .skip(1)
                 .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+            // eprintln!("{}", e.backtrace());
         }
     }
 }

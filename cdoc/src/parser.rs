@@ -1,18 +1,20 @@
+use crate::ast::Ast;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document::{Document, EventContent, IteratorConfig, PreprocessError, RawContent};
+use crate::document::{Document, EventContent, PreprocessError, RawContent};
 use crate::processors::shortcodes::ShortCodeProcessError;
 use crate::processors::{
-    EventPreprocessor, EventPreprocessorConfig, MarkdownPreprocessor, PreprocessorConfig,
-    PreprocessorContext,
+    AstPreprocessor, AstPreprocessorConfig, EventPreprocessor, EventPreprocessorConfig,
+    MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
-    pub preprocessors: Vec<Box<dyn PreprocessorConfig>>,
+    pub md_processors: Vec<Box<dyn PreprocessorConfig>>,
     pub event_processors: Vec<Box<dyn EventPreprocessorConfig>>,
+    pub ast_processors: Vec<Box<dyn AstPreprocessorConfig>>,
     pub settings: ParserSettings,
 }
 
@@ -33,9 +35,28 @@ impl Parser {
         doc: &Document<RawContent>,
         template_context: &tera::Context,
         ctx: &PreprocessorContext,
-    ) -> Result<Document<EventContent>, anyhow::Error> {
+    ) -> Result<Document<Ast>, anyhow::Error> {
         let doc = self.run_preprocessors(doc, template_context, ctx)?;
-        self.run_event_processors(&doc, ctx)
+
+        let doc_ast = doc.map(|c| c.into());
+
+        // let v = doc.to_events(IteratorConfig {
+        //     include_output: doc
+        //         .metadata
+        //         .notebook_output
+        //         .unwrap_or(self.settings.notebook_outputs),
+        //     include_solutions: doc
+        //         .metadata
+        //         .code_solutions
+        //         .unwrap_or(self.settings.solutions),
+        // });
+        //
+        // let doc_events = self.run_event_processors(v, ctx)?;
+        //
+        // let doc_ast: Document<Ast> = doc_events.map(|c| c.into_iter().collect());
+        let doc_ast = self.run_ast_processors(doc_ast, ctx)?;
+
+        Ok(doc_ast)
     }
 
     pub fn run_preprocessors(
@@ -45,7 +66,7 @@ impl Parser {
         ctx: &PreprocessorContext,
     ) -> Result<Document<RawContent>, anyhow::Error> {
         let built = self
-            .preprocessors
+            .md_processors
             .iter()
             .map(|p| p.build(ctx))
             .collect::<anyhow::Result<Vec<Box<dyn MarkdownPreprocessor>>>>()?;
@@ -62,31 +83,38 @@ impl Parser {
 
     pub fn run_event_processors(
         &self,
-        doc: &Document<RawContent>,
+        doc: Document<EventContent>,
         ctx: &PreprocessorContext,
     ) -> Result<Document<EventContent>, anyhow::Error> {
-        let v = doc.to_events(IteratorConfig {
-            include_output: doc
-                .metadata
-                .notebook_output
-                .unwrap_or(self.settings.notebook_outputs),
-            include_solutions: doc
-                .metadata
-                .code_solutions
-                .unwrap_or(self.settings.solutions),
-        });
-
         let built = self
             .event_processors
             .iter()
             .map(|p| p.build(ctx))
             .collect::<anyhow::Result<Vec<Box<dyn EventPreprocessor>>>>()?;
 
-        let events = built.iter().fold(Ok(v), |c, event_processor| {
+        let events = built.iter().fold(Ok(doc), |c, event_processor| {
             c.and_then(|c| event_processor.process(c))
         })?;
 
         Ok(events)
+    }
+
+    pub fn run_ast_processors(
+        &self,
+        doc: Document<Ast>,
+        ctx: &PreprocessorContext,
+    ) -> Result<Document<Ast>, anyhow::Error> {
+        let mut built = self
+            .ast_processors
+            .iter()
+            .map(|p| p.build(ctx))
+            .collect::<anyhow::Result<Vec<Box<dyn AstPreprocessor>>>>()?;
+
+        let doc = built.iter_mut().fold(Ok(doc), |c, ast_processor| {
+            c.and_then(|c| ast_processor.process(c))
+        })?;
+
+        Ok(doc)
     }
 }
 
@@ -119,6 +147,7 @@ pub enum ParserError {
     #[error(transparent)]
     ShortCode(#[from] ShortCodeProcessError),
 
+    #[cfg(feature = "katex")]
     #[error(transparent)]
     KaTeX(#[from] katex::Error),
 
@@ -131,7 +160,6 @@ pub enum ParserError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     // #[test]
     // fn test_deserialization() {

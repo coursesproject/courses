@@ -1,11 +1,12 @@
 use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 
+use crate::ast::Ast;
 use tera::Tera;
 use thiserror::Error;
 
 use crate::config::OutputFormat;
-use crate::document::{DocPos, Document, EventContent};
+use crate::document::{Document, EventContent};
 use crate::parsers::split::Rule;
 
 mod escapes;
@@ -15,10 +16,13 @@ pub mod shortcodes;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("code split syntax error at {}: {}", .1, .0)]
-    CodeParseError(#[source] Box<pest::error::Error<Rule>>, DocPos),
+    #[error("code split syntax error at {}", .0)]
+    CodeParseError(#[source] Box<pest::error::Error<Rule>>),
     #[error("could not parse attributes: {}", .0)]
     AttrParseError(#[from] toml::de::Error),
+
+    #[error(transparent)]
+    Any(#[from] anyhow::Error),
 }
 
 #[derive(Clone, Debug)]
@@ -37,6 +41,11 @@ pub trait EventPreprocessor: Display {
     fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error>;
 }
 
+pub trait AstPreprocessor: Display {
+    fn name(&self) -> String;
+    fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
+}
+
 #[typetag::serde(tag = "type")]
 pub trait PreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>>;
@@ -47,5 +56,11 @@ pub trait EventPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>>;
 }
 
+#[typetag::serde(tag = "type")]
+pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
+    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>>;
+}
+
 dyn_clone::clone_trait_object!(PreprocessorConfig);
 dyn_clone::clone_trait_object!(EventPreprocessorConfig);
+dyn_clone::clone_trait_object!(AstPreprocessorConfig);

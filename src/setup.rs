@@ -23,7 +23,6 @@ pub(crate) fn setup(dir: PathBuf, repository: String) -> anyhow::Result<()> {
 
     // Find repository directory in zip file
     let from_dir = fs::read_dir(temp_dir.path())?
-        .into_iter()
         .find(|e| {
             e.as_ref()
                 .map(|e| Ok::<bool, io::Error>(e.metadata()?.is_dir()))

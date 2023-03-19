@@ -1,10 +1,12 @@
+use crate::ast::{Ast, Block, CodeAttributes};
 use crate::document::DocumentMetadata;
 use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
 use base64;
+use base64::Engine;
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser, Tag};
+use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -183,10 +185,10 @@ impl CellOutput {
                     Event::Html(CowStr::Boxed(
                         format!(
                             r#"
-                <div class="alert alert-info">
-                    <p>{}</p>
-                </div>
-                "#,
+                            <div class="notification is-info">
+                                <pre>{}</pre>
+                            </div>
+                            "#,
                             text
                         )
                         .into_boxed_str(),
@@ -198,14 +200,19 @@ impl CellOutput {
                 .iter()
                 .flat_map(|value| match value {
                     OutputValue::Plain(v) => {
-                        let block = Tag::CodeBlock(Fenced(CowStr::Boxed(
-                            "plaintext".to_string().into_boxed_str(),
-                        )));
-                        vec![
-                            (Event::Start(block.clone()), (0..0)),
-                            (Event::Text(CowStr::Borrowed(v)), (0..0)),
-                            (Event::End(block), (0..0)),
-                        ]
+                        vec![(
+                            Event::Html(CowStr::Boxed(
+                                format!(
+                                    r#"
+                                    <div class="notification is-info">
+                                        <pre>{v}</pre>
+                                    </div>
+                                    "#,
+                                )
+                                .into_boxed_str(),
+                            )),
+                            (0..0),
+                        )]
                     }
                     OutputValue::Image(v) => {
                         vec![(
@@ -297,7 +304,10 @@ where
     D: Deserializer<'de>,
 {
     let base: String = Deserialize::deserialize(input)?;
-    let bytes = base64::decode(base).map_err(|e| D::Error::custom(e.to_string()))?;
+    let engine = base64::engine::general_purpose::STANDARD;
+    let bytes = engine
+        .decode(base)
+        .map_err(|e| D::Error::custom(e.to_string()))?;
     // let source = load_from_memory(&bytes).map_err(|e| D::Error::custom(e.to_string()))?;
     Ok(bytes)
 }
@@ -307,8 +317,8 @@ fn serialize_png<S>(value: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    // serializer.collect_str(&base64::encode(value.as_bytes()))
-    serializer.collect_str(&base64::encode(value))
+    let engine = base64::engine::general_purpose::STANDARD;
+    serializer.collect_str(&engine.encode(value))
 }
 
 // #[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq)]
@@ -411,6 +421,43 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
+    }
+}
+
+impl From<Cell> for Vec<Block> {
+    fn from(value: Cell) -> Self {
+        match value {
+            Cell::Markdown { common } => {
+                let ast: Ast = Parser::new_ext(&common.source, Options::all()).collect();
+                ast.0
+            }
+            Cell::Code {
+                common, outputs, ..
+            } => {
+                vec![Block::CodeBlock {
+                    source: common.source,
+                    reference: None,
+                    attr: CodeAttributes {
+                        editable: true,
+                        fold: common.metadata.collapsed.unwrap_or(false),
+                    },
+                    outputs,
+                }]
+            }
+            Cell::Raw { .. } => {
+                vec![]
+            }
+        }
+    }
+}
+
+impl From<Notebook> for Ast {
+    fn from(value: Notebook) -> Self {
+        Ast(value
+            .cells
+            .into_iter()
+            .flat_map(|c| -> Vec<Block> { c.into() })
+            .collect())
     }
 }
 

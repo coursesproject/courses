@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
 use crate::processors::exercises::ExercisesConfig;
-use crate::processors::katex::KaTeXConfig;
 use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
 use crate::renderers::notebook::NotebookRenderer;
@@ -76,22 +75,22 @@ impl OutputFormat {
         }
     }
 
-    pub fn from_extension(ext: &str) -> Result<Self, anyhow::Error> {
-        match ext {
-            "ipynb" => Ok(OutputFormat::Notebook),
-            "html" => Ok(OutputFormat::Html),
-            _ => Err(anyhow!("Invalid extension for output")),
-        }
-    }
+    // pub fn from_extension(ext: &str) -> Result<Self, anyhow::Error> {
+    //     match ext {
+    //         "ipynb" => Ok(OutputFormat::Notebook),
+    //         "html" => Ok(OutputFormat::Html),
+    //         _ => Err(anyhow!("Invalid extension for output")),
+    //     }
+    // }
 
-    pub fn from_name(name: &str) -> Result<Self, anyhow::Error> {
-        match name {
-            "notebook" => Ok(OutputFormat::Notebook),
-            "html" => Ok(OutputFormat::Html),
-            "info" => Ok(OutputFormat::Info),
-            _ => Err(anyhow!("Invalid format name for output")),
-        }
-    }
+    // pub fn from_name(name: &str) -> Result<Self, anyhow::Error> {
+    //     match name {
+    //         "notebook" => Ok(OutputFormat::Notebook),
+    //         "html" => Ok(OutputFormat::Html),
+    //         "info" => Ok(OutputFormat::Info),
+    //         _ => Err(anyhow!("Invalid format name for output")),
+    //     }
+    // }
 
     pub fn extension(&self) -> &str {
         match self {
@@ -120,7 +119,9 @@ impl OutputFormat {
     pub fn renderer(&self) -> Option<Box<dyn Renderer>> {
         match self {
             OutputFormat::Notebook => Some(Box::new(NotebookRenderer)),
-            OutputFormat::Html => Some(Box::new(HtmlRenderer)),
+            OutputFormat::Html => Some(Box::new(HtmlRenderer {
+                interactive_cells: true,
+            })),
             OutputFormat::Info => None,
         }
     }
@@ -141,8 +142,9 @@ impl Display for OutputFormat {
 #[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
-        preprocessors: vec![Box::new(ShortcodesConfig), Box::new(KaTeXConfig)],
-        event_processors: vec![Box::new(ExercisesConfig)],
+        md_processors: vec![Box::new(ShortcodesConfig)],
+        event_processors: vec![],
+        ast_processors: vec![Box::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,
             notebook_outputs: false,
