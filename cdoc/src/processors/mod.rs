@@ -6,15 +6,13 @@ use tera::Tera;
 use thiserror::Error;
 
 use crate::config::OutputFormat;
-use crate::document::{DocPos, Document, EventContent};
+use crate::document::{Document, EventContent};
 use crate::parsers::split::Rule;
 
 mod escapes;
 pub mod exercises;
-pub mod shortcodes;
-
-#[cfg(feature = "katex")]
 pub mod katex;
+pub mod shortcodes;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -22,6 +20,9 @@ pub enum Error {
     CodeParseError(#[source] Box<pest::error::Error<Rule>>),
     #[error("could not parse attributes: {}", .0)]
     AttrParseError(#[from] toml::de::Error),
+
+    #[error(transparent)]
+    Any(#[from] anyhow::Error),
 }
 
 #[derive(Clone, Debug)]
@@ -42,7 +43,7 @@ pub trait EventPreprocessor: Display {
 
 pub trait AstPreprocessor: Display {
     fn name(&self) -> String;
-    fn process(&self, input: Document<Ast>) -> Result<Document<EventContent>, Error>;
+    fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
 }
 
 #[typetag::serde(tag = "type")]
@@ -57,7 +58,7 @@ pub trait EventPreprocessorConfig: Debug + Send + Sync + DynClone {
 
 #[typetag::serde(tag = "type")]
 pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
-    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>>;
+    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>>;
 }
 
 dyn_clone::clone_trait_object!(PreprocessorConfig);

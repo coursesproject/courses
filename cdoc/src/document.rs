@@ -21,11 +21,19 @@ pub struct DocumentMetadata {
     pub code_split: Option<bool>,
     pub notebook_output: Option<bool>,
     pub code_solutions: Option<bool>,
+    #[serde(default = "default_true")]
+    pub cell_outputs: bool,
+    pub interactive: Option<bool>,
+    pub editable: Option<bool>,
     #[serde(default)]
     pub layout: LayoutSettings,
 
     #[serde(default = "default_outputs")]
     pub outputs: Vec<OutputFormat>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_outputs() -> Vec<OutputFormat> {
@@ -78,9 +86,7 @@ impl From<Element> for Vec<Block> {
                 ast.0
             }
             Element::Code {
-                cell_number,
-                content,
-                output,
+                content, output, ..
             } => {
                 vec![Block::CodeBlock {
                     source: content,
@@ -273,8 +279,6 @@ impl IntoRawContent for Notebook {
 }
 
 pub struct ElementIterator<'a, 'b> {
-    global_offset: usize,
-    source: String,
     cell_iter: ElementIteratorCell<'a, 'b>,
 }
 
@@ -358,7 +362,7 @@ impl<'a> ConfigureCollector for &'a Element {
     type IntoIter = ElementIterator<'a, 'a>;
 
     fn configure_iterator(self, config: IteratorConfig) -> Self::IntoIter {
-        let (cell, content) = match self {
+        let (cell, _content) = match self {
             Element::Markdown { content } => (
                 ElementIteratorCell::Markdown {
                     parser: Box::new(Parser::new_ext(content, Options::all()).into_offset_iter()),
@@ -396,11 +400,7 @@ impl<'a> ConfigureCollector for &'a Element {
             Element::Raw { content } => (ElementIteratorCell::Raw {}, content.clone()),
             _ => (ElementIteratorCell::Raw {}, "".to_string()),
         };
-        ElementIterator {
-            source: content,
-            global_offset: 0,
-            cell_iter: cell,
-        }
+        ElementIterator { cell_iter: cell }
     }
 }
 

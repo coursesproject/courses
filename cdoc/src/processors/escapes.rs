@@ -29,7 +29,7 @@ impl MarkdownPreprocessor for Escapes {
         "escapes".to_string()
     }
 
-    fn process(&self, input: &str, ctx: &Context) -> Result<String, Error> {
-        Ok(input.replace(r#"\"#, r#"\\"#).to_string())
+    fn process(&self, input: &str, _ctx: &Context) -> Result<String, Error> {
+        Ok(input.replace('\\', r#"\\"#))
     }
 }

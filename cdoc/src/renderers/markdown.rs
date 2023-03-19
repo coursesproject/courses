@@ -1,7 +1,7 @@
 use crate::ast::Ast;
-use crate::document::{DocPos, Document, EventContent};
+use crate::document::Document;
 use crate::renderers::notebook::heading_num;
-use crate::renderers::{RenderResult, Renderer};
+use crate::renderers::{RenderContext, RenderResult, Renderer};
 use pulldown_cmark::{CodeBlockKind, Event, Tag};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -11,13 +11,17 @@ pub struct MarkdownRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for MarkdownRenderer {
-    fn render(&self, doc: &Document<Ast>) -> Document<RenderResult> {
+    fn render(
+        &self,
+        doc: &Document<Ast>,
+        _ctx: &RenderContext,
+    ) -> anyhow::Result<Document<RenderResult>> {
         let output = render_markdown(doc.to_events().to_events());
-        Document {
+        Ok(Document {
             content: output,
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),
-        }
+        })
     }
 }
 
@@ -132,7 +136,7 @@ where
 
 pub fn render_markdown<'a, I>(iter: I) -> String
 where
-    I: Iterator<Item = (Event<'a>)>,
+    I: Iterator<Item = Event<'a>>,
 {
     MarkdownWriter::new(iter).run()
 }

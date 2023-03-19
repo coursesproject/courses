@@ -142,8 +142,9 @@ impl Display for OutputFormat {
 #[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
-        preprocessors: vec![Box::new(ShortcodesConfig)],
-        event_processors: vec![Box::new(ExercisesConfig)],
+        md_processors: vec![Box::new(ShortcodesConfig)],
+        event_processors: vec![],
+        ast_processors: vec![Box::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,
             notebook_outputs: false,

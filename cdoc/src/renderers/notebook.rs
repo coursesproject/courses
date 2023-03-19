@@ -5,24 +5,28 @@ use crate::ast::Ast;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
 use serde::{Deserialize, Serialize};
 
-use crate::document::{DocPos, Document, EventContent};
+use crate::document::Document;
 use crate::notebook::{Cell, CellCommon, CellMeta, Notebook, NotebookMeta};
-use crate::renderers::{RenderResult, Renderer};
+use crate::renderers::{RenderContext, RenderResult, Renderer};
 
 #[derive(Serialize, Deserialize)]
 pub struct NotebookRenderer;
 
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for NotebookRenderer {
-    fn render(&self, doc: &Document<Ast>) -> Document<RenderResult> {
+    fn render(
+        &self,
+        doc: &Document<Ast>,
+        _ctx: &RenderContext,
+    ) -> anyhow::Result<Document<RenderResult>> {
         let notebook: Notebook = render_notebook(doc.to_events().to_events());
         let output = serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)");
 
-        Document {
+        Ok(Document {
             content: output,
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),
-        }
+        })
     }
 }
 

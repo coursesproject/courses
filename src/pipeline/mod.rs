@@ -11,7 +11,7 @@ use tera::Tera;
 use cdoc::config::OutputFormat;
 use cdoc::document::Document;
 use cdoc::processors::PreprocessorContext;
-use cdoc::renderers::RenderResult;
+use cdoc::renderers::{RenderContext, RenderResult};
 use mover::{MoveContext, Mover};
 
 use crate::generators::html::HtmlGenerator;
@@ -31,6 +31,7 @@ pub struct Pipeline {
     project_config: ProjectConfig,
     base_tera: Tera,
     shortcode_tera: Tera,
+    render_context: RenderContext,
     cached_contexts: HashMap<OutputFormat, GeneratorContext>,
 }
 
@@ -65,6 +66,13 @@ impl Pipeline {
         let shortcode_tera =
             Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
 
+        let builtins_pattern = path_str.to_string() + "/templates/builtins/**/*.tera.*";
+        let builtins_tera =
+            Tera::new(&builtins_pattern).context("Error preparing project templates")?;
+        let render_context = RenderContext {
+            tera: builtins_tera,
+        };
+
         Ok(Pipeline {
             mode,
             project_path: project_path.as_ref().to_path_buf(),
@@ -72,6 +80,7 @@ impl Pipeline {
             project_config: config,
             base_tera,
             shortcode_tera,
+            render_context,
             cached_contexts: HashMap::new(),
         })
     }
@@ -497,8 +506,9 @@ impl Pipeline {
                 .parse(&doc, &meta, &processor_ctx)?;
 
             // let res = print_err(res)?;
+
             if let Some(renderer) = format.renderer() {
-                Ok(Some(renderer.render(&res)))
+                Ok(Some(renderer.render(&res, &self.render_context)?))
             } else {
                 Ok(None)
             }
