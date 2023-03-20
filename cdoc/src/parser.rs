@@ -3,17 +3,16 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document::{Document, EventContent, PreprocessError, RawContent};
+use crate::document::{Document, PreprocessError, RawContent};
 use crate::processors::shortcodes::ShortCodeProcessError;
 use crate::processors::{
-    AstPreprocessor, AstPreprocessorConfig, EventPreprocessor, EventPreprocessorConfig,
-    MarkdownPreprocessor, PreprocessorConfig, PreprocessorContext,
+    AstPreprocessor, AstPreprocessorConfig, MarkdownPreprocessor, PreprocessorConfig,
+    PreprocessorContext,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
     pub md_processors: Vec<Box<dyn PreprocessorConfig>>,
-    pub event_processors: Vec<Box<dyn EventPreprocessorConfig>>,
     pub ast_processors: Vec<Box<dyn AstPreprocessorConfig>>,
     pub settings: ParserSettings,
 }
@@ -79,24 +78,6 @@ impl Parser {
         })?;
 
         Ok(content)
-    }
-
-    pub fn run_event_processors(
-        &self,
-        doc: Document<EventContent>,
-        ctx: &PreprocessorContext,
-    ) -> Result<Document<EventContent>, anyhow::Error> {
-        let built = self
-            .event_processors
-            .iter()
-            .map(|p| p.build(ctx))
-            .collect::<anyhow::Result<Vec<Box<dyn EventPreprocessor>>>>()?;
-
-        let events = built.iter().fold(Ok(doc), |c, event_processor| {
-            c.and_then(|c| event_processor.process(c))
-        })?;
-
-        Ok(events)
     }
 
     pub fn run_ast_processors(

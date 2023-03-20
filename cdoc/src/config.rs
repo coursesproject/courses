@@ -143,7 +143,6 @@ impl Display for OutputFormat {
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
         md_processors: vec![Box::new(ShortcodesConfig)],
-        event_processors: vec![],
         ast_processors: vec![Box::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,
