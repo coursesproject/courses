@@ -1,14 +1,14 @@
 # Courses
 
-![Build badge](https://img.shields.io/github/actions/workflow/status/antonmeskildsen/courses/ci_courses.yml)
-![Docs badge](https://img.shields.io/github/actions/workflow/status/antonmeskildsen/courses/docs.yml?label=documentation)
+![Build badge](https://img.shields.io/github/actions/workflow/status/coursesproject/courses/ci_courses.yml)
+![Docs badge](https://img.shields.io/github/actions/workflow/status/coursesproject/courses/docs.yml?label=documentation)
 ![Crates badge](https://img.shields.io/crates/v/courses)
 
 
 Courses is a publishing system for interactive content written in `rust`. Its aimed primarily at code-related learning 
 resources, including books, course materials, and blogs.
 
-[Documentation page](https://antonmeskildsen.github.io/courses/)
+[Documentation page](https://coursesproject.github.io/courses/)
 
 *Important: This project is very early in its development process and may change significantly in scope or function before an 
 initial stable version is released.* 

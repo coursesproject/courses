@@ -8,8 +8,8 @@ authors = ["Anton Mølbjerg Eskildsen"]
 
 description = "A publishing system for interactive content"
 
-homepage = "https://antonmeskildsen.github.io/courses/"
-repository = "https://github.com/antonmeskildsen/courses"
+homepage = "https://coursesproject.github.io/courses/"
+repository = "https://github.com/coursesproject/courses"
 readme = "README.md"
 
 keywords = ["site", "generator", "publishing", "notebooks", "education"]
