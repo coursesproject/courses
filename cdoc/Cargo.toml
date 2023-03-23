@@ -37,6 +37,7 @@ base64 = "0.21.0"
 katex = "0.4.6"
 pest = "2.5.1"
 pest_derive = "2.5.1"
+syntect = "5.0.0"
 
 # Utilities
 thiserror = "1.0.37"

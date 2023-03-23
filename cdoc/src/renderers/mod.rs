@@ -1,6 +1,8 @@
 use crate::ast::Ast;
 use std::collections::HashMap;
 use std::ops::Deref;
+use syntect::highlighting::Theme;
+use syntect::parsing::{SyntaxReference, SyntaxSet};
 use tera::Tera;
 
 use crate::document::Document;
@@ -13,6 +15,8 @@ pub type RenderResult = String;
 
 pub struct RenderContext {
     pub tera: Tera,
+    pub syntax_set: SyntaxSet,
+    pub theme: Theme,
 }
 
 #[typetag::serde(tag = "type")]

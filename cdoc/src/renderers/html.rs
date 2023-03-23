@@ -4,6 +4,8 @@ use crate::notebook::{CellOutput, OutputValue};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use syntect::highlighting::Theme;
+use syntect::parsing::{SyntaxReference, SyntaxSet};
 use tera::Tera;
 
 use crate::renderers::{RenderContext, RenderResult, Renderer};
@@ -25,6 +27,8 @@ impl Renderer for HtmlRenderer {
         let ctx = ToHtmlContext {
             metadata: doc.metadata.clone(),
             tera: ctx.tera.clone(),
+            syntax_set: ctx.syntax_set.clone(),
+            theme: ctx.theme.clone(),
         };
 
         Ok(Document {
@@ -38,6 +42,8 @@ impl Renderer for HtmlRenderer {
 pub struct ToHtmlContext {
     pub metadata: DocumentMetadata,
     pub tera: Tera,
+    pub syntax_set: SyntaxSet,
+    pub theme: Theme,
 }
 
 pub trait ToHtml {
@@ -131,11 +137,19 @@ impl ToHtml for Block {
             } => {
                 let id = get_id();
 
+                let highlighted = syntect::html::highlighted_html_for_string(
+                    &source,
+                    &ctx.syntax_set,
+                    &ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
+                    &ctx.theme,
+                )?;
+
                 let mut context = tera::Context::new();
                 context.insert("interactive", &ctx.metadata.interactive.unwrap_or_default());
                 context.insert("cell_outputs", &ctx.metadata.cell_outputs);
                 context.insert("editable", &ctx.metadata.editable.unwrap_or_default());
                 context.insert("source", &source);
+                context.insert("highlighted", &highlighted);
                 context.insert("id", &id);
                 context.insert("outputs", &outputs.to_html(ctx)?);
 

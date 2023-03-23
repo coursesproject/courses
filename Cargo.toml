@@ -34,6 +34,7 @@ cdoc = { path = "cdoc", version = "0.2.1" }
 serde = { version = "1.0.145", features = ["derive", "rc"] }
 serde_yaml = "0.9.13"
 tera = "1.17.1"
+syntect = "5.0.0"
 
 # Utilities and error handling
 rust-embed = "6.4.2"

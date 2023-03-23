@@ -6,6 +6,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
+use syntect::highlighting::ThemeSet;
+use syntect::parsing::SyntaxSet;
 use tera::Tera;
 
 use cdoc::config::OutputFormat;
@@ -69,8 +71,12 @@ impl Pipeline {
         let builtins_pattern = path_str.to_string() + "/templates/builtins/**/*.tera.*";
         let builtins_tera =
             Tera::new(&builtins_pattern).context("Error preparing project templates")?;
+
+        let ts = ThemeSet::load_defaults();
         let render_context = RenderContext {
             tera: builtins_tera,
+            syntax_set: SyntaxSet::load_defaults_newlines(),
+            theme: ts.themes["base16-ocean.light"].clone(),
         };
 
         Ok(Pipeline {
