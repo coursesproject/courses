@@ -56,6 +56,7 @@ async fn cli_run() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Build { path, mode } => {
+            let current_time = std::time::Instant::now();
             let path = path.unwrap_or(env::current_dir()?);
 
             print!("Configuring project...");
@@ -70,7 +71,7 @@ async fn cli_run() -> anyhow::Result<()> {
             let mut pipeline = Pipeline::new(path.as_path(), mode, config, proj)?;
             pipeline.build_all(true)?;
 
-            println!("🌟 Done.");
+            println!("🌟 Done ({} ms)", current_time.elapsed().as_millis());
             Ok(())
         }
         Commands::Serve { path, mode } => {
