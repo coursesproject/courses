@@ -43,8 +43,8 @@ pub trait AstVisitor {
             Inline::SoftBreak => Ok(()),
             Inline::HardBreak => Ok(()),
             Inline::Rule => Ok(()),
-            Inline::Image(_tp, _url, _alt) => Ok(()),
-            Inline::Link(_tp, _url, _alt) => Ok(()),
+            Inline::Image(_tp, _url, _alt, _inner) => Ok(()),
+            Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Html(_) => Ok(()),
         }
     }

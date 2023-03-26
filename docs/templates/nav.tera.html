@@ -1,13 +1,13 @@
 {# 
 <div>
-  {% for part in config.content %}
+  {% for part in project.content %}
    
     {% if part.chapters %}
     
       {% for chapter in part.chapters %}
       <p class="title is-5">
         {% if current_chapter == chapter.id %}
-          <a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{ chapter.index.content.metadata.title }}</a>
+          <a href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{ chapter.index.content.metadata.title }}</a>
         {% endif %}
       </p>
       {% endfor %}
@@ -17,7 +17,7 @@
   {% endfor %}
 
   <aside class="menu">
-    {% for part in config.content %}
+    {% for part in project.content %}
    
     {% if part.chapters %}
     
@@ -30,7 +30,7 @@
           {% for doc in chapter.documents %}
           <li>
             <a
-              href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
+              href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
               class="{% if doc.id == current_doc %}is-active{% endif %}"
               >{{doc.content.title | safe}}</a
             >
@@ -51,21 +51,21 @@
 <div class="sidebar p-2" x-show="sidebar_open" x-transition>
 
   <aside class="menu">
-    {% for part in config.content %}
+    {% for part in project.content %}
    
     {% if part.chapters and current_part == part.id %}
     <ul class="menu-list">
       {% for chapter in part.chapters %}
 
         <li>
-          <a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{loop.index}}. {{ chapter.index.content.metadata.title }}</a>
+          <a href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{loop.index}}. {{ chapter.index.content.metadata.title }}</a>
         <ul class="menu-list">
           
           {% if chapter.documents %}
           {% for doc in chapter.documents %}
           <li>
             <a
-              href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
+              href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{ doc.id }}.html"
               class="{% if doc.id == current_doc %}is-active{% endif %}"
               >{{loop.index}}. {{doc.content.metadata.title | safe}}</a
             >

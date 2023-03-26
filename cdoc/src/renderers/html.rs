@@ -1,6 +1,7 @@
 use crate::ast::{Ast, Block, Inline};
 use crate::document::{Document, DocumentMetadata};
 use crate::notebook::{CellOutput, OutputValue};
+use crate::renderers;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -23,7 +24,6 @@ impl Renderer for HtmlRenderer {
         //
         // let mut output = String::new();
         // html::push_html(&mut output, dd);
-
         let ctx = ToHtmlContext {
             metadata: doc.metadata.clone(),
             tera: ctx.tera.clone(),
@@ -73,32 +73,39 @@ impl ToHtml for Inline {
             Inline::SoftBreak => Ok(String::default()),
             Inline::HardBreak => Ok(String::default()),
             Inline::Rule => Ok("<hr>".to_string()),
-            Inline::Image(_tp, url, title) => Ok(format!(r#"<img src="{url}">{title}</img>"#)),
-            Inline::Link(_tp, url, title) => Ok(format!(r#"<a href="{url}">{title}</a>"#)),
+            Inline::Image(_tp, url, alt, inner) => {
+                let inner_s = inner.to_html(ctx)?;
+                let mut context = tera::Context::new();
+                context.insert("url", &url);
+                context.insert("alt", &alt);
+                context.insert("inner", &inner_s);
+                Ok(ctx.tera.render("html/image.tera.html", &context)?)
+            }
+            Inline::Link(_tp, url, alt, inner) => {
+                let inner_s = inner.to_html(ctx)?;
+                let mut context = tera::Context::new();
+                context.insert("url", &url);
+                context.insert("alt", &alt);
+                context.insert("inner", &inner_s);
+                Ok(ctx.tera.render("html/link.tera.html", &context)?)
+            }
             Inline::Html(s) => Ok(s),
         }
     }
 }
 
-static COUNTER: AtomicUsize = AtomicUsize::new(1);
-
-fn get_id() -> usize {
-    COUNTER.fetch_add(1, Ordering::Relaxed)
-}
-
-fn render_value_template(ctx: &ToHtmlContext, template: &str, value: String) -> Result<String> {
-    let mut context = tera::Context::new();
-    context.insert("value", &value);
-    let output = ctx.tera.render(template, &context)?;
-    Ok(output)
-}
-
 impl ToHtml for OutputValue {
     fn to_html(self, ctx: &ToHtmlContext) -> Result<String> {
         match self {
-            OutputValue::Plain(s) => render_value_template(ctx, "html/output_text.tera.html", s),
-            OutputValue::Image(s) => render_value_template(ctx, "html/img.tera.html", s),
-            OutputValue::Svg(s) => render_value_template(ctx, "html/svg.tera.html", s),
+            OutputValue::Plain(s) => {
+                renderers::render_value_template(&ctx.tera, "html/output_text.tera.html", s)
+            }
+            OutputValue::Image(s) => {
+                renderers::render_value_template(&ctx.tera, "html/output_img.tera.html", s)
+            }
+            OutputValue::Svg(s) => {
+                renderers::render_value_template(&ctx.tera, "html/output_svg.tera.html", s)
+            }
             OutputValue::Json(_) => Ok("".to_string()),
             OutputValue::Html(_) => Ok("".to_string()),
             OutputValue::Javascript(_) => Ok("".to_string()),
@@ -112,7 +119,7 @@ impl ToHtml for CellOutput {
             CellOutput::Stream { text, .. } => Ok(text),
             CellOutput::Data { data, .. } => data.into_iter().map(|v| v.to_html(ctx)).collect(),
             CellOutput::Error { evalue, .. } => {
-                render_value_template(ctx, "html/output_error.tera.html", evalue)
+                renderers::render_value_template(&ctx.tera, "html/output_error.tera.html", evalue)
             }
         }
     }
@@ -135,7 +142,7 @@ impl ToHtml for Block {
             Block::CodeBlock {
                 source, outputs, ..
             } => {
-                let id = get_id();
+                let id = renderers::get_id();
 
                 let highlighted = syntect::html::highlighted_html_for_string(
                     &source,
@@ -159,12 +166,26 @@ impl ToHtml for Block {
             Block::List(idx, items) => {
                 let inner: Result<String> = items.into_iter().map(|b| b.to_html(ctx)).collect();
                 let inner = inner?;
+
                 Ok(match idx {
-                    None => format!("<ul>{inner}</ul>"),
-                    Some(start) => format!(r#"<ol start="{start}">{inner}</ol>"#),
+                    None => renderers::render_value_template(
+                        &ctx.tera,
+                        "html/list_unordered.tera.html",
+                        inner,
+                    )?,
+                    Some(start) => {
+                        let mut context = tera::Context::new();
+                        context.insert("start", &start);
+                        context.insert("value", &inner);
+                        ctx.tera.render("html/list_ordered.tera.html", &context)?
+                    }
                 })
             }
-            Block::ListItem(inner) => Ok(format!("<li>{}</li>", inner.to_html(ctx)?)),
+            Block::ListItem(inner) => renderers::render_value_template(
+                &ctx.tera,
+                "html/list_item.tera.html",
+                inner.to_html(ctx)?,
+            ),
         }
     }
 }

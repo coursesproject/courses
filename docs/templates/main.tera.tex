@@ -1,0 +1,17 @@
+\documentclass{article}
+
+\input{preamble.tex}
+
+\begin{document}
+
+{% for part in project.content %}
+\input{ {{part.id}}/index.tex}
+{% for chapter in part.chapters %}
+\input{ {{part.id}}/{{chapter.id}}/index.tex}
+{% for doc in chapter.documents %}
+\input{ {{part.id}}/{{chapter.id}}/{{doc.id}}.tex}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+
+\end{document}

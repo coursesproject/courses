@@ -22,8 +22,8 @@ pub enum Inline {
     SoftBreak,
     HardBreak,
     Rule,
-    Image(LinkType, String, String),
-    Link(LinkType, String, String),
+    Image(LinkType, String, String, Vec<Inline>),
+    Link(LinkType, String, String, Vec<Inline>),
     Html(String),
 }
 

@@ -11,14 +11,24 @@ repository:
 
 outputs:
   - html
+  - latex
 
 parsers:
   html:
     settings:
       solutions: false
       notebook_outputs: true
-    preprocessors:
+    md_processors:
       - type: shortcodes
       - type: katex
-    event_processors:
-      - type: code_split
+    ast_processors:
+      - type: exercises
+  latex:
+    settings:
+      solutions: false
+      notebook_outputs: true
+    md_processors:
+      - type: shortcodes
+      - type: katex
+    ast_processors:
+      - type: exercises

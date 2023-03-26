@@ -41,6 +41,7 @@ fn default_outputs() -> Vec<OutputFormat> {
         OutputFormat::Notebook,
         OutputFormat::Html,
         OutputFormat::Info,
+        OutputFormat::LaTeX,
     ]
 }
 

@@ -1,7 +1,7 @@
 <nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
-        <a class="navbar-item" href="{{project.url_prefix}}/">
-            <img src="{{project.url_prefix}}/resources/logo.svg" height="48" width="48">
+        <a class="navbar-item" href="{{config.url_prefix}}/">
+            <img src="{{config.url_prefix}}/resources/logo.svg" height="48" width="48">
         </a>
 
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
@@ -18,27 +18,27 @@
             <a class="navbar-item" @click="sidebar_open = !sidebar_open"><i class="bi bi-list"></i></a>
             {% endif %}
 
-            <a href="{{project.url_prefix}}/" class="navbar-item">
+            <a href="{{config.url_prefix}}/" class="navbar-item">
                 Home
             </a>
 
-            {% for part in config.content %}
+            {% for part in project.content %}
             {# {% if part.chapters %}
             <div class="navbar-item has-dropdown is-hoverable">
-                <a href="{{project.url_prefix}}/{{ part.id }}/index.html" class="navbar-link">
+                <a href="{{config.url_prefix}}/{{ part.id }}/index.html" class="navbar-link">
                     {{part.index.content.metadata.title}}
                 </a>
 
                 <div class="navbar-dropdown">
                     {% for chapter in part.chapters %}
-                    <a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html" class="navbar-item">
+                    <a href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html" class="navbar-item">
                         {{chapter.index.content.metadata.title}}
                     </a>
                     {% endfor %}
                 </div>
             </div>
             {% else %} #}
-            <a href="{{project.url_prefix}}/{{ part.id }}/index.html" class="navbar-item">
+            <a href="{{config.url_prefix}}/{{ part.id }}/index.html" class="navbar-item">
                 {{part.index.content.metadata.title}}
             </a>
             {# {% endif %} #}
@@ -46,7 +46,7 @@
         </div>
 
         <div class="navbar-end">
-            <a class="navbar-item" href="{{project.repository.url}}">
+            <a class="navbar-item" href="{{config.repository.url}}">
                 <strong>GitHub</strong>
                 <span class="icon">
                 <i class="bi bi-github"></i>

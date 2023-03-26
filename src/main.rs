@@ -1,7 +1,7 @@
 //! Then what is this??
 
 use std::fs::create_dir;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, fs};
 
@@ -75,6 +75,8 @@ async fn cli_run() -> anyhow::Result<()> {
         }
         Commands::Serve { path, mode } => {
             let path = path.unwrap_or(env::current_dir()?);
+            let mut absolute_path = env::current_dir()?;
+            absolute_path.push(path.as_path());
 
             print!("Configuring project...");
             let proj = Project::generate_from_directory(path.as_path())?;
@@ -85,8 +87,12 @@ async fn cli_run() -> anyhow::Result<()> {
             let config: ProjectConfig = serde_yaml::from_str(&config_input)
                 .context("Could not load project configuration")?;
 
-            let mut pipeline =
-                Pipeline::new(path.as_path(), mode.clone(), config.clone(), proj.clone())?;
+            let mut pipeline = Pipeline::new(
+                absolute_path.as_path(),
+                mode.clone(),
+                config.clone(),
+                proj.clone(),
+            )?;
 
             let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
@@ -104,26 +110,30 @@ async fn cli_run() -> anyhow::Result<()> {
             println!("Server open at: http://localhost:8000{}", config.url_prefix);
 
             let notify_config = notify::Config::default();
+
             let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(
                 Duration::from_millis(20),
                 None,
                 move |res: DebounceEventResult| match res {
                     Ok(events) => events.iter().for_each(|event| {
                         if let DebouncedEventKind::Any = &event.kind {
-                            let p = &event.path;
+                            let full_path = &event.path;
+                            let p = full_path.strip_prefix(absolute_path.as_path()).unwrap();
                             println!();
 
-                            if p.starts_with(path.as_path().join("content")) {
+                            if p.starts_with(Path::new("content")) {
                                 // pipeline.build_file(p, &c2, &cf);
-                                let res = pipeline.build_single(p.to_path_buf());
+                                let res = pipeline.build_single(full_path.to_path_buf());
                                 err_print(res);
                             } else {
-                                if p.starts_with(
-                                    path.as_path().join("templates").join("shortcodes"),
-                                ) {
+                                if p.starts_with(Path::new("templates").join("shortcodes")) {
                                     let res = pipeline.reload_shortcode_tera();
                                     err_print(res);
                                     println!("{}", style("reloaded shortcode templates").green());
+                                } else if p.starts_with(Path::new("templates").join("builtins")) {
+                                    let res = pipeline.reload_builtins_tera();
+                                    err_print(res);
+                                    println!("{}", style("reloaded builtin templates").green());
                                 }
                                 let res = pipeline.reload_base_tera();
                                 println!("{}", style("Reloaded page templates").green());

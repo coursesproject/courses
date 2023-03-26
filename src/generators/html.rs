@@ -71,17 +71,14 @@ impl Generator for HtmlGenerator {
 
                 // TODO: Merge with single
                 let mut context = tera::Context::new();
-                context.insert("config", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-                context.insert("project", &ctx.config);
+                context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+                context.insert("config", &ctx.config);
                 context.insert("current_part", &item.part_id);
                 context.insert("current_chapter", &item.chapter_id);
                 context.insert("current_doc", &item.doc.id);
                 context.insert("doc", &c);
-                context.insert("html", &c.content);
-                context.insert("title", "Test");
 
                 let result = self.tera.render("section.tera.html", &context)?;
-
                 self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
             }
         }
@@ -105,8 +102,8 @@ impl Generator for HtmlGenerator {
     ) -> anyhow::Result<()> {
         let proj = ctx.project.clone();
         let mut context = tera::Context::new();
-        context.insert("config", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-        context.insert("project", &ctx.config);
+        context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+        context.insert("config", &ctx.config);
         context.insert("current_part", &doc_info.part_id);
         context.insert("current_chapter", &doc_info.chapter_id);
         context.insert("current_doc", &doc_info.doc.id);

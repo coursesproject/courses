@@ -18,6 +18,7 @@ use mover::{MoveContext, Mover};
 
 use crate::generators::html::HtmlGenerator;
 use crate::generators::info::InfoGenerator;
+use crate::generators::latex::LaTeXGenerator;
 use crate::generators::notebook::CodeOutputGenerator;
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
@@ -61,7 +62,7 @@ impl Pipeline {
             .as_ref()
             .to_str()
             .ok_or_else(|| anyhow!("Invalid path"))?;
-        let pattern = path_str.to_string() + "/templates/**/*.tera.html";
+        let pattern = path_str.to_string() + "/templates/**/*.tera.*";
         let base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
 
         let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
@@ -69,8 +70,9 @@ impl Pipeline {
             Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
 
         let builtins_pattern = path_str.to_string() + "/templates/builtins/**/*.tera.*";
-        let builtins_tera =
+        let mut builtins_tera =
             Tera::new(&builtins_pattern).context("Error preparing project templates")?;
+        builtins_tera.autoescape_on(vec![".html", ".md", ".tex"]);
 
         let ts = ThemeSet::load_defaults();
         let render_context = RenderContext {
@@ -96,6 +98,7 @@ impl Pipeline {
             OutputFormat::Notebook => Box::new(CodeOutputGenerator),
             OutputFormat::Html => Box::new(HtmlGenerator::new(self.base_tera.clone())),
             OutputFormat::Info => Box::new(InfoGenerator),
+            OutputFormat::LaTeX => Box::new(LaTeXGenerator::new(self.base_tera.clone())),
         }
     }
 
@@ -104,6 +107,7 @@ impl Pipeline {
             OutputFormat::Notebook => self.project_path.join("build").join("notebooks"),
             OutputFormat::Html => self.project_path.join("build").join("html"),
             OutputFormat::Info => self.project_path.join("build"),
+            OutputFormat::LaTeX => self.project_path.join("build").join("latex"),
         }
     }
 
@@ -113,6 +117,10 @@ impl Pipeline {
 
     pub fn reload_base_tera(&mut self) -> anyhow::Result<()> {
         Ok(self.base_tera.full_reload()?)
+    }
+
+    pub fn reload_builtins_tera(&mut self) -> anyhow::Result<()> {
+        Ok(self.render_context.tera.full_reload()?)
     }
 
     pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
@@ -330,6 +338,7 @@ impl Pipeline {
             let context = GeneratorContext {
                 root: self.project_path.to_path_buf(),
                 project: output,
+                tera: self.base_tera.clone(),
                 config: self.project_config.clone(),
                 build_dir: self.get_build_path(*format),
             };
@@ -488,7 +497,7 @@ impl Pipeline {
         format: OutputFormat,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         let doc = item.format.loader().load(&item.content)?;
-        // println!("doc {}", item.path.display());
+
         if format.no_parse() {
             Ok(Some(Document {
                 content: "".to_string(),
@@ -502,7 +511,7 @@ impl Pipeline {
             };
 
             let mut meta = tera::Context::new();
-            meta.insert("project", &self.project_config);
+            meta.insert("config", &self.project_config);
 
             let res = self
                 .project_config

@@ -72,7 +72,7 @@ Produces a figure for the webpage and a regular markdown image for the notebook.
 For notebooks, this shortcode produces a regular markdown image code. The template code is:
 
 ```markdown
-\![{{caption}}]({{project.url_prefix}}/resources/{{url}})
+[{{caption}}]({{config.url_prefix}}/resources/{{url}})
 ```
 
 ### Message
@@ -113,7 +113,7 @@ the shortcode call-site into the template - the names map one-to-one. For block 
 variable `body`.
 
 Shortcode arguments are mandatory by default. If a value is used in a template without being defined at the call-site,
-Courses returns an error. Optional arguments can be implemented using a the Tera `default` function,
+Courses returns an error. Optional arguments can be implemented using the Tera `default` function,
 e.g. `{{ value | default(2) }}`.
 
 ### Other available variables

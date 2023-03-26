@@ -9,6 +9,7 @@ use crate::parser::{Parser, ParserSettings};
 use crate::processors::exercises::ExercisesConfig;
 use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
+use crate::renderers::latex::LatexRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::Renderer;
 
@@ -25,6 +26,7 @@ pub enum OutputFormat {
     Notebook,
     Html,
     Info,
+    LaTeX,
 }
 
 impl InputFormat {
@@ -72,6 +74,7 @@ impl OutputFormat {
             OutputFormat::Notebook => false,
             OutputFormat::Html => false,
             OutputFormat::Info => true,
+            OutputFormat::LaTeX => false,
         }
     }
 
@@ -97,6 +100,7 @@ impl OutputFormat {
             OutputFormat::Notebook => "ipynb",
             OutputFormat::Html => "html",
             OutputFormat::Info => "yml",
+            OutputFormat::LaTeX => "tex",
         }
     }
 
@@ -105,6 +109,7 @@ impl OutputFormat {
             OutputFormat::Notebook => "md",
             OutputFormat::Html => "html",
             OutputFormat::Info => "yml",
+            OutputFormat::LaTeX => "tex",
         }
     }
 
@@ -113,6 +118,7 @@ impl OutputFormat {
             OutputFormat::Notebook => "notebook",
             OutputFormat::Html => "html",
             OutputFormat::Info => "info",
+            OutputFormat::LaTeX => "latex",
         }
     }
 
@@ -123,6 +129,7 @@ impl OutputFormat {
                 interactive_cells: true,
             })),
             OutputFormat::Info => None,
+            OutputFormat::LaTeX => Some(Box::new(LatexRenderer)),
         }
     }
 }

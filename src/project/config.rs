@@ -11,8 +11,6 @@ use cdoc::parser::Parser;
 pub struct ProjectConfig {
     #[serde(default)]
     pub url_prefix: String,
-    #[serde(default = "default_config")]
-    pub build: HashMap<String, BuildConfig>,
     #[serde(default)]
     pub repository: RepositoryConfig,
     pub outputs: Vec<OutputFormat>,

@@ -7,11 +7,11 @@ layout:
 <div class="columns is-multiline banner">
 
 {% card(title="CDocs cli", color=primary) %}
-d
+A separate tool for parsing, processing, and rendering of individual documents.
 {% end %}
 
 {% card(title="Recursive content", color=white) %}
-d
+Restructuring of the 
 {% end %}
 
 {% card(title="Improved notebook outputs", color=danger) %}

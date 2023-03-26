@@ -88,14 +88,22 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                             .last_mut()
                             .unwrap()
                             .push_inline(Inline::Strikethrough(inner.into_inlines())),
-                        Tag::Link(tp, url, title) => inners
-                            .last_mut()
-                            .unwrap()
-                            .push_inline(Inline::Link(tp, url.to_string(), title.to_string())),
-                        Tag::Image(tp, url, title) => inners
-                            .last_mut()
-                            .unwrap()
-                            .push_inline(Inline::Image(tp, url.to_string(), title.to_string())),
+                        Tag::Link(tp, url, alt) => {
+                            inners.last_mut().unwrap().push_inline(Inline::Link(
+                                tp,
+                                url.to_string(),
+                                alt.to_string(),
+                                inner.into_inlines(),
+                            ))
+                        }
+                        Tag::Image(tp, url, alt) => {
+                            inners.last_mut().unwrap().push_inline(Inline::Image(
+                                tp,
+                                url.to_string(),
+                                alt.to_string(),
+                                inner.into_inlines(),
+                            ))
+                        }
                         _ => {} // TODO: Unreachable
                     }
                 }
@@ -212,14 +220,22 @@ impl FromIterator<AEvent> for Ast {
                             .last_mut()
                             .unwrap()
                             .push_inline(Inline::Strikethrough(inner.into_inlines())),
-                        ATag::Link(tp, url, title) => inners
-                            .last_mut()
-                            .unwrap()
-                            .push_inline(Inline::Link(tp, url.to_string(), title.to_string())),
-                        ATag::Image(tp, url, title) => inners
-                            .last_mut()
-                            .unwrap()
-                            .push_inline(Inline::Image(tp, url.to_string(), title.to_string())),
+                        ATag::Link(tp, url, alt) => {
+                            inners.last_mut().unwrap().push_inline(Inline::Link(
+                                tp,
+                                url.to_string(),
+                                alt.to_string(),
+                                inner.into_inlines(),
+                            ))
+                        }
+                        ATag::Image(tp, url, alt) => {
+                            inners.last_mut().unwrap().push_inline(Inline::Image(
+                                tp,
+                                url.to_string(),
+                                alt.to_string(),
+                                inner.into_inlines(),
+                            ))
+                        }
                         _ => {} // TODO: Unreachable
                     }
                 }

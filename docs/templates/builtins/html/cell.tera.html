@@ -1,0 +1,25 @@
+{#{% if cell_toggle %}#}
+{#<div x-data="{ toggle_{{ref}}: false }">#}
+{#    <button @click="toggle_{{ref}} = true">Expand</button>#}
+{#    <pre x-show="toggle_{{ref}}"><code>{{ source }}</code></pre>#}
+{#</div>#}
+{#{% else %}#}
+{#<pre><code>{{ source }}</code></pre>#}
+{#{% endif %}#}
+
+
+
+
+{% if editable %}
+    <div id="cell_{{ id }}_code" class="language-python editor">{{source}}</div>
+    {% if interactive %}<button class="button is-primary" @click="run_cell(CM.editors['cell_{{ id }}_code'].state.doc.toString(), 'cell_{{ id }}_out')">Run</button>{% endif %}
+{% else %}
+    <div hidden id="cell_{{ id }}_in">{{source}}</div><div id="cell_{{ id }}_code">{{highlighted | safe}}</div>
+    {% if interactive %}<button class="button is-primary" @click="run_cell(document.getElementById('cell_{{ id }}_in').innerHTML, 'cell_{{ id }}_out')">Run</button>{% endif %}
+{% endif %}
+
+
+
+
+{% if cell_outputs %}<div id="cell_{{ id }}_out">{{ outputs | safe }}</div>{% endif %}
+

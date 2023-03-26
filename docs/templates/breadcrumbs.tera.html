@@ -2,16 +2,16 @@
     {% for part in config.content %}
     <ul>
       {% if part.id == current_part %}
-      <li><a href="{{project.url_prefix}}/{{part.id}}/index.html">{{part.index.content.title}}</a></li>
+      <li><a href="{{config.url_prefix}}/{{part.id}}/index.html">{{part.index.content.title}}</a></li>
       {% if part.chapters %}
       
       {% for chapter in part.chapters %}
       
       {% if current_chapter == chapter.id %}
-            <li><a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{ chapter.index.content.title }}</a></li>
+            <li><a href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/index.html">{{ chapter.index.content.title }}</a></li>
             {% for doc in chapter.documents %}
               {% if current_doc == doc.id %}
-              <li><a href="{{project.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{doc.id}}.html">{{doc.content.title}}</a></li>
+              <li><a href="{{config.url_prefix}}/{{part.id}}/{{ chapter.id }}/{{doc.id}}.html">{{doc.content.title}}</a></li>
               {% endif %}
             {% endfor %}
       {% endif %}

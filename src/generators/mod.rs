@@ -1,18 +1,21 @@
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 use std::path::PathBuf;
+use tera::Tera;
 
 use crate::project::config::ProjectConfig;
 use crate::project::{ItemDescriptor, Project};
 
 pub mod html;
 pub(crate) mod info;
+pub mod latex;
 pub mod notebook;
 
 #[derive(Clone)]
 pub struct GeneratorContext {
     pub root: PathBuf,
     pub project: Project<Option<Document<RenderResult>>>,
+    pub tera: Tera,
     pub config: ProjectConfig,
     pub build_dir: PathBuf,
 }

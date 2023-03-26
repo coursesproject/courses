@@ -33,16 +33,12 @@ impl IntoIterator for Inline {
             Inline::HardBreak => vec![AEvent::HardBreak].into_iter(),
             Inline::Rule => vec![AEvent::Rule].into_iter(),
             Inline::Html(s) => vec![AEvent::Html(s)].into_iter(),
-            Inline::Image(tp, url, title) => vec![
-                AEvent::Start(ATag::Image(tp, url.clone(), title.clone())),
-                AEvent::End(ATag::Image(tp, url, title)),
-            ]
-            .into_iter(),
-            Inline::Link(tp, url, title) => vec![
-                AEvent::Start(ATag::Link(tp, url.clone(), title.clone())),
-                AEvent::End(ATag::Link(tp, url, title)),
-            ]
-            .into_iter(),
+            Inline::Image(tp, url, alt, inner) => {
+                wrap_events(ATag::Image(tp, url, alt), iter_inlines(&inner))
+            }
+            Inline::Link(tp, url, alt, inner) => {
+                wrap_events(ATag::Link(tp, url, alt), iter_inlines(&inner))
+            }
         }
     }
 }
