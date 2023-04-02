@@ -398,12 +398,14 @@ dependencies = [
  "fs_extra",
  "indicatif",
  "inquire",
+ "linked-hash-map",
  "notify",
  "notify-debouncer-mini",
  "penguin",
  "reqwest",
  "rust-embed",
  "serde",
+ "serde_json",
  "serde_yaml",
  "syntect",
  "tempfile",
@@ -1369,6 +1371,9 @@ name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "linux-raw-sys"
@@ -2132,9 +2137,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c533a59c9d8a93a09c6ab31f0fd5e5f4dd1b8fc9434804029839884765d04ea"
+checksum = "d721eca97ac802aa7777b701877c8004d950fc142651367300d21c1cc0194744"
 dependencies = [
  "itoa",
  "ryu",

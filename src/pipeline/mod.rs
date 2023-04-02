@@ -244,7 +244,13 @@ impl Pipeline {
         let doc = if el.contains('.') {
             &self.project.index
         } else {
-            let first_elem = doc_iter.next().unwrap().to_str().unwrap();
+            let first_elem = doc_iter
+                .next()
+                .ok_or(anyhow!(
+                    "Empty part. Parts must contain index.ms or index.ipynb"
+                ))?
+                .to_str()
+                .unwrap();
 
             // let file_name = doc_iter.next().unwrap().to_str().unwrap();
             let file_id = section_id(path.as_path()).unwrap();

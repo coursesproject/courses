@@ -32,7 +32,8 @@ cdoc = { path = "cdoc", version = "0.2.1" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }
-serde_yaml = "0.9.13"
+serde_yaml = { version = "0.9.13"}
+serde_json = "1.0.95"
 tera = "1.17.1"
 syntect = "5.0.0"
 
@@ -42,6 +43,7 @@ fs_extra = "1.2.0"
 thiserror = { version = "1.0.37" }
 anyhow = { version = "1.0.65", features=["backtrace"] }
 beau_collector = "0.2.1"
+linked-hash-map = {version="0.5.6", features=["serde_impl"]}
 
 # CLI libraries
 inquire = "0.5.2"

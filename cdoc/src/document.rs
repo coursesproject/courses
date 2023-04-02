@@ -18,13 +18,18 @@ use crate::processors::MarkdownPreprocessor;
 #[serde(deny_unknown_fields)]
 pub struct DocumentMetadata {
     pub title: Option<String>,
-    pub code_split: Option<bool>,
-    pub notebook_output: Option<bool>,
-    pub code_solutions: Option<bool>,
+    #[serde(default = "default_true")]
+    pub exercises: bool,
+    #[serde(default)]
+    pub notebook_output: bool,
+    #[serde(default)]
+    pub code_solutions: bool,
     #[serde(default = "default_true")]
     pub cell_outputs: bool,
-    pub interactive: Option<bool>,
-    pub editable: Option<bool>,
+    #[serde(default)]
+    pub interactive: bool,
+    #[serde(default)]
+    pub editable: bool,
     #[serde(default)]
     pub layout: LayoutSettings,
 

@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
 use anyhow::anyhow;
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
@@ -13,7 +14,7 @@ use crate::renderers::latex::LatexRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::Renderer;
 
-#[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug)]
+#[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum InputFormat {
     Markdown,

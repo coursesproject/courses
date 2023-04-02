@@ -1,14 +1,18 @@
 //! Then what is this??
 
+use std::collections::HashMap;
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, fs};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
+use cdoc::config::InputFormat;
+use cdoc::document::DocumentMetadata;
 use clap::{Parser, Subcommand};
 use console::style;
 use inquire::{InquireError, Select};
+use linked_hash_map::LinkedHashMap;
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
@@ -47,6 +51,7 @@ enum Commands {
         #[arg(short, long)]
         repository: Option<String>,
     },
+    Create {},
     Test {},
     Publish {},
 }
@@ -194,6 +199,111 @@ async fn cli_run() -> anyhow::Result<()> {
             setup::setup(dir, repository)?;
 
             println!("{}", style("Success").green().bold());
+
+            Ok(())
+        }
+        Commands::Create {} => {
+            let res = inquire::Text::new("Document path: ").prompt()?;
+            let doc_path = Path::new(&res);
+
+            let ext = doc_path
+                .extension()
+                .ok_or(anyhow!(
+                    "Document path must have an extension (.md or .ipynb)"
+                ))?
+                .to_str()
+                .unwrap();
+
+            let title = inquire::Text::new("Enter document title: ").prompt()?;
+
+            let doc_options = vec![
+                "exercises",
+                "notebook_output",
+                "code_solutions",
+                "cell_outputs",
+                "interactive",
+                "editable",
+            ];
+
+            let doc_option_ans =
+                inquire::MultiSelect::new("Select document options: ", doc_options)
+                    .with_default(&[0, 3])
+                    .prompt()?;
+
+            let output_formats = vec!["notebook", "html", "info", "latex"];
+            let output_ans = inquire::MultiSelect::new("Select output formats:", output_formats)
+                .with_default(&[2])
+                .prompt()?;
+
+            let mut doc_meta: LinkedHashMap<String, serde_yaml::Value> = LinkedHashMap::new();
+            doc_meta.insert("title".to_string(), serde_yaml::Value::from(title));
+            doc_option_ans.into_iter().for_each(|o| {
+                doc_meta.insert(o.to_string(), serde_yaml::Value::from(true));
+            });
+            doc_meta.insert("outputs".to_string(), serde_yaml::Value::from(output_ans));
+
+            let doc_meta_string = serde_yaml::to_string(&doc_meta)?;
+            let content_path = env::current_dir()?.join("content");
+            let full_path = content_path.join(doc_path);
+
+            let doc_string = match ext {
+                "md" => Ok(format!("---\n{doc_meta_string}\n---\n")),
+                "ipynb" => {
+                    let lines: Vec<String> =
+                        doc_meta_string.lines().map(|l| format!("{l}\n")).collect();
+
+                    let lines_str = serde_json::to_string_pretty(&lines)?;
+                    let raw_upper = r#"
+                    {
+                        "cells": [
+                            {
+                                "cell_type": "raw",
+                                "metadata": {
+                                    "collapsed": true
+                                },
+                                "source":"#;
+                    let raw_lower = r#"
+                            },
+                            {
+                                "cell_type": "code",
+                                "execution_count": null,
+                                "metadata": {
+                                    "collapsed": true
+                                },
+                                "outputs": [],
+                                "source": []
+                            }
+                        ],
+                        "metadata": {
+                            "kernelspec": {
+                                "display_name": "Python 3",
+                                "language": "python",
+                                "name": "python3"
+                            },
+                            "language_info": {
+                                "codemirror_mode": {
+                                    "name": "ipython",
+                                    "version": 2
+                                },
+                                "file_extension": ".py",
+                                "mimetype": "text/x-python",
+                                "name": "python",
+                                "nbconvert_exporter": "python",
+                                "pygments_lexer": "ipython2",
+                                "version": "2.7.6"
+                            }
+                        },
+                        "nbformat": 4,
+                        "nbformat_minor": 0
+                    }
+                    "#;
+                    Ok(format!("{raw_upper}\n{lines_str}\n{raw_lower}"))
+                }
+                _ => Err(anyhow!("Invalid extension. Must be one of: .md, .ipynb")),
+            }?;
+
+            fs::write(full_path, doc_string)?;
+            println!("Done!");
 
             Ok(())
         }

@@ -291,10 +291,15 @@ fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
     let chapter_index_md = chapter_dir.as_ref().join("index.md");
     let chapter_index_ipynb = chapter_dir.as_ref().join("index.ipynb");
     let chapter_index = if chapter_index_md.is_file() {
-        chapter_index_md
+        Ok(chapter_index_md)
+    } else if chapter_index_ipynb.is_file() {
+        Ok(chapter_index_ipynb)
     } else {
-        chapter_index_ipynb
-    };
+        Err(anyhow!(
+            "index.md/index.ipynb file not found in path: {}",
+            chapter_dir.as_ref().display()
+        ))
+    }?;
 
     ProjectItem::new(chapter_index.strip_prefix(content_path.as_ref())?)
 }

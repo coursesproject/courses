@@ -152,9 +152,9 @@ impl ToHtml for Block {
                 )?;
 
                 let mut context = tera::Context::new();
-                context.insert("interactive", &ctx.metadata.interactive.unwrap_or_default());
+                context.insert("interactive", &ctx.metadata.interactive);
                 context.insert("cell_outputs", &ctx.metadata.cell_outputs);
-                context.insert("editable", &ctx.metadata.editable.unwrap_or_default());
+                context.insert("editable", &ctx.metadata.editable);
                 context.insert("source", &source);
                 context.insert("highlighted", &highlighted);
                 context.insert("id", &id);
