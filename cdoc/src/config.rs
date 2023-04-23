@@ -11,6 +11,7 @@ use crate::processors::exercises::ExercisesConfig;
 use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
 use crate::renderers::latex::LatexRenderer;
+use crate::renderers::markdown::MarkdownRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::Renderer;
 
@@ -27,6 +28,7 @@ pub enum OutputFormat {
     Notebook,
     Html,
     Info,
+    Markdown,
     LaTeX,
 }
 
@@ -76,6 +78,7 @@ impl OutputFormat {
             OutputFormat::Html => false,
             OutputFormat::Info => true,
             OutputFormat::LaTeX => false,
+            OutputFormat::Markdown => false,
         }
     }
 
@@ -102,6 +105,7 @@ impl OutputFormat {
             OutputFormat::Html => "html",
             OutputFormat::Info => "yml",
             OutputFormat::LaTeX => "tex",
+            OutputFormat::Markdown => "md",
         }
     }
 
@@ -111,6 +115,7 @@ impl OutputFormat {
             OutputFormat::Html => "html",
             OutputFormat::Info => "yml",
             OutputFormat::LaTeX => "tex",
+            OutputFormat::Markdown => "md",
         }
     }
 
@@ -120,6 +125,7 @@ impl OutputFormat {
             OutputFormat::Html => "html",
             OutputFormat::Info => "info",
             OutputFormat::LaTeX => "latex",
+            OutputFormat::Markdown => "markdown",
         }
     }
 
@@ -131,6 +137,7 @@ impl OutputFormat {
             })),
             OutputFormat::Info => None,
             OutputFormat::LaTeX => Some(Box::new(LatexRenderer)),
+            OutputFormat::Markdown => Some(Box::new(MarkdownRenderer)),
         }
     }
 }

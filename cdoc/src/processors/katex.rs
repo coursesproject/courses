@@ -51,7 +51,10 @@ impl MarkdownPreprocessor for KaTeX {
 
                     let source = &rest[(begin + delim_len)..end];
 
-                    let opts = Opts::builder().display_mode(delim_len == 2).build()?;
+                    let opts = Opts::builder()
+                        .display_mode(delim_len == 2)
+                        .throw_on_error(true)
+                        .build()?;
                     let ktex = katex::render_with_opts(source, opts)?;
 
                     res.push_str(pre);

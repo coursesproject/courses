@@ -19,6 +19,7 @@ use mover::{MoveContext, Mover};
 use crate::generators::html::HtmlGenerator;
 use crate::generators::info::InfoGenerator;
 use crate::generators::latex::LaTeXGenerator;
+use crate::generators::markdown::MarkdownGenerator;
 use crate::generators::notebook::CodeOutputGenerator;
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
@@ -74,11 +75,16 @@ impl Pipeline {
             Tera::new(&builtins_pattern).context("Error preparing project templates")?;
         builtins_tera.autoescape_on(vec![".html", ".md", ".tex"]);
 
+        let mut meta = tera::Context::new();
+        meta.insert("config", &config);
+
         let ts = ThemeSet::load_defaults();
         let render_context = RenderContext {
-            tera: builtins_tera,
+            tera: base_tera.clone(),
+            tera_context: meta,
             syntax_set: SyntaxSet::load_defaults_newlines(),
             theme: ts.themes["base16-ocean.light"].clone(),
+            notebook_output_meta: config.notebook_meta.clone().unwrap_or_default(),
         };
 
         Ok(Pipeline {
@@ -99,6 +105,7 @@ impl Pipeline {
             OutputFormat::Html => Box::new(HtmlGenerator::new(self.base_tera.clone())),
             OutputFormat::Info => Box::new(InfoGenerator),
             OutputFormat::LaTeX => Box::new(LaTeXGenerator::new(self.base_tera.clone())),
+            OutputFormat::Markdown => Box::new(MarkdownGenerator::new(self.base_tera.clone())),
         }
     }
 
@@ -108,10 +115,12 @@ impl Pipeline {
             OutputFormat::Html => self.project_path.join("build").join("html"),
             OutputFormat::Info => self.project_path.join("build"),
             OutputFormat::LaTeX => self.project_path.join("build").join("latex"),
+            OutputFormat::Markdown => self.project_path.join("build").join("markdown"),
         }
     }
 
     pub fn reload_shortcode_tera(&mut self) -> anyhow::Result<()> {
+        self.render_context.tera.full_reload()?;
         Ok(self.shortcode_tera.full_reload()?)
     }
 
@@ -509,6 +518,7 @@ impl Pipeline {
                 content: "".to_string(),
                 metadata: doc.metadata,
                 variables: doc.variables,
+                ids: doc.ids,
             }))
         } else if doc.metadata.outputs.contains(&format) {
             let processor_ctx = PreprocessorContext {

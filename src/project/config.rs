@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::OutputFormat;
+use cdoc::notebook::NotebookMeta;
 use cdoc::parser::Parser;
 
 /// Refers to a configuration.yml file in the project that specifies a variety
@@ -17,6 +18,7 @@ pub struct ProjectConfig {
     pub parsers: HashMap<OutputFormat, Parser>,
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,
+    pub notebook_meta: Option<NotebookMeta>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

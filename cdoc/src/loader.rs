@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
@@ -5,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Context};
 use thiserror::Error;
 
-use crate::document::{Document, DocumentMetadata, RawContent};
+use crate::document::{
+    split_markdown, split_shortcodes, Document, DocumentMetadata, Element, IntoRawDoc, RawContent,
+};
 use crate::notebook::Notebook;
 
 #[derive(Error, Debug)]
@@ -36,7 +39,7 @@ impl Loader for NotebookLoader {
         let meta = nb
             .get_front_matter()
             .context("Failed to read front matter")?;
-        Ok(Document::new(nb, meta))
+        Ok(nb.into_doc(meta))
     }
 }
 
@@ -61,7 +64,15 @@ impl Loader for MarkdownLoader {
 
         let meta: DocumentMetadata =
             serde_yaml::from_str(&input[start + 3..end]).context("Could not parse frontmatter")?;
-        Ok(Document::new(input[end + 3..].to_string(), meta))
+        let mut counters = HashMap::new();
+        let elems: Vec<Element> = split_shortcodes(&input[end + 3..], &mut counters)?
+            .into_iter()
+            .flat_map(|e| match e {
+                Element::Markdown { content } => split_markdown(&content),
+                _ => vec![e],
+            })
+            .collect();
+        Ok(Document::new(elems, meta, counters))
     }
 }
 

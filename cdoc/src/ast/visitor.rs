@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Block, CodeAttributes, Inline};
+use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode};
 use crate::notebook::CellOutput;
 use anyhow::Result;
 
@@ -26,6 +26,10 @@ pub trait AstVisitor {
             } => self.visit_code_block(source, reference, attr, outputs),
             Block::List(_, ref mut blocks) => self.visit_vec_block(blocks),
             Block::ListItem(ref mut blocks) => self.visit_vec_block(blocks),
+            Block::Math(ref mut s, ref mut display_block, ref mut trailing_space) => {
+                self.visit_math_block(s, display_block, trailing_space)
+            }
+            Block::Shortcode(ref mut s) => self.visit_shortcode(s),
         }
     }
 
@@ -46,6 +50,7 @@ pub trait AstVisitor {
             Inline::Image(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Html(_) => Ok(()),
+            Inline::Math(s) => self.visit_math_inline(s),
         }
     }
 
@@ -73,6 +78,22 @@ pub trait AstVisitor {
     }
 
     fn visit_code(&mut self, _source: &mut String) -> Result<()> {
+        Ok(())
+    }
+
+    fn visit_math_block(
+        &mut self,
+        _source: &mut String,
+        _display_block: &mut bool,
+        _trailing_space: &mut bool,
+    ) -> Result<()> {
+        Ok(())
+    }
+    fn visit_math_inline(&mut self, _source: &mut String) -> Result<()> {
+        Ok(())
+    }
+
+    fn visit_shortcode(&mut self, _shortcode: &mut Shortcode) -> Result<()> {
         Ok(())
     }
 }

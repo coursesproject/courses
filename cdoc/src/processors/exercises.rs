@@ -37,7 +37,7 @@ impl AstVisitor for Exercises {
     ) -> anyhow::Result<()> {
         let res = parse_code_string(source.clone().as_ref())?;
         let (pc, _) = res.split();
-        *source = pc;
+        *source = pc.strip_suffix("\n").unwrap_or(&pc).to_string();
         Ok(())
     }
 }

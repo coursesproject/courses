@@ -1,12 +1,14 @@
-use crate::ast::{Ast, Block, Inline};
+use crate::ast::{Ast, Block, Inline, Shortcode};
 use crate::document::{Document, DocumentMetadata};
 use crate::notebook::{CellOutput, OutputValue};
+use crate::parsers::shortcodes::ShortCodeDef;
 use crate::renderers::{
-    get_id, render_value_template, RenderContext, RenderElement, RenderResult, Renderer,
+    add_args, get_id, render_value_template, RenderContext, RenderElement, RenderResult, Renderer,
 };
 use anyhow::Result;
 use pulldown_cmark::HeadingLevel;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tera::Tera;
 
 #[derive(Serialize, Deserialize)]
@@ -17,12 +19,15 @@ impl Renderer for LatexRenderer {
     fn render(&self, doc: &Document<Ast>, ctx: &RenderContext) -> Result<Document<RenderResult>> {
         let ctx = ToLaTeXContext {
             metadata: doc.metadata.clone(),
+            ids: doc.ids.clone(),
             tera: ctx.tera.clone(),
+            tera_context: ctx.tera_context.clone(),
         };
 
         Ok(Document {
             content: doc.content.0.clone().render(&ctx)?,
             metadata: doc.metadata.clone(),
+            ids: doc.ids.clone(),
             variables: doc.variables.clone(),
         })
     }
@@ -30,7 +35,9 @@ impl Renderer for LatexRenderer {
 
 pub struct ToLaTeXContext {
     pub metadata: DocumentMetadata,
+    pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     pub tera: Tera,
+    pub tera_context: tera::Context,
 }
 
 impl RenderElement<ToLaTeXContext> for Inline {
@@ -55,7 +62,7 @@ impl RenderElement<ToLaTeXContext> for Inline {
                 context.insert("url", &url);
                 context.insert("alt", &alt);
                 context.insert("inner", &inner_s);
-                Ok(ctx.tera.render("latex/image.tera.tex", &context)?)
+                Ok(ctx.tera.render("builtins/latex/image.tera.tex", &context)?)
             }
             Inline::Link(_tp, url, alt, inner) => {
                 let inner_s = inner.render(ctx)?;
@@ -63,9 +70,10 @@ impl RenderElement<ToLaTeXContext> for Inline {
                 context.insert("url", &url);
                 context.insert("alt", &alt);
                 context.insert("inner", &inner_s);
-                Ok(ctx.tera.render("latex/link.tera.tex", &context)?)
+                Ok(ctx.tera.render("builtins/latex/link.tera.tex", &context)?)
             }
             Inline::Html(s) => Ok(s),
+            Inline::Math(s) => Ok(format!("${}$", s)),
         }
     }
 }
@@ -74,12 +82,14 @@ impl RenderElement<ToLaTeXContext> for OutputValue {
     fn render(self, ctx: &ToLaTeXContext) -> Result<String> {
         match self {
             OutputValue::Plain(s) => {
-                render_value_template(&ctx.tera, "latex/output_text.tera.tex", s)
+                render_value_template(&ctx.tera, "builtins/latex/output_text.tera.tex", s.join(""))
             }
             OutputValue::Image(s) => {
-                render_value_template(&ctx.tera, "latex/output_img.tera.tex", s)
+                render_value_template(&ctx.tera, "builtins/latex/output_img.tera.tex", s)
             }
-            OutputValue::Svg(s) => render_value_template(&ctx.tera, "latex/output_svg.tera.tex", s),
+            OutputValue::Svg(s) => {
+                render_value_template(&ctx.tera, "builtins/latex/output_svg.tera.tex", s)
+            }
             OutputValue::Json(_) => Ok("".to_string()),
             OutputValue::Html(_) => Ok("".to_string()),
             OutputValue::Javascript(_) => Ok("".to_string()),
@@ -93,7 +103,7 @@ impl RenderElement<ToLaTeXContext> for CellOutput {
             CellOutput::Stream { text, .. } => Ok(text),
             CellOutput::Data { data, .. } => data.into_iter().map(|v| v.render(ctx)).collect(),
             CellOutput::Error { evalue, .. } => {
-                render_value_template(&ctx.tera, "latex/output_error.tera.md", evalue)
+                render_value_template(&ctx.tera, "builtins/latex/output_error.tera.md", evalue)
             }
         }
     }
@@ -125,7 +135,7 @@ impl RenderElement<ToLaTeXContext> for Block {
                 context.insert("id", &id);
                 context.insert("outputs", &outputs.render(ctx)?);
 
-                let output = ctx.tera.render("latex/cell.tera.tex", &context)?;
+                let output = ctx.tera.render("builtins/latex/cell.tera.tex", &context)?;
                 Ok(output)
             }
             Block::List(idx, items) => {
@@ -133,20 +143,74 @@ impl RenderElement<ToLaTeXContext> for Block {
                 let inner = inner?;
 
                 Ok(match idx {
-                    None => {
-                        render_value_template(&ctx.tera, "latex/list_unordered.tera.tex", inner)?
-                    }
+                    None => render_value_template(
+                        &ctx.tera,
+                        "builtins/latex/list_unordered.tera.tex",
+                        inner,
+                    )?,
                     Some(start) => {
                         let mut context = tera::Context::new();
                         context.insert("start", &start);
                         context.insert("value", &inner);
-                        ctx.tera.render("latex/list_ordered.tera.tex", &context)?
+                        ctx.tera
+                            .render("builtins/latex/list_ordered.tera.tex", &context)?
                     }
                 })
             }
-            Block::ListItem(inner) => {
-                render_value_template(&ctx.tera, "latex/list_item.tera.tex", inner.render(ctx)?)
+            Block::ListItem(inner) => render_value_template(
+                &ctx.tera,
+                "builtins/latex/list_item.tera.tex",
+                inner.render(ctx)?,
+            ),
+            Block::Math(s, display_mode, trailing_space) => {
+                let mut context = tera::Context::new();
+                context.insert("display_mode", &display_mode);
+                context.insert("trailing_space", &trailing_space);
+                context.insert("value", &s);
+                Ok(ctx.tera.render("builtins/latex/math.tera.tex", &context)?)
             }
+            Block::Shortcode(s) => render_shortcode_template(ctx, s),
+        }
+    }
+}
+
+fn render_params(
+    parameters: HashMap<String, Vec<Block>>,
+    ctx: &ToLaTeXContext,
+) -> Result<HashMap<String, String>> {
+    parameters
+        .into_iter()
+        .map(|(k, v)| Ok((k, v.render(ctx)?)))
+        .collect()
+}
+
+fn render_shortcode_template(ctx: &ToLaTeXContext, shortcode: Shortcode) -> Result<String> {
+    let mut context = ctx.tera_context.clone();
+
+    match shortcode {
+        Shortcode::Inline(def) => {
+            let name = format!("shortcodes/tex/{}.tera.tex", def.name,);
+            add_args(
+                &mut context,
+                def.id,
+                def.num,
+                &ctx.ids,
+                render_params(def.parameters, ctx)?,
+            );
+            Ok(ctx.tera.render(&name, &context)?)
+        }
+        Shortcode::Block(def, body) => {
+            let name = format!("shortcodes/tex/{}.tera.tex", def.name,);
+            add_args(
+                &mut context,
+                def.id,
+                def.num,
+                &ctx.ids,
+                render_params(def.parameters, ctx)?,
+            );
+            let body = body.render(ctx)?;
+            context.insert("body", &body);
+            Ok(ctx.tera.render(&name, &context)?)
         }
     }
 }

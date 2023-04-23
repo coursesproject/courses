@@ -10,7 +10,7 @@ use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
-use serde_with::EnumMap;
+use serde_with::{formats::PreferOne, serde_as, EnumMap, OneOrMany};
 use std::collections::HashMap;
 use std::iter::FlatMap;
 use std::ops::Range;
@@ -59,13 +59,20 @@ pub struct CellCommon {
     pub source: String,
 }
 
-#[serde_with::serde_as]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum StreamType {
+    StdOut,
+    StdErr,
+}
+
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "output_type")]
 pub enum CellOutput {
     #[serde(rename = "stream")]
     Stream {
-        name: String,
+        name: StreamType,
         #[serde(
             deserialize_with = "concatenate_deserialize",
             serialize_with = "concatenate_serialize"
@@ -87,15 +94,16 @@ pub enum CellOutput {
     },
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum OutputValue {
     #[serde(rename = "text/plain")]
     Plain(
-        #[serde(
-            deserialize_with = "concatenate_deserialize",
-            serialize_with = "concatenate_serialize"
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
         )]
-        String,
+        Vec<String>,
     ),
     #[serde(rename = "image/png")]
     Image(String),
@@ -200,14 +208,16 @@ impl CellOutput {
                 .iter()
                 .flat_map(|value| match value {
                     OutputValue::Plain(v) => {
+                        let s: String = v.join("");
                         vec![(
                             Event::Html(CowStr::Boxed(
                                 format!(
                                     r#"
                                     <div class="notification is-info">
-                                        <pre>{v}</pre>
+                                        <pre>{}</pre>
                                     </div>
                                     "#,
+                                    s
                                 )
                                 .into_boxed_str(),
                             )),
@@ -272,30 +282,27 @@ where
     D: Deserializer<'de>,
 {
     let base: Vec<String> = Deserialize::deserialize(input)?;
-    let source = base.into_iter().collect();
+    let source: String = base.into_iter().collect();
+    //let source = unescape(&source);
     Ok(source)
+}
+
+fn unescape(source: &str) -> String {
+    source.replace(r#"\\"#, r#"\"#)
 }
 
 fn concatenate_serialize<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    serializer.collect_seq(value.split('\n'))
-}
-
-#[allow(unused)]
-fn escape_string_deserialize(source: String) -> String {
-    let escaped = source
-        .chars()
-        .flat_map(|c| match c {
-            '\\' => r#"\\"#.chars().collect(),
-            // '\'' => vec!['\\', '\''],
-            // '\"' => vec!['\\', '\"'],
-            // '±' => vec!['±'],
-            _ => vec![c],
-        })
-        .collect::<String>();
-    escaped
+    let lines: Vec<&str> = value.split('\n').collect();
+    let last = lines[lines.len() - 1];
+    let mut new_lines: Vec<String> = lines[..lines.len() - 1]
+        .into_iter()
+        .map(|s| format!("{}\n", s))
+        .collect();
+    new_lines.push(last.to_string());
+    serializer.collect_seq(new_lines)
 }
 
 #[allow(unused)]

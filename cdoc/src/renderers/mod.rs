@@ -1,4 +1,5 @@
-use crate::ast::{Ast, Inline};
+use crate::ast::{Ast, Inline, Shortcode};
+use crate::config::OutputFormat;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -8,6 +9,8 @@ use syntect::parsing::{SyntaxReference, SyntaxSet};
 use tera::Tera;
 
 use crate::document::Document;
+use crate::notebook::NotebookMeta;
+use crate::parsers::shortcodes::ShortCodeDef;
 use crate::renderers::html::ToHtmlContext;
 
 pub mod html;
@@ -21,6 +24,8 @@ pub struct RenderContext {
     pub tera: Tera,
     pub syntax_set: SyntaxSet,
     pub theme: Theme,
+    pub tera_context: tera::Context,
+    pub notebook_output_meta: NotebookMeta,
 }
 
 #[typetag::serde(tag = "type")]
@@ -67,4 +72,19 @@ static COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 fn get_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+fn add_args(
+    ctx: &mut tera::Context,
+    id: Option<String>,
+    num: usize,
+    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    arguments: HashMap<String, String>,
+) {
+    id.map(|id| ctx.insert("id", &id));
+    ctx.insert("num", &num);
+    ctx.insert("ids", &ids);
+    for (k, v) in arguments {
+        ctx.insert(k, &v);
+    }
 }

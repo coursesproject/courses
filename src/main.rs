@@ -316,9 +316,14 @@ fn err_print(res: anyhow::Result<()>) {
         Ok(_) => {}
         Err(e) => {
             eprintln!("{} {:?}", style("Error:").red().bold(), e);
-            e.chain()
-                .skip(1)
-                .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+            e.chain().skip(1).for_each(|cause| {
+                eprintln!(
+                    " {} {}\n{}",
+                    style("caused by:").bold(),
+                    cause,
+                    e.backtrace()
+                )
+            });
             // eprintln!("{}", e.backtrace());
         }
     }
