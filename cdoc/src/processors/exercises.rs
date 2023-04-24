@@ -33,11 +33,12 @@ impl AstVisitor for Exercises {
         source: &mut String,
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
+        _tags: &mut Option<Vec<String>>,
         _outputs: &mut Vec<CellOutput>,
     ) -> anyhow::Result<()> {
         let res = parse_code_string(source.clone().as_ref())?;
         let (pc, _) = res.split();
-        *source = pc.strip_suffix("\n").unwrap_or(&pc).to_string();
+        *source = pc.strip_suffix('\n').unwrap_or(&pc).to_string();
         Ok(())
     }
 }

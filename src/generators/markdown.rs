@@ -1,8 +1,6 @@
 use std::fs;
 use std::ops::Deref;
-use std::path::PathBuf;
 
-use anyhow::Context;
 use indicatif::{ProgressBar, ProgressStyle};
 use tera::Tera;
 
@@ -13,6 +11,7 @@ use crate::generators::{Generator, GeneratorContext};
 use crate::project::ItemDescriptor;
 
 pub struct MarkdownGenerator {
+    #[allow(unused)]
     tera: Tera,
 }
 

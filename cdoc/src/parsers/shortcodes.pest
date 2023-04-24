@@ -8,7 +8,7 @@ basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | 
 name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_"|"-")*}
 key = {(ASCII_ALPHA|"_"|"-")+}
 value = {string|basic_val}
-param = {key ~ "=" ~ value}
+param = {key ~ ("=" ~ value)?}
 
 parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
 

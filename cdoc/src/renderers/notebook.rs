@@ -1,14 +1,10 @@
-use std::collections::HashMap;
-use std::fmt::Write;
-
-use crate::ast::{Ast, Block, Inline};
-use anyhow::{anyhow, Result};
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag};
+use crate::ast::{Ast, Block};
+use anyhow::Result;
+use pulldown_cmark::HeadingLevel;
 use serde::{Deserialize, Serialize};
-use tera::Tera;
 
-use crate::document::{Document, DocumentMetadata};
-use crate::notebook::{Cell, CellCommon, CellMeta, Notebook, NotebookMeta};
+use crate::document::Document;
+use crate::notebook::{Cell, CellCommon, Notebook, NotebookMeta};
 use crate::renderers::markdown::{ToMarkdown, ToMarkdownContext};
 use crate::renderers::{RenderContext, RenderResult, Renderer};
 
@@ -18,9 +14,10 @@ pub struct NotebookRenderer;
 #[typetag::serde(name = "renderer_config")]
 impl Renderer for NotebookRenderer {
     fn render(&self, doc: &Document<Ast>, ctx: &RenderContext) -> Result<Document<RenderResult>> {
-        let mut markdown_ctx = ToMarkdownContext {
+        let markdown_ctx = ToMarkdownContext {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
+            ids_map: doc.id_map.clone(),
             tera: ctx.tera.clone(),
             tera_context: ctx.tera_context.clone(),
             list_idx: None,
@@ -42,32 +39,8 @@ impl Renderer for NotebookRenderer {
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),
             ids: doc.ids.clone(),
+            id_map: doc.id_map.clone(),
         })
-    }
-}
-
-enum CellType {
-    Markdown,
-    Code,
-    #[allow(unused)]
-    Raw,
-}
-
-impl CellType {
-    fn to_notebook_format(&self, source: String) -> Cell {
-        let common = CellCommon {
-            source,
-            metadata: CellMeta::default(),
-        };
-        match self {
-            CellType::Markdown => Cell::Markdown { common },
-            CellType::Code => Cell::Code {
-                common,
-                execution_count: None,
-                outputs: Vec::new(),
-            },
-            CellType::Raw => Cell::Raw { common },
-        }
     }
 }
 
@@ -129,8 +102,8 @@ impl NotebookWriter {
 
         Ok(Notebook {
             metadata: self.notebook_meta,
-            nbformat: 0,
-            nbformat_minor: 0,
+            nbformat: 4,
+            nbformat_minor: 5,
             cells: self.finished_cells,
         })
     }

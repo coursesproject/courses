@@ -44,6 +44,8 @@ thiserror = { version = "1.0.37" }
 anyhow = { version = "1.0.65", features=["backtrace"] }
 beau_collector = "0.2.1"
 linked-hash-map = {version="0.5.6", features=["serde_impl"]}
+image = "0.24.6"
+base64-simd = "0.8.0"
 
 # CLI libraries
 inquire = "0.5.2"

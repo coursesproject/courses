@@ -1,17 +1,15 @@
-use crate::ast::{Ast, Inline, Shortcode};
-use crate::config::OutputFormat;
+use crate::ast::Ast;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use syntect::highlighting::Theme;
-use syntect::parsing::{SyntaxReference, SyntaxSet};
+use syntect::parsing::SyntaxSet;
 use tera::Tera;
 
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
 use crate::parsers::shortcodes::ShortCodeDef;
-use crate::renderers::html::ToHtmlContext;
 
 pub mod html;
 pub mod latex;
@@ -79,11 +77,15 @@ fn add_args(
     id: Option<String>,
     num: usize,
     ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    id_map: &HashMap<String, (usize, ShortCodeDef)>,
     arguments: HashMap<String, String>,
 ) {
-    id.map(|id| ctx.insert("id", &id));
+    if let Some(id) = id {
+        ctx.insert("id", &id);
+    }
     ctx.insert("num", &num);
     ctx.insert("ids", &ids);
+    ctx.insert("id_map", &id_map);
     for (k, v) in arguments {
         ctx.insert(k, &v);
     }

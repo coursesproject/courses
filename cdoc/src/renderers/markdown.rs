@@ -2,13 +2,10 @@ use crate::ast::{math_block_md, Ast, Block, Inline, Shortcode};
 use crate::document::{Document, DocumentMetadata};
 use crate::parsers::shortcodes::ShortCodeDef;
 use crate::renderers;
-use crate::renderers::notebook::heading_num;
 use crate::renderers::{add_args, RenderContext, RenderResult, Renderer};
 use anyhow::Result;
-use pulldown_cmark::{CodeBlockKind, Event, Tag};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::Write;
 use tera::Tera;
 
 #[derive(Serialize, Deserialize)]
@@ -20,6 +17,7 @@ impl Renderer for MarkdownRenderer {
         let mut ctx = ToMarkdownContext {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
+            ids_map: doc.id_map.clone(),
             tera: ctx.tera.clone(),
             tera_context: ctx.tera_context.clone(),
             list_idx: None,
@@ -33,6 +31,7 @@ impl Renderer for MarkdownRenderer {
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),
             ids: doc.ids.clone(),
+            id_map: doc.id_map.clone(),
         })
     }
 }
@@ -40,6 +39,7 @@ impl Renderer for MarkdownRenderer {
 pub struct ToMarkdownContext {
     pub metadata: DocumentMetadata,
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
     pub tera: Tera,
     pub tera_context: tera::Context,
     pub list_idx: Option<usize>,
@@ -90,7 +90,7 @@ impl ToMarkdown for Block {
                 inner.to_markdown(ctx)?
             )),
             Block::Plain(i) => Ok(i.to_markdown(ctx)?),
-            Block::Paragraph(i) => Ok(format!("{}", i.to_markdown(ctx)?)),
+            Block::Paragraph(i) => Ok(format!("{}\n", i.to_markdown(ctx)?)),
             Block::BlockQuote(i) => Ok(i.to_markdown(ctx)?),
             Block::CodeBlock { source, .. } => Ok(format!("```\n{}\n```", source)),
             Block::List(idx, items) => {
@@ -129,7 +129,9 @@ impl ToMarkdown for Block {
             Block::ListItem(inner) => {
                 let mut context = tera::Context::new();
                 context.insert("idx", &ctx.list_idx);
-                ctx.list_idx.as_mut().map(|v| *v += 1);
+                if let Some(v) = ctx.list_idx.as_mut() {
+                    *v += 1;
+                }
                 context.insert("value", &inner.to_markdown(ctx)?);
                 Ok(format!(
                     "{}{}\n",
@@ -151,30 +153,27 @@ fn render_params(
 ) -> Result<HashMap<String, String>> {
     parameters
         .into_iter()
-        .map(|(k, v)| Ok((k, v.to_markdown(ctx)?)))
+        .map(|(k, v)| Ok((k, v.to_markdown(ctx)?.trim().to_string())))
         .collect()
 }
 
-fn render_shortcode_template(
-    mut ctx: &mut ToMarkdownContext,
-    shortcode: Shortcode,
-) -> Result<String> {
+fn render_shortcode_template(ctx: &mut ToMarkdownContext, shortcode: Shortcode) -> Result<String> {
     let mut context = ctx.tera_context.clone();
 
     match shortcode {
         Shortcode::Inline(def) => {
             let name = format!("shortcodes/md/{}.tera.md", def.name,);
             let p = render_params(def.parameters, ctx)?;
-            add_args(&mut context, def.id, def.num, &ctx.ids, p);
+            add_args(&mut context, def.id, def.num, &ctx.ids, &ctx.ids_map, p);
             Ok(ctx.tera.render(&name, &context)?)
         }
         Shortcode::Block(def, body) => {
             let name = format!("shortcodes/md/{}.tera.md", def.name,);
             let p = render_params(def.parameters, ctx)?;
-            add_args(&mut context, def.id, def.num, &ctx.ids, p);
-            let body = body.to_markdown(&mut ctx)?;
+            add_args(&mut context, def.id, def.num, &ctx.ids, &ctx.ids_map, p);
+            let body = body.to_markdown(ctx)?;
             context.insert("body", &body);
-            Ok(ctx.tera.render(&name, &context)?)
+            Ok(format!("{}\n\n", ctx.tera.render(&name, &context)?))
         }
     }
 }

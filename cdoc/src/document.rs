@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
-use std::process::id;
 use std::vec::IntoIter;
 
 use anyhow::Result;
@@ -68,6 +67,7 @@ pub struct Document<C> {
     pub metadata: DocumentMetadata,
     pub variables: DocumentVariables,
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    pub id_map: HashMap<String, (usize, ShortCodeDef)>,
 }
 
 pub type RawContent = Vec<Element>;
@@ -87,6 +87,7 @@ pub enum Element {
     Code {
         cell_number: usize,
         content: String,
+        tags: Option<Vec<String>>,
         output: Option<Vec<CellOutput>>,
     },
     Raw {
@@ -106,7 +107,7 @@ pub fn split_markdown(src: &str) -> Vec<Element> {
     let mut rest = src;
     let mut is_eq = false;
     let mut res = Vec::new();
-    while let Some(idx) = rest.find("$") {
+    while let Some(idx) = rest.find('$') {
         let is_block = &rest[idx + 1..idx + 2] == "$";
         let trailing_space = &rest[idx + 1..idx + 2] == " ";
 
@@ -127,13 +128,12 @@ pub fn split_markdown(src: &str) -> Vec<Element> {
         rest = &rest[idx + offset..];
     }
 
-    if rest.len() > 0 {
+    if !rest.is_empty() {
         res.push(Element::Markdown {
             content: rest.to_string(),
         })
     }
 
-    let res = res;
     res
 }
 
@@ -153,7 +153,7 @@ impl ShortCodeDef {
                         Element::Markdown { content } => split_markdown(&content),
                         _ => vec![e],
                     })
-                    .flat_map(|e| <Element as Into<Vec<Block>>>::into(e))
+                    .flat_map(<Element as Into<Vec<Block>>>::into)
                     .collect();
                 (k, param_values)
             })
@@ -181,7 +181,7 @@ pub fn split_shortcodes(
                     content: rest[..start].to_string(),
                 });
 
-                let code = parse_shortcode(&rest[start + 2..end - 1].trim())?;
+                let code = parse_shortcode(rest[start + 2..end - 1].trim())?;
 
                 counters
                     .get_mut(&code.name)
@@ -203,7 +203,7 @@ pub fn split_shortcodes(
                     content: rest[..def.0].to_string(),
                 });
 
-                let code = parse_shortcode(&rest[def.0 + 2..def.1 - 1].trim())?;
+                let code = parse_shortcode(rest[def.0 + 2..def.1 - 1].trim())?;
 
                 counters
                     .get_mut(&code.name)
@@ -222,7 +222,7 @@ pub fn split_shortcodes(
                         Element::Markdown { content } => split_markdown(&content),
                         _ => vec![e],
                     })
-                    .flat_map(|e| <Element as Into<Vec<Block>>>::into(e))
+                    .flat_map(<Element as Into<Vec<Block>>>::into)
                     .collect();
                 res.push(Element::Shortcode(Shortcode::Block(
                     code.into_base(counters),
@@ -233,7 +233,7 @@ pub fn split_shortcodes(
         }
     }
 
-    if rest.len() > 0 {
+    if !rest.is_empty() {
         res.push(Element::Markdown {
             content: rest.to_string(),
         });
@@ -256,7 +256,10 @@ impl From<Element> for Vec<Block> {
                 ast.0
             }
             Element::Code {
-                content, output, ..
+                content,
+                output,
+                tags,
+                ..
             } => {
                 vec![Block::CodeBlock {
                     source: content,
@@ -265,6 +268,7 @@ impl From<Element> for Vec<Block> {
                         editable: true,
                         fold: false,
                     },
+                    tags,
                     outputs: output.unwrap_or(Vec::default()),
                 }]
             }
@@ -348,8 +352,26 @@ impl<T> Document<T> {
             metadata: self.metadata,
             variables: self.variables,
             ids: self.ids,
+            id_map: self.id_map,
         }
     }
+}
+
+fn id_map_from_ids(
+    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
+) -> HashMap<String, (usize, ShortCodeDef)> {
+    let mut out = HashMap::new();
+
+    for (_, s) in ids.values() {
+        let mut tp_num: usize = 1;
+        for s in s {
+            if let Some(id) = s.id.as_ref() {
+                out.insert(id.clone(), (tp_num, s.clone()));
+            }
+            tp_num += 1;
+        }
+    }
+    out
 }
 
 impl Document<RawContent> {
@@ -373,6 +395,7 @@ impl Document<RawContent> {
             metadata: self.metadata,
             variables: DocumentVariables::default(),
             ids: self.ids,
+            id_map: self.id_map,
         })
     }
 
@@ -381,11 +404,13 @@ impl Document<RawContent> {
         metadata: DocumentMetadata,
         ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     ) -> Self {
+        let id_map = id_map_from_ids(&ids);
         Document {
             metadata,
             variables: DocumentVariables::default(),
             content: content.into(),
             ids,
+            id_map,
         }
     }
 
@@ -396,6 +421,7 @@ impl Document<RawContent> {
             variables: DocumentVariables::default(),
             content: content.collect(),
             ids: self.ids.clone(),
+            id_map: self.id_map.clone(),
         }
     }
 }
@@ -408,6 +434,7 @@ impl Document<Ast> {
             variables: DocumentVariables::default(),
             content,
             ids: self.ids.clone(),
+            id_map: self.id_map.clone(),
         }
     }
 }
@@ -469,6 +496,7 @@ impl IntoRawDoc for Notebook {
                 } => vec![Element::Code {
                     cell_number: i,
                     content: common.source,
+                    tags: common.metadata.tags,
                     output: Some(outputs),
                 }],
                 Cell::Raw { common } => vec![Element::Raw {
@@ -575,6 +603,7 @@ impl<'a> ConfigureCollector for &'a Element {
             Element::Code {
                 cell_number,
                 content,
+                tags: None,
                 output: outputs,
             } => {
                 let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));

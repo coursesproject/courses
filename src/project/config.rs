@@ -32,18 +32,6 @@ pub struct BuildConfigSet {
     pub release: BuildConfig,
 }
 
-fn default_config() -> HashMap<String, BuildConfig> {
-    let mut map = HashMap::new();
-    map.insert(
-        "dev".to_string(),
-        BuildConfig {
-            katex_output: false,
-        },
-    );
-    map.insert("release".to_string(), BuildConfig { katex_output: true });
-    map
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildConfig {
     pub katex_output: bool,

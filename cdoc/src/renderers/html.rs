@@ -1,5 +1,4 @@
 use crate::ast::{Ast, Block, Inline, Shortcode};
-use crate::config::OutputFormat;
 use crate::document::{Document, DocumentMetadata};
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 use crate::parsers::shortcodes::ShortCodeDef;
@@ -7,9 +6,8 @@ use crate::renderers;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use syntect::highlighting::Theme;
-use syntect::parsing::{SyntaxReference, SyntaxSet};
+use syntect::parsing::SyntaxSet;
 use tera::Tera;
 
 use crate::renderers::{add_args, RenderContext, RenderResult, Renderer};
@@ -30,6 +28,7 @@ impl Renderer for HtmlRenderer {
         let ctx = ToHtmlContext {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
+            ids_map: doc.id_map.clone(),
             tera: ctx.tera.clone(),
             tera_context: ctx.tera_context.clone(),
             syntax_set: ctx.syntax_set.clone(),
@@ -41,6 +40,7 @@ impl Renderer for HtmlRenderer {
             metadata: doc.metadata.clone(),
             variables: doc.variables.clone(),
             ids: doc.ids.clone(),
+            id_map: doc.id_map.clone(),
         })
     }
 }
@@ -48,6 +48,7 @@ impl Renderer for HtmlRenderer {
 pub struct ToHtmlContext {
     pub metadata: DocumentMetadata,
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
     pub tera: Tera,
     pub tera_context: tera::Context,
     pub syntax_set: SyntaxSet,
@@ -78,8 +79,8 @@ impl ToHtml for Inline {
             Inline::Strong(inner) => Ok(format!("<strong>{}</strong>", inner.to_html(ctx)?)),
             Inline::Strikethrough(inner) => Ok(format!("<s>{}</s>", inner.to_html(ctx)?)),
             Inline::Code(s) => Ok(s),
-            Inline::SoftBreak => Ok(String::default()),
-            Inline::HardBreak => Ok(String::default()),
+            Inline::SoftBreak => Ok("<br>".to_string()),
+            Inline::HardBreak => Ok("<br>".to_string()),
             Inline::Rule => Ok("<hr>".to_string()),
             Inline::Image(_tp, url, alt, inner) => {
                 let inner_s = inner.to_html(ctx)?;
@@ -164,14 +165,17 @@ impl ToHtml for Block {
             Block::Plain(inner) => inner.to_html(ctx),
             Block::Paragraph(inner) | Block::BlockQuote(inner) => inner.to_html(ctx),
             Block::CodeBlock {
-                source, outputs, ..
+                source,
+                outputs,
+                tags,
+                ..
             } => {
                 let id = renderers::get_id();
 
                 let highlighted = syntect::html::highlighted_html_for_string(
                     &source,
                     &ctx.syntax_set,
-                    &ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
+                    ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
                     &ctx.theme,
                 )?;
 
@@ -182,6 +186,7 @@ impl ToHtml for Block {
                 context.insert("source", &source);
                 context.insert("highlighted", &highlighted);
                 context.insert("id", &id);
+                context.insert("tags", &tags);
                 context.insert("outputs", &outputs.to_html(ctx)?);
 
                 let output = ctx.tera.render("builtins/html/cell.tera.html", &context)?;
@@ -246,6 +251,7 @@ fn render_shortcode_template(ctx: &ToHtmlContext, shortcode: Shortcode) -> Resul
                 def.id,
                 def.num,
                 &ctx.ids,
+                &ctx.ids_map,
                 render_params(def.parameters, ctx)?,
             );
             Ok(ctx.tera.render(&name, &context)?)
@@ -257,6 +263,7 @@ fn render_shortcode_template(ctx: &ToHtmlContext, shortcode: Shortcode) -> Resul
                 def.id,
                 def.num,
                 &ctx.ids,
+                &ctx.ids_map,
                 render_params(def.parameters, ctx)?,
             );
             let body = body.to_html(ctx)?;

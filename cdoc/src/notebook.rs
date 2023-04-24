@@ -20,9 +20,19 @@ use std::vec::IntoIter;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Notebook {
     pub(crate) metadata: NotebookMeta,
+    #[serde(default = "nbformat")]
     pub(crate) nbformat: i64,
+    #[serde(default = "nbformat_minor")]
     pub(crate) nbformat_minor: i64,
     pub(crate) cells: Vec<Cell>,
+}
+
+const fn nbformat() -> i64 {
+    4
+}
+
+const fn nbformat_minor() -> i64 {
+    5
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -137,9 +147,9 @@ pub struct CellMeta {
     collapsed: Option<bool>,
     autoscroll: Option<Value>,
     deletable: Option<bool>,
-    format: Option<String>,
-    name: Option<String>,
-    tags: Option<Vec<String>>,
+    pub format: Option<String>,
+    pub name: Option<String>,
+    pub tags: Option<Vec<String>>,
     #[serde(flatten)]
     additional: Dict,
 }
@@ -287,10 +297,6 @@ where
     Ok(source)
 }
 
-fn unescape(source: &str) -> String {
-    source.replace(r#"\\"#, r#"\"#)
-}
-
 fn concatenate_serialize<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -298,7 +304,7 @@ where
     let lines: Vec<&str> = value.split('\n').collect();
     let last = lines[lines.len() - 1];
     let mut new_lines: Vec<String> = lines[..lines.len() - 1]
-        .into_iter()
+        .iter()
         .map(|s| format!("{}\n", s))
         .collect();
     new_lines.push(last.to_string());
@@ -448,6 +454,7 @@ impl From<Cell> for Vec<Block> {
                         editable: true,
                         fold: common.metadata.collapsed.unwrap_or(false),
                     },
+                    tags: common.metadata.tags,
                     outputs,
                 }]
             }

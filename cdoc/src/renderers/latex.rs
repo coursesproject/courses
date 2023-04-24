@@ -20,6 +20,7 @@ impl Renderer for LatexRenderer {
         let ctx = ToLaTeXContext {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
+            ids_map: doc.id_map.clone(),
             tera: ctx.tera.clone(),
             tera_context: ctx.tera_context.clone(),
         };
@@ -28,6 +29,7 @@ impl Renderer for LatexRenderer {
             content: doc.content.0.clone().render(&ctx)?,
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
+            id_map: doc.id_map.clone(),
             variables: doc.variables.clone(),
         })
     }
@@ -36,6 +38,7 @@ impl Renderer for LatexRenderer {
 pub struct ToLaTeXContext {
     pub metadata: DocumentMetadata,
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
     pub tera: Tera,
     pub tera_context: tera::Context,
 }
@@ -125,7 +128,10 @@ impl RenderElement<ToLaTeXContext> for Block {
                 Ok(format!("{}\n", inner.render(ctx)?))
             }
             Block::CodeBlock {
-                source, outputs, ..
+                source,
+                outputs,
+                tags,
+                ..
             } => {
                 let id = get_id();
 
@@ -133,6 +139,7 @@ impl RenderElement<ToLaTeXContext> for Block {
                 context.insert("cell_outputs", &ctx.metadata.cell_outputs);
                 context.insert("source", &source);
                 context.insert("id", &id);
+                context.insert("tags", &tags);
                 context.insert("outputs", &outputs.render(ctx)?);
 
                 let output = ctx.tera.render("builtins/latex/cell.tera.tex", &context)?;
@@ -195,6 +202,7 @@ fn render_shortcode_template(ctx: &ToLaTeXContext, shortcode: Shortcode) -> Resu
                 def.id,
                 def.num,
                 &ctx.ids,
+                &ctx.ids_map,
                 render_params(def.parameters, ctx)?,
             );
             Ok(ctx.tera.render(&name, &context)?)
@@ -206,6 +214,7 @@ fn render_shortcode_template(ctx: &ToLaTeXContext, shortcode: Shortcode) -> Resu
                 def.id,
                 def.num,
                 &ctx.ids,
+                &ctx.ids_map,
                 render_params(def.parameters, ctx)?,
             );
             let body = body.render(ctx)?;

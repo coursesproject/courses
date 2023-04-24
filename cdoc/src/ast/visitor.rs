@@ -22,8 +22,9 @@ pub trait AstVisitor {
                 ref mut source,
                 ref mut reference,
                 ref mut attr,
+                ref mut tags,
                 ref mut outputs,
-            } => self.visit_code_block(source, reference, attr, outputs),
+            } => self.visit_code_block(source, reference, attr, tags, outputs),
             Block::List(_, ref mut blocks) => self.visit_vec_block(blocks),
             Block::ListItem(ref mut blocks) => self.visit_vec_block(blocks),
             Block::Math(ref mut s, ref mut display_block, ref mut trailing_space) => {
@@ -72,6 +73,7 @@ pub trait AstVisitor {
         source: &mut String,
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
+        _tags: &mut Option<Vec<String>>,
         _outputs: &mut Vec<CellOutput>,
     ) -> Result<()> {
         self.visit_code(source)

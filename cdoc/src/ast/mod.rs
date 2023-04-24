@@ -44,8 +44,8 @@ impl ToString for Inline {
             Inline::HardBreak => String::default(),
             Inline::Rule => String::default(),
             Inline::Html(s) => s.to_string(),
-            _ => String::default(),
             Inline::Math(s) => s.to_string(),
+            _ => String::default(),
         }
     }
 }
@@ -84,6 +84,7 @@ pub enum Block {
         source: String,
         reference: Option<String>,
         attr: CodeAttributes,
+        tags: Option<Vec<String>>,
         outputs: Vec<CellOutput>,
     },
     List(Option<u64>, Vec<Block>),

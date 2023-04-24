@@ -24,7 +24,7 @@ pub fn parse_shortcode(content: &str) -> Result<ShortCodeDef, Box<pest::error::E
 
     let mut parameters = HashMap::new();
 
-    while let Some(params) = iter.next() {
+    for params in iter {
         match params.as_rule() {
             Rule::id => id = Some(params.as_str().to_string()),
             Rule::parameters => {
@@ -36,16 +36,15 @@ pub fn parse_shortcode(content: &str) -> Result<ShortCodeDef, Box<pest::error::E
 
                             let value = inner
                                 .next()
-                                .expect("Missing value")
-                                .into_inner()
-                                .next()
-                                .expect("Missing value inner");
+                                .and_then(|v| {
+                                    v.into_inner().next().map(|v| match v.as_rule() {
+                                        Rule::string_val => v.as_str(),
+                                        Rule::basic_val => v.as_str(),
+                                        _ => unreachable!(),
+                                    })
+                                })
+                                .unwrap_or("-");
 
-                            let value = match value.as_rule() {
-                                Rule::string_val => value.as_str(),
-                                Rule::basic_val => value.as_str(),
-                                _ => unreachable!(),
-                            };
                             parameters.insert(key, value.to_string());
                         }
                         _ => unreachable!(),

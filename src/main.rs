@@ -1,14 +1,11 @@
 //! Then what is this??
 
-use std::collections::HashMap;
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, fs};
 
 use anyhow::{anyhow, Context};
-use cdoc::config::InputFormat;
-use cdoc::document::DocumentMetadata;
 use clap::{Parser, Subcommand};
 use console::style;
 use inquire::{InquireError, Select};

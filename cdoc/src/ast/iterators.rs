@@ -77,7 +77,7 @@ impl IntoIterator for Block {
                 let s = math_block_md(&s, display_block, trailing_space);
                 vec![AEvent::Text(s)].into_iter()
             }
-            Block::Shortcode(s) => vec![].into_iter(), // unsupported
+            Block::Shortcode(_) => vec![].into_iter(), // unsupported
         }
     }
 }
