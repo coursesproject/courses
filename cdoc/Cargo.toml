@@ -1,6 +1,6 @@
 [package]
 name = "cdoc"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -44,8 +44,7 @@ thiserror = "1.0.37"
 anyhow = "1.0.66"
 dyn-clone = "1.0.10"
 
-clap = {version="4.0.29", optional=true}
+clap = {version="4.0.29", features=["derive"]}
 
-[features]
-build-binary = ["clap"]
+
 

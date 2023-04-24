@@ -1,24 +1,29 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use console::style;
+use image::ImageOutputFormat;
 use indicatif::{ProgressBar, ProgressStyle};
+use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
-use tera::Tera;
+use tera::{Filter, Tera};
 
 use cdoc::config::OutputFormat;
 use cdoc::document::Document;
 use cdoc::processors::PreprocessorContext;
 use cdoc::renderers::{RenderContext, RenderResult};
+use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
 
 use crate::generators::html::HtmlGenerator;
 use crate::generators::info::InfoGenerator;
 use crate::generators::latex::LaTeXGenerator;
+use crate::generators::markdown::MarkdownGenerator;
 use crate::generators::notebook::CodeOutputGenerator;
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::config::ProjectConfig;
@@ -51,6 +56,34 @@ pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
     }
 }
 
+fn create_embed_fn(resource_path: PathBuf) -> impl Filter {
+    Box::new(
+        move |url: &Value, _args: &HashMap<String, Value>| -> tera::Result<Value> {
+            match from_value::<String>(url.clone()) {
+                Ok(v) => {
+                    // println!("url {}", resource_path.as_path().join(v.clone()).display());
+                    let img = ImageReader::open(resource_path.join(v))
+                        .map_err(|_| tera::Error::msg("Could not open image"))?
+                        .decode()
+                        .map_err(|_| tera::Error::msg("Could not decode image"))?;
+                    // println!("loaded");
+                    let mut image_data: Vec<u8> = Vec::new();
+                    img.write_to(
+                        &mut Cursor::new(&mut image_data),
+                        ImageOutputFormat::Jpeg(60),
+                    )
+                    .map_err(|_| tera::Error::msg("Could not write image data"))?;
+                    // println!("semi");
+                    let res = base64_simd::STANDARD.encode_to_string(&image_data);
+                    // println!("written");
+                    Ok(to_value(res).unwrap())
+                }
+                Err(_) => Err("file not found".into()),
+            }
+        },
+    )
+}
+
 impl Pipeline {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
@@ -63,7 +96,11 @@ impl Pipeline {
             .to_str()
             .ok_or_else(|| anyhow!("Invalid path"))?;
         let pattern = path_str.to_string() + "/templates/**/*.tera.*";
-        let base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
+        let mut base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
+        base_tera.register_filter(
+            "embed",
+            create_embed_fn(project_path.as_ref().join("resources")),
+        );
 
         let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
         let shortcode_tera =
@@ -74,11 +111,16 @@ impl Pipeline {
             Tera::new(&builtins_pattern).context("Error preparing project templates")?;
         builtins_tera.autoescape_on(vec![".html", ".md", ".tex"]);
 
+        let mut meta = tera::Context::new();
+        meta.insert("config", &config);
+
         let ts = ThemeSet::load_defaults();
         let render_context = RenderContext {
-            tera: builtins_tera,
+            tera: base_tera.clone(),
+            tera_context: meta,
             syntax_set: SyntaxSet::load_defaults_newlines(),
             theme: ts.themes["base16-ocean.light"].clone(),
+            notebook_output_meta: config.notebook_meta.clone().unwrap_or_default(),
         };
 
         Ok(Pipeline {
@@ -99,6 +141,7 @@ impl Pipeline {
             OutputFormat::Html => Box::new(HtmlGenerator::new(self.base_tera.clone())),
             OutputFormat::Info => Box::new(InfoGenerator),
             OutputFormat::LaTeX => Box::new(LaTeXGenerator::new(self.base_tera.clone())),
+            OutputFormat::Markdown => Box::new(MarkdownGenerator::new(self.base_tera.clone())),
         }
     }
 
@@ -108,10 +151,12 @@ impl Pipeline {
             OutputFormat::Html => self.project_path.join("build").join("html"),
             OutputFormat::Info => self.project_path.join("build"),
             OutputFormat::LaTeX => self.project_path.join("build").join("latex"),
+            OutputFormat::Markdown => self.project_path.join("build").join("markdown"),
         }
     }
 
     pub fn reload_shortcode_tera(&mut self) -> anyhow::Result<()> {
+        self.render_context.tera.full_reload()?;
         Ok(self.shortcode_tera.full_reload()?)
     }
 
@@ -244,7 +289,13 @@ impl Pipeline {
         let doc = if el.contains('.') {
             &self.project.index
         } else {
-            let first_elem = doc_iter.next().unwrap().to_str().unwrap();
+            let first_elem = doc_iter
+                .next()
+                .ok_or(anyhow!(
+                    "Empty part. Parts must contain index.ms or index.ipynb"
+                ))?
+                .to_str()
+                .unwrap();
 
             // let file_name = doc_iter.next().unwrap().to_str().unwrap();
             let file_id = section_id(path.as_path()).unwrap();
@@ -465,6 +516,7 @@ impl Pipeline {
                         None
                     }
                 };
+
                 // let res = print_err(res);
 
                 ItemDescriptor {
@@ -503,6 +555,8 @@ impl Pipeline {
                 content: "".to_string(),
                 metadata: doc.metadata,
                 variables: doc.variables,
+                ids: doc.ids,
+                id_map: doc.id_map,
             }))
         } else if doc.metadata.outputs.contains(&format) {
             let processor_ctx = PreprocessorContext {

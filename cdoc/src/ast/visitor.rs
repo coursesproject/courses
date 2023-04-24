@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Block, CodeAttributes, Inline};
+use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode};
 use crate::notebook::CellOutput;
 use anyhow::Result;
 
@@ -22,10 +22,15 @@ pub trait AstVisitor {
                 ref mut source,
                 ref mut reference,
                 ref mut attr,
+                ref mut tags,
                 ref mut outputs,
-            } => self.visit_code_block(source, reference, attr, outputs),
+            } => self.visit_code_block(source, reference, attr, tags, outputs),
             Block::List(_, ref mut blocks) => self.visit_vec_block(blocks),
             Block::ListItem(ref mut blocks) => self.visit_vec_block(blocks),
+            Block::Math(ref mut s, ref mut display_block, ref mut trailing_space) => {
+                self.visit_math_block(s, display_block, trailing_space)
+            }
+            Block::Shortcode(ref mut s) => self.visit_shortcode(s),
         }
     }
 
@@ -46,6 +51,7 @@ pub trait AstVisitor {
             Inline::Image(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Html(_) => Ok(()),
+            Inline::Math(s) => self.visit_math_inline(s),
         }
     }
 
@@ -67,12 +73,29 @@ pub trait AstVisitor {
         source: &mut String,
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
+        _tags: &mut Option<Vec<String>>,
         _outputs: &mut Vec<CellOutput>,
     ) -> Result<()> {
         self.visit_code(source)
     }
 
     fn visit_code(&mut self, _source: &mut String) -> Result<()> {
+        Ok(())
+    }
+
+    fn visit_math_block(
+        &mut self,
+        _source: &mut String,
+        _display_block: &mut bool,
+        _trailing_space: &mut bool,
+    ) -> Result<()> {
+        Ok(())
+    }
+    fn visit_math_inline(&mut self, _source: &mut String) -> Result<()> {
+        Ok(())
+    }
+
+    fn visit_shortcode(&mut self, _shortcode: &mut Shortcode) -> Result<()> {
         Ok(())
     }
 }

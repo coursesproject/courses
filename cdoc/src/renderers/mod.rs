@@ -1,14 +1,15 @@
-use crate::ast::{Ast, Inline};
+use crate::ast::Ast;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use syntect::highlighting::Theme;
-use syntect::parsing::{SyntaxReference, SyntaxSet};
+use syntect::parsing::SyntaxSet;
 use tera::Tera;
 
 use crate::document::Document;
-use crate::renderers::html::ToHtmlContext;
+use crate::notebook::NotebookMeta;
+use crate::parsers::shortcodes::ShortCodeDef;
 
 pub mod html;
 pub mod latex;
@@ -21,6 +22,8 @@ pub struct RenderContext {
     pub tera: Tera,
     pub syntax_set: SyntaxSet,
     pub theme: Theme,
+    pub tera_context: tera::Context,
+    pub notebook_output_meta: NotebookMeta,
 }
 
 #[typetag::serde(tag = "type")]
@@ -67,4 +70,23 @@ static COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 fn get_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+fn add_args(
+    ctx: &mut tera::Context,
+    id: Option<String>,
+    num: usize,
+    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    id_map: &HashMap<String, (usize, ShortCodeDef)>,
+    arguments: HashMap<String, String>,
+) {
+    if let Some(id) = id {
+        ctx.insert("id", &id);
+    }
+    ctx.insert("num", &num);
+    ctx.insert("ids", &ids);
+    ctx.insert("id_map", &id_map);
+    for (k, v) in arguments {
+        ctx.insert(k, &v);
+    }
 }

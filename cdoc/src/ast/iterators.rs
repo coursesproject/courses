@@ -1,4 +1,4 @@
-use crate::ast::{AEvent, ATag, Ast, Block, Inline};
+use crate::ast::{math_block_md, AEvent, ATag, Ast, Block, Inline};
 
 fn iter_inlines(inlines: &[Inline]) -> Vec<AEvent> {
     inlines.iter().flat_map(|i| i.clone().into_iter()).collect()
@@ -39,6 +39,7 @@ impl IntoIterator for Inline {
             Inline::Link(tp, url, alt, inner) => {
                 wrap_events(ATag::Link(tp, url, alt), iter_inlines(&inner))
             }
+            Inline::Math(s) => vec![AEvent::Text(s)].into_iter(),
         }
     }
 }
@@ -72,6 +73,11 @@ impl IntoIterator for Block {
             }
             Block::ListItem(inner) => wrap_events(ATag::Item, iter_blocks(&inner)),
             // Block::Html(s) => vec![AEvent::Html(s.into_boxed_str().to_string())].into_iter(),
+            Block::Math(s, display_block, trailing_space) => {
+                let s = math_block_md(&s, display_block, trailing_space);
+                vec![AEvent::Text(s)].into_iter()
+            }
+            Block::Shortcode(_) => vec![].into_iter(), // unsupported
         }
     }
 }

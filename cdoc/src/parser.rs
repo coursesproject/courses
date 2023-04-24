@@ -12,7 +12,9 @@ use crate::processors::{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
+    #[serde(default)]
     pub md_processors: Vec<Box<dyn PreprocessorConfig>>,
+    #[serde(default)]
     pub ast_processors: Vec<Box<dyn AstPreprocessorConfig>>,
     pub settings: ParserSettings,
 }

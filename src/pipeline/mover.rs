@@ -50,11 +50,15 @@ impl Mover {
 
                             // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
                             // file.write_all(output.as_bytes())?;
+                            fs::create_dir_all(dest.as_path())?;
 
                             fs::write(dest, output)?;
                         }
                         _ => {
-                            fs::copy(entry_path, dest)?;
+                            if !entry_path.is_dir() {
+                                fs::create_dir_all(dest.as_path().parent().unwrap())?;
+                                fs::copy(entry_path, dest)?;
+                            }
                         }
                     }
                 }

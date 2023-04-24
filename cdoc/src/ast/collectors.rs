@@ -63,6 +63,7 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                                         .collect(),
                                     reference: None,
                                     attr: CodeAttributes::default(),
+                                    tags: None,
                                     outputs: vec![],
                                 });
                         }
@@ -123,9 +124,8 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                         _ => unreachable!(),
                     };
 
-                    if let Some(c) = inners.last_mut() {
-                        c.push_inline(inner)
-                    }
+                    let c = inners.last_mut().unwrap();
+                    c.push_inline(inner);
                 }
             }
         }
@@ -195,6 +195,7 @@ impl FromIterator<AEvent> for Ast {
                                         .collect(),
                                     reference: None,
                                     attr: CodeAttributes::default(),
+                                    tags: None,
                                     outputs: vec![],
                                 });
                         }

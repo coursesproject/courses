@@ -1,16 +1,21 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use std::vec::IntoIter;
 
+use anyhow::Result;
 use pulldown_cmark::CodeBlockKind::Fenced;
 use pulldown_cmark::Tag::CodeBlock;
 use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::ast::{AEvent, Ast, Block, CodeAttributes};
+use crate::ast::{
+    find_shortcode, AEvent, Ast, Block, CodeAttributes, Shortcode, ShortcodeBase, ShortcodeIdx,
+};
 use crate::config::OutputFormat;
 use crate::notebook::{Cell, CellOutput, Notebook};
+use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
 use crate::processors::shortcodes::ShortCodeProcessError;
 use crate::processors::MarkdownPreprocessor;
 
@@ -18,13 +23,18 @@ use crate::processors::MarkdownPreprocessor;
 #[serde(deny_unknown_fields)]
 pub struct DocumentMetadata {
     pub title: Option<String>,
-    pub code_split: Option<bool>,
-    pub notebook_output: Option<bool>,
-    pub code_solutions: Option<bool>,
+    #[serde(default = "default_true")]
+    pub exercises: bool,
+    #[serde(default)]
+    pub notebook_output: bool,
+    #[serde(default)]
+    pub code_solutions: bool,
     #[serde(default = "default_true")]
     pub cell_outputs: bool,
-    pub interactive: Option<bool>,
-    pub editable: Option<bool>,
+    #[serde(default)]
+    pub interactive: bool,
+    #[serde(default)]
+    pub editable: bool,
     #[serde(default)]
     pub layout: LayoutSettings,
 
@@ -42,6 +52,7 @@ fn default_outputs() -> Vec<OutputFormat> {
         OutputFormat::Html,
         OutputFormat::Info,
         OutputFormat::LaTeX,
+        OutputFormat::Markdown,
     ]
 }
 
@@ -55,6 +66,8 @@ pub struct Document<C> {
     pub content: C,
     pub metadata: DocumentMetadata,
     pub variables: DocumentVariables,
+    pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    pub id_map: HashMap<String, (usize, ShortCodeDef)>,
 }
 
 pub type RawContent = Vec<Element>;
@@ -65,9 +78,16 @@ pub enum Element {
     Markdown {
         content: String,
     },
+    Math {
+        content: String,
+        display_mode: bool,
+        trailing_space: bool,
+    },
+    Shortcode(Shortcode),
     Code {
         cell_number: usize,
         content: String,
+        tags: Option<Vec<String>>,
         output: Option<Vec<CellOutput>>,
     },
     Raw {
@@ -75,6 +95,157 @@ pub enum Element {
     },
     #[default]
     Default,
+}
+
+// #[derive(Debug, Clone)]
+// pub enum ElemShortcode {
+//     Inline(ShortcodeBase),
+//     Block(ShortcodeBase, Vec<Element>),
+// }
+
+pub fn split_markdown(src: &str) -> Vec<Element> {
+    let mut rest = src;
+    let mut is_eq = false;
+    let mut res = Vec::new();
+    while let Some(idx) = rest.find('$') {
+        let is_block = &rest[idx + 1..idx + 2] == "$";
+        let trailing_space = &rest[idx + 1..idx + 2] == " ";
+
+        if is_eq {
+            res.push(Element::Math {
+                content: rest[..idx].to_string(),
+                display_mode: is_block,
+                trailing_space,
+            });
+        } else {
+            res.push(Element::Markdown {
+                content: rest[..idx].to_string(),
+            })
+        }
+
+        is_eq = !is_eq;
+        let offset = if is_block { 2 } else { 1 };
+        rest = &rest[idx + offset..];
+    }
+
+    if !rest.is_empty() {
+        res.push(Element::Markdown {
+            content: rest.to_string(),
+        })
+    }
+
+    res
+}
+
+impl ShortCodeDef {
+    fn into_base(
+        self,
+        counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    ) -> ShortcodeBase {
+        let parameters: HashMap<String, Vec<Block>> = self
+            .parameters
+            .into_iter()
+            .map(|(k, v)| {
+                let param_values: Vec<Element> = split_shortcodes(&v, counters).unwrap();
+                let param_values: Vec<Block> = param_values
+                    .into_iter()
+                    .flat_map(|e| match e {
+                        Element::Markdown { content } => split_markdown(&content),
+                        _ => vec![e],
+                    })
+                    .flat_map(<Element as Into<Vec<Block>>>::into)
+                    .collect();
+                (k, param_values)
+            })
+            .collect();
+
+        ShortcodeBase {
+            name: self.name.clone(),
+            id: self.id,
+            num: counters.get(&self.name).unwrap().0,
+            parameters,
+        }
+    }
+}
+
+pub fn split_shortcodes(
+    src: &str,
+    counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+) -> Result<Vec<Element>> {
+    let mut rest = src;
+    let mut res = Vec::new();
+    while let Some(info) = find_shortcode(rest) {
+        match info {
+            ShortcodeIdx::Inline(start, end) => {
+                res.push(Element::Markdown {
+                    content: rest[..start].to_string(),
+                });
+
+                let code = parse_shortcode(rest[start + 2..end - 1].trim())?;
+
+                counters
+                    .get_mut(&code.name)
+                    .map(|v| {
+                        v.0 += 1;
+                        v.1.push(code.clone());
+                    })
+                    .unwrap_or_else(|| {
+                        counters.insert(code.name.clone(), (1, vec![code.clone()]));
+                    });
+
+                res.push(Element::Shortcode(Shortcode::Inline(
+                    code.into_base(counters),
+                )));
+                rest = &rest[end + 2..];
+            }
+            ShortcodeIdx::Block { def, end } => {
+                res.push(Element::Markdown {
+                    content: rest[..def.0].to_string(),
+                });
+
+                let code = parse_shortcode(rest[def.0 + 2..def.1 - 1].trim())?;
+
+                counters
+                    .get_mut(&code.name)
+                    .map(|v| {
+                        v.0 += 1;
+                        v.1.push(code.clone());
+                    })
+                    .unwrap_or_else(|| {
+                        counters.insert(code.name.clone(), (1, vec![code.clone()]));
+                    });
+
+                let body = &rest[def.1 + 2..end.0];
+                let blocks: Vec<Block> = split_shortcodes(body, counters)?
+                    .into_iter()
+                    .flat_map(|e| match e {
+                        Element::Markdown { content } => split_markdown(&content),
+                        _ => vec![e],
+                    })
+                    .flat_map(<Element as Into<Vec<Block>>>::into)
+                    .collect();
+                res.push(Element::Shortcode(Shortcode::Block(
+                    code.into_base(counters),
+                    blocks,
+                )));
+                rest = &rest[end.1 + 2..];
+            }
+        }
+    }
+
+    if !rest.is_empty() {
+        res.push(Element::Markdown {
+            content: rest.to_string(),
+        });
+    }
+
+    Ok(res)
+}
+
+impl IntoRawContent for Vec<Element> {
+    fn into(self) -> RawContent {
+        self
+    }
 }
 
 impl From<Element> for Vec<Block> {
@@ -85,7 +256,10 @@ impl From<Element> for Vec<Block> {
                 ast.0
             }
             Element::Code {
-                content, output, ..
+                content,
+                output,
+                tags,
+                ..
             } => {
                 vec![Block::CodeBlock {
                     source: content,
@@ -94,8 +268,17 @@ impl From<Element> for Vec<Block> {
                         editable: true,
                         fold: false,
                     },
+                    tags,
                     outputs: output.unwrap_or(Vec::default()),
                 }]
+            }
+            Element::Shortcode(s) => vec![Block::Shortcode(s)],
+            Element::Math {
+                content,
+                display_mode,
+                trailing_space,
+            } => {
+                vec![Block::Math(content, display_mode, trailing_space)]
             }
             Element::Raw { .. } => {
                 vec![]
@@ -168,8 +351,27 @@ impl<T> Document<T> {
             content: f(self.content),
             metadata: self.metadata,
             variables: self.variables,
+            ids: self.ids,
+            id_map: self.id_map,
         }
     }
+}
+
+fn id_map_from_ids(
+    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
+) -> HashMap<String, (usize, ShortCodeDef)> {
+    let mut out = HashMap::new();
+
+    for (_, s) in ids.values() {
+        let mut tp_num: usize = 1;
+        for s in s {
+            if let Some(id) = s.id.as_ref() {
+                out.insert(id.clone(), (tp_num, s.clone()));
+            }
+            tp_num += 1;
+        }
+    }
+    out
 }
 
 impl Document<RawContent> {
@@ -192,14 +394,23 @@ impl Document<RawContent> {
             content: elements,
             metadata: self.metadata,
             variables: DocumentVariables::default(),
+            ids: self.ids,
+            id_map: self.id_map,
         })
     }
 
-    pub(crate) fn new<C: IntoRawContent>(content: C, metadata: DocumentMetadata) -> Self {
+    pub(crate) fn new<C: IntoRawContent>(
+        content: C,
+        metadata: DocumentMetadata,
+        ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    ) -> Self {
+        let id_map = id_map_from_ids(&ids);
         Document {
             metadata,
             variables: DocumentVariables::default(),
             content: content.into(),
+            ids,
+            id_map,
         }
     }
 
@@ -209,6 +420,8 @@ impl Document<RawContent> {
             metadata: self.metadata.clone(),
             variables: DocumentVariables::default(),
             content: content.collect(),
+            ids: self.ids.clone(),
+            id_map: self.id_map.clone(),
         }
     }
 }
@@ -220,6 +433,8 @@ impl Document<Ast> {
             metadata: self.metadata.clone(),
             variables: DocumentVariables::default(),
             content,
+            ids: self.ids.clone(),
+            id_map: self.id_map.clone(),
         }
     }
 }
@@ -238,15 +453,21 @@ pub trait IntoRawContent {
     fn into(self) -> RawContent;
 }
 
+pub trait IntoRawDoc {
+    fn into_doc(self, meta: DocumentMetadata) -> Document<RawContent>;
+}
+
 impl IntoRawContent for String {
     fn into(self) -> RawContent {
         vec![Element::Markdown { content: self }]
     }
 }
 
-impl IntoRawContent for Notebook {
-    fn into(self) -> RawContent {
-        self.cells
+impl IntoRawDoc for Notebook {
+    fn into_doc(self, meta: DocumentMetadata) -> Document<RawContent> {
+        let mut counters = HashMap::new();
+        let content: RawContent = self
+            .cells
             .into_iter()
             .fold((1, Vec::new()), |(num, mut acc), cell| {
                 let next = match &cell {
@@ -258,22 +479,32 @@ impl IntoRawContent for Notebook {
             })
             .1
             .into_iter()
-            .map(|(i, cell)| match cell {
-                Cell::Markdown { common } => Element::Markdown {
-                    content: common.source,
-                },
+            .flat_map(|(i, cell)| match cell {
+                Cell::Markdown { common } => {
+                    let s: Vec<Element> = split_shortcodes(&common.source, &mut counters)
+                        .unwrap()
+                        .into_iter()
+                        .flat_map(|e| match e {
+                            Element::Markdown { content } => split_markdown(&content),
+                            _ => vec![e],
+                        })
+                        .collect();
+                    s
+                }
                 Cell::Code {
                     common, outputs, ..
-                } => Element::Code {
+                } => vec![Element::Code {
                     cell_number: i,
                     content: common.source,
+                    tags: common.metadata.tags,
                     output: Some(outputs),
-                },
-                Cell::Raw { common } => Element::Raw {
+                }],
+                Cell::Raw { common } => vec![Element::Raw {
                     content: common.source,
-                },
+                }],
             })
-            .collect()
+            .collect();
+        Document::new(content, meta, counters)
     }
 }
 
@@ -372,6 +603,7 @@ impl<'a> ConfigureCollector for &'a Element {
             Element::Code {
                 cell_number,
                 content,
+                tags: None,
                 output: outputs,
             } => {
                 let cblock = CodeBlock(Fenced(CowStr::Boxed("python".into())));

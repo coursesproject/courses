@@ -9,6 +9,7 @@ use crate::project::{ItemDescriptor, Project};
 pub mod html;
 pub(crate) mod info;
 pub mod latex;
+pub mod markdown;
 pub mod notebook;
 
 #[derive(Clone)]
