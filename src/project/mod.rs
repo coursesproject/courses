@@ -326,7 +326,7 @@ mod tests {
         assert_eq!(cfg.content[0].chapters[0].id, "01_getting_started");
         assert_eq!(cfg.content[0].chapters[1].id, "02_project_organisation");
         assert_eq!(cfg.content[0].chapters[2].id, "03_shortcodes");
-        assert_eq!(cfg.content[0].chapters[3].id, "05_exercise_tools");
+        assert_eq!(cfg.content[0].chapters[3].id, "04_exercise_tools");
     }
 
     #[test]
