@@ -8,7 +8,7 @@ pub use events::*;
 pub use visitor::*;
 
 use crate::notebook::CellOutput;
-use pulldown_cmark::{HeadingLevel, LinkType};
+use pulldown_cmark::{HeadingLevel, LinkType, Options, Parser};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -25,7 +25,8 @@ pub enum Inline {
     Image(LinkType, String, String, Vec<Inline>),
     Link(LinkType, String, String, Vec<Inline>),
     Html(String),
-    Math(String),
+    Math(String, bool, bool),
+    Shortcode(Shortcode),
 }
 
 fn vec_inline_to_string(vec: &[Inline]) -> String {
@@ -44,7 +45,8 @@ impl ToString for Inline {
             Inline::HardBreak => String::default(),
             Inline::Rule => String::default(),
             Inline::Html(s) => s.to_string(),
-            Inline::Math(s) => s.to_string(),
+            Inline::Math(s, _, _) => s.to_string(),
+            Inline::Shortcode(s) => "shortcode".to_string(),
             _ => String::default(),
         }
     }
@@ -89,14 +91,17 @@ pub enum Block {
     },
     List(Option<u64>, Vec<Block>),
     ListItem(Vec<Block>),
-    Math(String, bool, bool),
-    Shortcode(Shortcode),
 }
 
 #[derive(Debug, Clone)]
 pub enum Shortcode {
     Inline(ShortcodeBase),
     Block(ShortcodeBase, Vec<Block>),
+}
+
+pub fn str_to_blocks(input: &str) -> Vec<Block> {
+    let ast: Ast = Parser::new_ext(input, Options::all()).collect();
+    ast.0
 }
 
 pub fn math_block_md(src: &str, display_block: bool, trailing_space: bool) -> String {
