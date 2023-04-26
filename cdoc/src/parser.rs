@@ -1,21 +1,14 @@
 use crate::ast::Ast;
-use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document::{Document, PreprocessError};
-use crate::processors::shortcodes::ShortCodeProcessError;
-use crate::processors::{
-    AstPreprocessor, AstPreprocessorConfig, MarkdownPreprocessor, PreprocessorConfig,
-    PreprocessorContext,
-};
+use crate::document::Document;
+use crate::processors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Parser {
     #[serde(default)]
-    pub md_processors: Vec<Box<dyn PreprocessorConfig>>,
-    #[serde(default)]
-    pub ast_processors: Vec<Box<dyn AstPreprocessorConfig>>,
+    pub preprocessors: Vec<Box<dyn AstPreprocessorConfig>>,
     pub settings: ParserSettings,
 }
 
@@ -34,7 +27,6 @@ impl Parser {
     pub fn parse(
         &self,
         doc: &Document<Ast>,
-        template_context: &tera::Context,
         ctx: &PreprocessorContext,
     ) -> Result<Document<Ast>, anyhow::Error> {
         let doc_ast = self.run_ast_processors(doc.clone(), ctx)?;
@@ -48,7 +40,7 @@ impl Parser {
         ctx: &PreprocessorContext,
     ) -> Result<Document<Ast>, anyhow::Error> {
         let mut built = self
-            .ast_processors
+            .preprocessors
             .iter()
             .map(|p| p.build(ctx))
             .collect::<anyhow::Result<Vec<Box<dyn AstPreprocessor>>>>()?;
@@ -82,13 +74,7 @@ pub enum ParserError {
     FrontMatter(#[from] serde_yaml::Error),
 
     #[error(transparent)]
-    Preprocess(#[from] PreprocessError),
-
-    #[error(transparent)]
     ExtensionError(#[from] crate::processors::Error),
-
-    #[error(transparent)]
-    ShortCode(#[from] ShortCodeProcessError),
 
     #[cfg(feature = "katex")]
     #[error(transparent)]

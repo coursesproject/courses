@@ -46,9 +46,33 @@ impl ToString for Inline {
             Inline::Rule => String::default(),
             Inline::Html(s) => s.to_string(),
             Inline::Math(s, _, _) => s.to_string(),
-            Inline::Shortcode(s) => "shortcode".to_string(),
+            Inline::Shortcode(s) => s.to_string(),
             _ => String::default(),
         }
+    }
+}
+
+impl ToString for Shortcode {
+    fn to_string(&self) -> String {
+        match self {
+            Shortcode::Inline(base) => base.to_string(),
+            Shortcode::Block(base, _) => base.to_string(),
+        }
+    }
+}
+
+impl ToString for ShortcodeBase {
+    fn to_string(&self) -> String {
+        format!(
+            "{}#{}({})",
+            self.name,
+            self.id.clone().unwrap_or_default(),
+            self.parameters
+                .keys()
+                .cloned()
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 

@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
 use crate::processors::exercises::ExercisesConfig;
-use crate::processors::shortcodes::ShortcodesConfig;
 use crate::renderers::html::HtmlRenderer;
 use crate::renderers::latex::LatexRenderer;
 use crate::renderers::markdown::MarkdownRenderer;
@@ -157,8 +156,7 @@ impl Display for OutputFormat {
 #[allow(unused)]
 fn get_default_parser(_format: OutputFormat) -> Parser {
     Parser {
-        md_processors: vec![Box::new(ShortcodesConfig)],
-        ast_processors: vec![Box::new(ExercisesConfig)],
+        preprocessors: vec![Box::new(ExercisesConfig)],
         settings: ParserSettings {
             solutions: false,
             notebook_outputs: false,

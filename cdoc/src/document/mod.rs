@@ -3,25 +3,18 @@ mod visitors;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
-use std::vec::IntoIter;
 
 use anyhow::{Context, Result};
-use pulldown_cmark::CodeBlockKind::Fenced;
-use pulldown_cmark::Tag::CodeBlock;
-use pulldown_cmark::{CowStr, Event, OffsetIter, Options, Parser};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use crate::ast::{
-    find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, CodeAttributes, Inline,
-    Shortcode, ShortcodeBase, ShortcodeIdx,
+    find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, Inline, Shortcode,
+    ShortcodeBase, ShortcodeIdx,
 };
 use crate::config::OutputFormat;
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
-use crate::notebook::{Cell, CellOutput, Notebook};
+use crate::notebook::{Cell, Notebook};
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
-use crate::processors::shortcodes::ShortCodeProcessError;
-use crate::processors::MarkdownPreprocessor;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -105,7 +98,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
     }
 
     if !rest.is_empty() {
-        res.push_str(&rest)
+        res.push_str(rest)
     }
 
     let mut md_blocks = Ast(str_to_blocks(&res));
@@ -219,12 +212,6 @@ pub struct DocumentVariables {
     pub first_heading: Option<String>,
 }
 
-#[derive(Error, Debug)]
-pub enum PreprocessError {
-    #[error(transparent)]
-    Shortcode(#[from] ShortCodeProcessError),
-}
-
 impl Display for DocPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.cell_number {
@@ -289,7 +276,7 @@ impl<C> Document<C> {
         Document {
             metadata,
             variables: DocumentVariables::default(),
-            content: content.into(),
+            content,
             ids,
             id_map,
         }
@@ -307,17 +294,7 @@ impl TryFrom<Notebook> for Document<Ast> {
         let content: Vec<Block> = value
             .cells
             .into_iter()
-            .fold((1, Vec::new()), |(num, mut acc), cell| {
-                let next = match &cell {
-                    Cell::Code { .. } => num + 1,
-                    _ => num,
-                };
-                acc.push((next, cell));
-                (next, acc)
-            })
-            .1
-            .into_iter()
-            .flat_map(|(i, cell)| match cell {
+            .flat_map(|cell| match cell {
                 Cell::Markdown { common } => {
                     split_shortcodes(&common.source, &mut counters).unwrap()
                 }

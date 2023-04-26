@@ -1,6 +1,4 @@
-use crate::ast::{AstVisitor, Block, Inline, Shortcode};
-use lazy_static::lazy_static;
-use regex::Regex;
+use crate::ast::{AstVisitor, Inline, Shortcode};
 use std::str::FromStr;
 
 pub struct MathInserter {
@@ -13,18 +11,13 @@ impl MathInserter {
     }
 }
 
-// lazy_static! {
-//     static ref PATTERN: Regex = Regex::new(r"<([0-9]+)>").unwrap();
-// }
-
 impl AstVisitor for MathInserter {
     fn visit_inline(&mut self, inline: &mut Inline) -> anyhow::Result<()> {
         if let Inline::Strong(inner) = inline {
-            let s: String = inner.into_iter().map(|i| i.to_string()).collect();
+            let s: String = inner.iter_mut().map(|i| i.to_string()).collect();
 
-            match usize::from_str(&s) {
-                Ok(idx) => *inline = self.math_blocks[idx].clone(),
-                _ => {}
+            if let Ok(idx) = usize::from_str(&s) {
+                *inline = self.math_blocks[idx].clone()
             }
         }
 
@@ -45,11 +38,10 @@ impl ShortcodeInserter {
 impl AstVisitor for ShortcodeInserter {
     fn visit_inline(&mut self, inline: &mut Inline) -> anyhow::Result<()> {
         if let Inline::Emphasis(inner) = inline {
-            let s: String = inner.into_iter().map(|i| i.to_string()).collect();
+            let s: String = inner.iter_mut().map(|i| i.to_string()).collect();
 
-            match usize::from_str(&s) {
-                Ok(idx) => *inline = Inline::Shortcode(self.shortcodes[idx].clone()),
-                _ => {}
+            if let Ok(idx) = usize::from_str(&s) {
+                *inline = Inline::Shortcode(self.shortcodes[idx].clone());
             }
         }
 
