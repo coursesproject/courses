@@ -99,7 +99,16 @@ impl ToHtml for Inline {
                 Ok(ctx.tera.render("builtins/html/link.tera.html", &context)?)
             }
             Inline::Html(s) => Ok(s),
-            Inline::Math(s) => Ok(s),
+            Inline::Math(s, display_mode, trailing_space) => {
+                let mut context = tera::Context::new();
+                context.insert("display_mode", &display_mode);
+                context.insert("trailing_space", &trailing_space);
+                context.insert("value", &s);
+                Ok(ctx.tera.render("builtins/html/math.tera.html", &context)?)
+            }
+            Inline::Shortcode(s) => {
+                Ok(render_shortcode_template(ctx, s).unwrap_or_else(|e| e.to_string()))
+            }
         }
     }
 }
@@ -216,16 +225,6 @@ impl ToHtml for Block {
                 "builtins/html/list_item.tera.html",
                 inner.to_html(ctx)?,
             ),
-            Block::Math(s, display_mode, trailing_space) => {
-                let mut context = tera::Context::new();
-                context.insert("display_mode", &display_mode);
-                context.insert("trailing_space", &trailing_space);
-                context.insert("value", &s);
-                Ok(ctx.tera.render("builtins/html/math.tera.html", &context)?)
-            }
-            Block::Shortcode(s) => {
-                Ok(render_shortcode_template(ctx, s).unwrap_or_else(|e| e.to_string()))
-            }
         }
     }
 }

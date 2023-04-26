@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::Cursor;
+use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -56,27 +57,44 @@ pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
     }
 }
 
-fn create_embed_fn(resource_path: PathBuf) -> impl Filter {
+fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
     Box::new(
         move |url: &Value, _args: &HashMap<String, Value>| -> tera::Result<Value> {
             match from_value::<String>(url.clone()) {
                 Ok(v) => {
-                    // println!("url {}", resource_path.as_path().join(v.clone()).display());
-                    let img = ImageReader::open(resource_path.join(v))
-                        .map_err(|_| tera::Error::msg("Could not open image"))?
-                        .decode()
-                        .map_err(|_| tera::Error::msg("Could not decode image"))?;
-                    // println!("loaded");
-                    let mut image_data: Vec<u8> = Vec::new();
-                    img.write_to(
-                        &mut Cursor::new(&mut image_data),
-                        ImageOutputFormat::Jpeg(60),
-                    )
-                    .map_err(|_| tera::Error::msg("Could not write image data"))?;
-                    // println!("semi");
-                    let res = base64_simd::STANDARD.encode_to_string(&image_data);
+                    let mut file_no_ext = PathBuf::from_str(&v).unwrap();
+                    file_no_ext.set_extension(".txt");
+
+                    let cache_file = cache_path.join(&file_no_ext);
+                    let resource_file = resource_path.join(v);
+                    let resource_meta = resource_file.metadata()?;
+
+                    let data = match cache_file.metadata().ok().and_then(|meta| {
+                        (meta.modified().unwrap() > resource_meta.modified().unwrap()).then_some(())
+                    }) {
+                        None => {
+                            let img = ImageReader::open(&resource_file)
+                                .map_err(|_| tera::Error::msg("Could not open image"))?
+                                .decode()
+                                .map_err(|_| tera::Error::msg("Could not decode image"))?;
+                            // println!("loaded");
+                            let mut image_data: Vec<u8> = Vec::new();
+                            let mut img_writer = BufWriter::new(Cursor::new(&mut image_data));
+                            img.write_to(&mut img_writer, ImageOutputFormat::Jpeg(60))
+                                .map_err(|_| tera::Error::msg("Could not write image data"))?;
+                            drop(img_writer);
+                            // println!("semi");
+                            let data = base64_simd::STANDARD.encode_to_string(&image_data);
+
+                            fs::create_dir_all(cache_file.parent().unwrap())?;
+                            fs::write(cache_file, &data)?;
+                            data
+                        }
+                        Some(_) => fs::read_to_string(&cache_file).unwrap(),
+                    };
+
                     // println!("written");
-                    Ok(to_value(res).unwrap())
+                    Ok(to_value(data).unwrap())
                 }
                 Err(_) => Err("file not found".into()),
             }
@@ -97,9 +115,13 @@ impl Pipeline {
             .ok_or_else(|| anyhow!("Invalid path"))?;
         let pattern = path_str.to_string() + "/templates/**/*.tera.*";
         let mut base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
+
+        let cache_path = project_path.as_ref().join(".cache");
+        fs::create_dir_all(&cache_path)?;
+
         base_tera.register_filter(
             "embed",
-            create_embed_fn(project_path.as_ref().join("resources")),
+            create_embed_fn(project_path.as_ref().join("resources"), cache_path),
         );
 
         let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
@@ -564,15 +586,12 @@ impl Pipeline {
                 output_format: format,
             };
 
-            let mut meta = tera::Context::new();
-            meta.insert("config", &self.project_config);
-
             let res = self
                 .project_config
                 .parsers
                 .get(&format)
                 .ok_or_else(|| anyhow!("Invalid format"))?
-                .parse(&doc, &meta, &processor_ctx)?;
+                .parse(&doc, &processor_ctx)?;
 
             // let res = print_err(res)?;
 

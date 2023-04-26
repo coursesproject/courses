@@ -76,7 +76,14 @@ impl RenderElement<ToLaTeXContext> for Inline {
                 Ok(ctx.tera.render("builtins/latex/link.tera.tex", &context)?)
             }
             Inline::Html(s) => Ok(s),
-            Inline::Math(s) => Ok(format!("${}$", s)),
+            Inline::Math(s, display_mode, trailing_space) => {
+                let mut context = tera::Context::new();
+                context.insert("display_mode", &display_mode);
+                context.insert("trailing_space", &trailing_space);
+                context.insert("value", &s);
+                Ok(ctx.tera.render("builtins/latex/math.tera.tex", &context)?)
+            }
+            Inline::Shortcode(s) => render_shortcode_template(ctx, s),
         }
     }
 }
@@ -169,14 +176,6 @@ impl RenderElement<ToLaTeXContext> for Block {
                 "builtins/latex/list_item.tera.tex",
                 inner.render(ctx)?,
             ),
-            Block::Math(s, display_mode, trailing_space) => {
-                let mut context = tera::Context::new();
-                context.insert("display_mode", &display_mode);
-                context.insert("trailing_space", &trailing_space);
-                context.insert("value", &s);
-                Ok(ctx.tera.render("builtins/latex/math.tera.tex", &context)?)
-            }
-            Block::Shortcode(s) => render_shortcode_template(ctx, s),
         }
     }
 }

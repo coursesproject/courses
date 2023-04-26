@@ -57,6 +57,7 @@ indicatif = "0.17.2"
 # Async + server stuff
 penguin = "0.1.7"
 tokio = { version = "1.21.2", features = ["full"] }
+pollster = { version = "0.3.0", features = ["macro"]}
 notify = { version = "5.0.0" }
 notify-debouncer-mini = "0.2.1"
 reqwest = { version = "0.11.13", features = ["blocking"] }

@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode};
+use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode, ShortcodeBase};
 use crate::notebook::CellOutput;
 use anyhow::Result;
 
@@ -27,10 +27,6 @@ pub trait AstVisitor {
             } => self.visit_code_block(source, reference, attr, tags, outputs),
             Block::List(_, ref mut blocks) => self.visit_vec_block(blocks),
             Block::ListItem(ref mut blocks) => self.visit_vec_block(blocks),
-            Block::Math(ref mut s, ref mut display_block, ref mut trailing_space) => {
-                self.visit_math_block(s, display_block, trailing_space)
-            }
-            Block::Shortcode(ref mut s) => self.visit_shortcode(s),
         }
     }
 
@@ -50,9 +46,16 @@ pub trait AstVisitor {
             Inline::Rule => Ok(()),
             Inline::Image(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
-            Inline::Html(_) => Ok(()),
-            Inline::Math(s) => self.visit_math_inline(s),
+            Inline::Html(h) => self.visit_html_inline(h),
+            Inline::Math(ref mut s, ref mut display_block, ref mut trailing_space) => {
+                self.visit_math(s, display_block, trailing_space)
+            }
+            Inline::Shortcode(ref mut s) => self.visit_shortcode(s),
         }
+    }
+
+    fn visit_html_inline(&mut self, _input: &str) -> Result<()> {
+        Ok(())
     }
 
     fn visit_vec_block(&mut self, blocks: &mut Vec<Block>) -> Result<()> {
@@ -83,7 +86,7 @@ pub trait AstVisitor {
         Ok(())
     }
 
-    fn visit_math_block(
+    fn visit_math(
         &mut self,
         _source: &mut String,
         _display_block: &mut bool,
@@ -95,7 +98,21 @@ pub trait AstVisitor {
         Ok(())
     }
 
-    fn visit_shortcode(&mut self, _shortcode: &mut Shortcode) -> Result<()> {
+    fn walk_shortcode(&mut self, shortcode: &mut Shortcode) -> Result<()> {
+        match shortcode {
+            Shortcode::Inline(ref mut s) => self.visit_shortcode_base(s),
+            Shortcode::Block(ref mut s, ref mut blocks) => {
+                self.visit_shortcode_base(s)?;
+                self.walk_vec_block(blocks)
+            }
+        }
+    }
+
+    fn visit_shortcode_base(&mut self, _shortcode_base: &mut ShortcodeBase) -> Result<()> {
         Ok(())
+    }
+
+    fn visit_shortcode(&mut self, shortcode: &mut Shortcode) -> Result<()> {
+        self.walk_shortcode(shortcode)
     }
 }

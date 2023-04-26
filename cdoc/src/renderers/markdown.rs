@@ -76,7 +76,10 @@ impl ToMarkdown for Inline {
             Inline::Image(_tp, url, title, _) => Ok(format!("![{title}]({url})")),
             Inline::Link(_tp, url, title, _) => Ok(format!("[{title}]({url})")),
             Inline::Html(s) => Ok(s),
-            Inline::Math(s) => Ok(format!("${}$", s)),
+            Inline::Math(s, display_mode, trailing_space) => {
+                Ok(math_block_md(&s, display_mode, trailing_space))
+            }
+            Inline::Shortcode(s) => render_shortcode_template(ctx, s),
         }
     }
 }
@@ -139,10 +142,6 @@ impl ToMarkdown for Block {
                     ctx.tera.render("builtins/md/list_item.tera.md", &context)?
                 ))
             }
-            Block::Math(s, display_mode, trailing_space) => {
-                Ok(math_block_md(&s, display_mode, trailing_space))
-            }
-            Block::Shortcode(s) => render_shortcode_template(ctx, s),
         }
     }
 }

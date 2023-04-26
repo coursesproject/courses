@@ -43,6 +43,7 @@ syntect = "5.0.0"
 thiserror = "1.0.37"
 anyhow = "1.0.66"
 dyn-clone = "1.0.10"
+lazy_static = "1.4.0"
 
 clap = {version="4.0.29", features=["derive"]}
 

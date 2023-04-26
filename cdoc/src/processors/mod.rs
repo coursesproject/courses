@@ -9,10 +9,7 @@ use crate::config::OutputFormat;
 use crate::document::Document;
 use crate::parsers::split::Rule;
 
-mod escapes;
 pub mod exercises;
-pub mod katex;
-pub mod shortcodes;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -31,19 +28,9 @@ pub struct PreprocessorContext {
     pub output_format: OutputFormat,
 }
 
-pub trait MarkdownPreprocessor: Display {
-    fn name(&self) -> String;
-    fn process(&self, input: &str, ctx: &tera::Context) -> Result<String, anyhow::Error>;
-}
-
 pub trait AstPreprocessor: Display {
     fn name(&self) -> String;
     fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
-}
-
-#[typetag::serde(tag = "type")]
-pub trait PreprocessorConfig: Debug + Send + Sync + DynClone {
-    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn MarkdownPreprocessor>>;
 }
 
 #[typetag::serde(tag = "type")]
@@ -51,5 +38,4 @@ pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>>;
 }
 
-dyn_clone::clone_trait_object!(PreprocessorConfig);
 dyn_clone::clone_trait_object!(AstPreprocessorConfig);
