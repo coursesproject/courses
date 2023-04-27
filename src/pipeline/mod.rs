@@ -580,7 +580,13 @@ impl Pipeline {
                 ids: doc.ids,
                 id_map: doc.id_map,
             }))
-        } else if doc.metadata.outputs.contains(&format) {
+        } else if !doc
+            .metadata
+            .exclude_outputs
+            .as_ref()
+            .map(|o| o.contains(&format))
+            .unwrap_or_default()
+        {
             let processor_ctx = PreprocessorContext {
                 tera: self.shortcode_tera.clone(),
                 output_format: format,

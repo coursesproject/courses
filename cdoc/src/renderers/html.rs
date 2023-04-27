@@ -78,7 +78,7 @@ impl ToHtml for Inline {
             Inline::Emphasis(inner) => Ok(format!("<em>{}</em>", inner.to_html(ctx)?)),
             Inline::Strong(inner) => Ok(format!("<strong>{}</strong>", inner.to_html(ctx)?)),
             Inline::Strikethrough(inner) => Ok(format!("<s>{}</s>", inner.to_html(ctx)?)),
-            Inline::Code(s) => Ok(s),
+            Inline::Code(s) => Ok(format!("<code>{}</code>", s)),
             Inline::SoftBreak => Ok("<br>".to_string()),
             Inline::HardBreak => Ok("<br>".to_string()),
             Inline::Rule => Ok("<hr>".to_string()),

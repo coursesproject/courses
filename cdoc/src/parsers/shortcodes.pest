@@ -1,9 +1,9 @@
 WHITESPACE = _{(" "|"\n"|"\t"|"\r")}
 
 
-string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?")*}
+string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'")*}
 string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
-basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?")+}
+basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")+}
 
 name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_"|"-")*}
 key = {(ASCII_ALPHA|"_"|"-")+}
