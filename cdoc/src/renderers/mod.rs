@@ -12,7 +12,7 @@ use tera::Tera;
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
 use crate::parsers::shortcodes::ShortCodeDef;
-use crate::templates::TemplateManager;
+use crate::templates::{TemplateContext, TemplateManager};
 
 pub mod html;
 pub mod latex;
@@ -23,7 +23,7 @@ pub type RenderResult = String;
 
 pub struct RenderContext {
     pub templates: TemplateManager,
-    pub extra_args: BTreeMap<String, Value>,
+    pub extra_args: TemplateContext,
     pub syntax_set: SyntaxSet,
     pub theme: Theme,
     pub notebook_output_meta: NotebookMeta,
@@ -68,8 +68,8 @@ fn render_value_template(
     format: OutputFormat,
     value: String,
 ) -> Result<String> {
-    let mut args = BTreeMap::new();
-    args.insert("value", value.into());
+    let mut args = TemplateContext::new();
+    args.insert("value", &value);
     Ok(templates.render(name, format, &args)?)
 }
 
@@ -80,20 +80,63 @@ fn get_id() -> usize {
 }
 
 fn add_args(
-    ctx: &mut BTreeMap<&str, Value>,
+    ctx: &mut TemplateContext,
     id: Option<String>,
     num: usize,
     ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
     id_map: &HashMap<String, (usize, ShortCodeDef)>,
-    arguments: HashMap<&str, String>,
-) {
+    arguments: HashMap<String, String>,
+) -> Result<()> {
     if let Some(id) = id {
-        ctx.insert("id", id.into());
+        ctx.insert("id", &id);
     }
-    ctx.insert("num", num.into());
-    ctx.insert("ids", ids.into());
-    ctx.insert("id_map", id_map.into());
-    for (k, v) in arguments {
-        ctx.insert(k, v.into());
+    ctx.insert("num", &num);
+    ctx.insert("ids", &ids);
+    ctx.insert("id_map", &id_map);
+    for (k, v) in &arguments {
+        ctx.insert(&k, v);
     }
+    Ok(())
+}
+
+fn render_image(
+    url: &str,
+    alt: &str,
+    inner: &str,
+    manager: &TemplateManager,
+    format: OutputFormat,
+) -> Result<String> {
+    let mut args = TemplateContext::new();
+    args.insert("url", url);
+    args.insert("alt", alt);
+    args.insert("inner", inner);
+    Ok(manager.render("b_image", format, &args)?)
+}
+
+fn render_link(
+    url: &str,
+    alt: &str,
+    inner: &str,
+    manager: &TemplateManager,
+    format: OutputFormat,
+) -> Result<String> {
+    let mut args = TemplateContext::new();
+    args.insert("url", url);
+    args.insert("alt", alt);
+    args.insert("inner", inner);
+    Ok(manager.render("b_link", format, &args)?)
+}
+
+fn render_math(
+    display_mode: bool,
+    trailing_space: bool,
+    inner: &str,
+    manager: &TemplateManager,
+    format: OutputFormat,
+) -> Result<String> {
+    let mut args = TemplateContext::new();
+    args.insert("display_mode", &display_mode);
+    args.insert("trailing_space", &trailing_space);
+    args.insert("value", inner);
+    Ok(manager.render("b_math", format, &args)?)
 }

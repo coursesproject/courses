@@ -12,8 +12,10 @@ use syntect::highlighting::Theme;
 use syntect::parsing::SyntaxSet;
 use tera::Tera;
 
-use crate::renderers::{add_args, RenderContext, RenderResult, Renderer};
-use crate::templates::TemplateManager;
+use crate::renderers::{
+    add_args, render_image, render_link, render_math, RenderContext, RenderResult, Renderer,
+};
+use crate::templates::{TemplateContext, TemplateManager};
 
 #[derive(Serialize, Deserialize)]
 pub struct HtmlRenderer {
@@ -53,7 +55,7 @@ pub struct ToHtmlContext {
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
     pub templates: TemplateManager,
-    pub extra_args: BTreeMap<String, Value>,
+    pub extra_args: TemplateContext,
     pub syntax_set: SyntaxSet,
     pub theme: Theme,
 }
@@ -87,28 +89,20 @@ impl ToHtml for Inline {
             Inline::Rule => Ok("<hr>".to_string()),
             Inline::Image(_tp, url, alt, inner) => {
                 let inner_s = inner.to_html(ctx)?;
-                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
-                args.insert("url", url.into());
-                args.insert("alt", alt.into());
-                args.insert("inner", inner_s.into());
-                Ok(ctx.templates.render("b_image", OutputFormat::Html, &args)?)
+                render_image(&url, &alt, &inner_s, &ctx.templates, OutputFormat::Html)
             }
             Inline::Link(_tp, url, alt, inner) => {
                 let inner_s = inner.to_html(ctx)?;
-                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
-                args.insert("url", url.into());
-                args.insert("alt", alt.into());
-                args.insert("inner", inner_s.into());
-                Ok(ctx.templates.render("b_link", OutputFormat::Html, &args)?)
+                render_link(&url, &alt, &inner_s, &ctx.templates, OutputFormat::Html)
             }
             Inline::Html(s) => Ok(s),
-            Inline::Math(s, display_mode, trailing_space) => {
-                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
-                args.insert("display_mode", display_mode.into());
-                args.insert("trailing_space", trailing_space.into());
-                args.insert("value", s.into());
-                Ok(ctx.templates.render("b_math", OutputFormat::Html, &args)?)
-            }
+            Inline::Math(s, display_mode, trailing_space) => render_math(
+                display_mode,
+                trailing_space,
+                &s,
+                &ctx.templates,
+                OutputFormat::Html,
+            ),
             Inline::Shortcode(s) => {
                 Ok(render_shortcode_template(ctx, s).unwrap_or_else(|e| e.to_string()))
             }
@@ -201,15 +195,15 @@ impl ToHtml for Block {
                     &ctx.theme,
                 )?;
 
-                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
-                args.insert("interactive", ctx.metadata.interactive.into());
-                args.insert("cell_outputs", ctx.metadata.cell_outputs.into());
-                args.insert("editable", ctx.metadata.editable.into());
-                args.insert("source", source.into());
-                args.insert("highlighted", highlighted.into());
-                args.insert("id", id.into());
-                args.insert("tags", tags.into());
-                args.insert("outputs", outputs.to_html(ctx)?.into());
+                let mut args = TemplateContext::new();
+                args.insert("interactive", &ctx.metadata.interactive);
+                args.insert("cell_outputs", &ctx.metadata.cell_outputs);
+                args.insert("editable", &ctx.metadata.editable);
+                args.insert("source", &source);
+                args.insert("highlighted", &highlighted);
+                args.insert("id", &id);
+                args.insert("tags", &tags);
+                args.insert("outputs", &outputs.to_html(ctx)?);
 
                 Ok(ctx.templates.render("b_cell", OutputFormat::Html, &args)?)
             }
@@ -225,9 +219,9 @@ impl ToHtml for Block {
                         inner,
                     )?,
                     Some(start) => {
-                        let mut args: BTreeMap<&str, Value> = BTreeMap::new();
-                        args.insert("start", start.into());
-                        args.insert("value", inner.into());
+                        let mut args = TemplateContext::new();
+                        args.insert("start", &start);
+                        args.insert("value", &inner);
                         ctx.templates
                             .render("b_list_ordered", OutputFormat::Html, &args)?
                     }
@@ -246,16 +240,15 @@ impl ToHtml for Block {
 fn render_params(
     parameters: HashMap<String, Vec<Block>>,
     ctx: &ToHtmlContext,
-) -> Result<HashMap<&str, String>> {
+) -> Result<HashMap<String, String>> {
     parameters
         .into_iter()
-        .map(|(k, v)| Ok((k.as_str(), v.to_html(ctx)?)))
+        .map(|(k, v)| Ok((k, v.to_html(ctx)?)))
         .collect()
 }
 
 fn render_shortcode_template(ctx: &ToHtmlContext, shortcode: Shortcode) -> Result<String> {
     let mut args = ctx.extra_args.clone();
-    let mut args = args.into_iter().map(|(k, v)| (k.as_str(), v)).collect();
 
     let name = match shortcode {
         Shortcode::Inline(def) => {
@@ -279,7 +272,7 @@ fn render_shortcode_template(ctx: &ToHtmlContext, shortcode: Shortcode) -> Resul
                 render_params(def.parameters, ctx)?,
             );
             let body = body.to_html(ctx)?;
-            args.insert("body", body.into());
+            args.insert("body", &body);
             def.name
         }
     };

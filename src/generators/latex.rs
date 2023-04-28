@@ -1,8 +1,10 @@
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::ItemDescriptor;
 use anyhow::Context;
+use cdoc::config::OutputFormat;
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
+use cdoc::templates::{TemplateContext, TemplateManager};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::ops::Deref;
@@ -10,12 +12,12 @@ use std::path::PathBuf;
 use tera::Tera;
 
 pub struct LaTeXGenerator {
-    tera: Tera,
+    templates: TemplateManager,
 }
 
 impl LaTeXGenerator {
-    pub fn new(tera: Tera) -> Self {
-        LaTeXGenerator { tera }
+    pub fn new(templates: TemplateManager) -> Self {
+        LaTeXGenerator { templates }
     }
 
     fn write_document(
@@ -66,17 +68,21 @@ impl Generator for LaTeXGenerator {
         // main_doc
         let proj = ctx.project.clone();
 
-        let mut context = tera::Context::new();
+        let mut context = TemplateContext::new();
         context.insert("project", &proj);
         context.insert("config", &ctx.config);
-        let result = ctx.tera.render("main.tera.tex", &context)?;
+        let result = ctx
+            .templates
+            .render("main", OutputFormat::LaTeX, &context)?;
         self.write_file(
             result,
             ctx.build_dir.as_path().to_path_buf(),
             "main".to_string(),
         )?;
 
-        let result = ctx.tera.render("preamble.tera.tex", &context)?;
+        let result = ctx
+            .templates
+            .render("preamble", OutputFormat::LaTeX, &context)?;
         self.write_file(
             result,
             ctx.build_dir.as_path().to_path_buf(),
@@ -95,7 +101,7 @@ impl Generator for LaTeXGenerator {
                 pb.inc(1);
 
                 // TODO: Merge with single
-                let mut context = tera::Context::new();
+                let mut context = TemplateContext::new();
                 context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
                 context.insert("config", &ctx.config);
                 context.insert("current_part", &item.part_id);
@@ -103,7 +109,9 @@ impl Generator for LaTeXGenerator {
                 context.insert("current_doc", &item.doc.id);
                 context.insert("doc", &c);
 
-                let result = self.tera.render("section.tera.tex", &context)?;
+                let result = self
+                    .templates
+                    .render("section", OutputFormat::LaTeX, &context)?;
                 self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
             }
         }
@@ -119,7 +127,7 @@ impl Generator for LaTeXGenerator {
         ctx: GeneratorContext,
     ) -> anyhow::Result<()> {
         let proj = ctx.project.clone();
-        let mut context = tera::Context::new();
+        let mut context = TemplateContext::new();
         context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
         context.insert("config", &ctx.config);
         context.insert("current_part", &doc_info.part_id);
@@ -129,7 +137,9 @@ impl Generator for LaTeXGenerator {
         context.insert("html", &content.content);
         context.insert("title", "Test");
 
-        let result = self.tera.render("section.tera.tex", &context)?;
+        let result = self
+            .templates
+            .render("section", OutputFormat::LaTeX, &context)?;
 
         self.write_document(result, doc_info.doc.id, doc_info.doc.path, ctx.build_dir)?;
 

@@ -18,8 +18,8 @@ impl Renderer for NotebookRenderer {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
             ids_map: doc.id_map.clone(),
-            tera: ctx.tera.clone(),
-            tera_context: ctx.tera_context.clone(),
+            templates: ctx.templates.clone(),
+            extra_args: ctx.extra_args.clone(),
             list_idx: None,
             list_lvl: 0,
         };

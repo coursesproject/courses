@@ -18,6 +18,9 @@ use cdoc::config::OutputFormat;
 use cdoc::document::Document;
 use cdoc::processors::PreprocessorContext;
 use cdoc::renderers::{RenderContext, RenderResult};
+use cdoc::templates::{
+    load_template_definitions, TemplateContext, TemplateDefinition, TemplateManager,
+};
 use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
 
@@ -38,7 +41,7 @@ pub struct Pipeline {
     project_path: PathBuf,
     project: Project<()>,
     project_config: ProjectConfig,
-    base_tera: Tera,
+    templates: TemplateManager,
     shortcode_tera: Tera,
     render_context: RenderContext,
     cached_contexts: HashMap<OutputFormat, GeneratorContext>,
@@ -113,33 +116,33 @@ impl Pipeline {
             .as_ref()
             .to_str()
             .ok_or_else(|| anyhow!("Invalid path"))?;
-        let pattern = path_str.to_string() + "/templates/**/*.tera.*";
-        let mut base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
+
+        let template_manager = TemplateManager::from_path(project_path.as_ref().join("templates"))?;
 
         let cache_path = project_path.as_ref().join(".cache");
         fs::create_dir_all(&cache_path)?;
 
-        base_tera.register_filter(
-            "embed",
-            create_embed_fn(project_path.as_ref().join("resources"), cache_path),
-        );
+        // base_tera.register_filter(
+        //     "embed",
+        //     create_embed_fn(project_path.as_ref().join("resources"), cache_path),
+        // ); // TODO
 
-        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
+        let shortcode_pattern = path_str.to_string() + "/templates_old/shortcodes/**/*.tera.*";
         let shortcode_tera =
             Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
 
-        let builtins_pattern = path_str.to_string() + "/templates/builtins/**/*.tera.*";
+        let builtins_pattern = path_str.to_string() + "/templates_old/builtins/**/*.tera.*";
         let mut builtins_tera =
             Tera::new(&builtins_pattern).context("Error preparing project templates")?;
         builtins_tera.autoescape_on(vec![".html", ".md", ".tex"]);
 
-        let mut meta = tera::Context::new();
+        let mut meta = TemplateContext::new();
         meta.insert("config", &config);
 
         let ts = ThemeSet::load_defaults();
         let render_context = RenderContext {
-            tera: base_tera.clone(),
-            tera_context: meta,
+            templates: template_manager.clone(),
+            extra_args: meta,
             syntax_set: SyntaxSet::load_defaults_newlines(),
             theme: ts.themes["base16-ocean.light"].clone(),
             notebook_output_meta: config.notebook_meta.clone().unwrap_or_default(),
@@ -150,7 +153,7 @@ impl Pipeline {
             project_path: project_path.as_ref().to_path_buf(),
             project,
             project_config: config,
-            base_tera,
+            templates: template_manager,
             shortcode_tera,
             render_context,
             cached_contexts: HashMap::new(),
@@ -160,10 +163,10 @@ impl Pipeline {
     fn get_generator(&self, format: OutputFormat) -> Box<dyn Generator> {
         match format {
             OutputFormat::Notebook => Box::new(CodeOutputGenerator),
-            OutputFormat::Html => Box::new(HtmlGenerator::new(self.base_tera.clone())),
+            OutputFormat::Html => Box::new(HtmlGenerator::new(self.templates.clone())),
             OutputFormat::Info => Box::new(InfoGenerator),
-            OutputFormat::LaTeX => Box::new(LaTeXGenerator::new(self.base_tera.clone())),
-            OutputFormat::Markdown => Box::new(MarkdownGenerator::new(self.base_tera.clone())),
+            OutputFormat::LaTeX => Box::new(LaTeXGenerator::new(self.templates.clone())),
+            OutputFormat::Markdown => Box::new(MarkdownGenerator::new(self.templates.clone())),
         }
     }
 
@@ -178,16 +181,19 @@ impl Pipeline {
     }
 
     pub fn reload_shortcode_tera(&mut self) -> anyhow::Result<()> {
-        self.render_context.tera.full_reload()?;
+        self.render_context.templates =
+            TemplateManager::from_path(self.project_path.as_path().join("templates"))?;
         Ok(self.shortcode_tera.full_reload()?)
     }
 
     pub fn reload_base_tera(&mut self) -> anyhow::Result<()> {
-        Ok(self.base_tera.full_reload()?)
+        Ok(self.render_context.templates =
+            TemplateManager::from_path(self.project_path.as_path().join("templates"))?)
     }
 
     pub fn reload_builtins_tera(&mut self) -> anyhow::Result<()> {
-        Ok(self.render_context.tera.full_reload()?)
+        Ok(self.render_context.templates =
+            TemplateManager::from_path(self.project_path.as_path().join("templates"))?)
     }
 
     pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
@@ -411,7 +417,7 @@ impl Pipeline {
             let context = GeneratorContext {
                 root: self.project_path.to_path_buf(),
                 project: output,
-                tera: self.base_tera.clone(),
+                templates: self.templates.clone(),
                 config: self.project_config.clone(),
                 build_dir: self.get_build_path(*format),
             };

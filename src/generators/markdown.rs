@@ -6,18 +6,19 @@ use tera::Tera;
 
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
+use cdoc::templates::TemplateManager;
 
 use crate::generators::{Generator, GeneratorContext};
 use crate::project::ItemDescriptor;
 
 pub struct MarkdownGenerator {
     #[allow(unused)]
-    tera: Tera,
+    templates: TemplateManager,
 }
 
 impl MarkdownGenerator {
-    pub fn new(tera: Tera) -> Self {
-        MarkdownGenerator { tera }
+    pub fn new(templates: TemplateManager) -> Self {
+        MarkdownGenerator { templates }
     }
 }
 

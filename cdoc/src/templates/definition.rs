@@ -1,4 +1,5 @@
 use crate::config::OutputFormat;
+use crate::templates::TemplateContext;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -22,7 +23,7 @@ pub struct TemplateDefinition {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TemplateType {
     Shortcode(ShortcodeDefinition),
-    Generic,
+    Layout,
     Builtin,
 }
 
@@ -69,7 +70,7 @@ impl Display for TemplateType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             TemplateType::Shortcode(_) => "shortcode",
-            TemplateType::Generic => "generic",
+            TemplateType::Layout => "generic",
             TemplateType::Builtin => "builtin",
         };
         write!(f, "{}", name)
@@ -109,11 +110,11 @@ pub enum ValidationError {
 }
 
 impl ParameterType {
-    pub fn validate_value(&self, value: &String) -> Result<(), ValidationError> {
+    pub fn validate_value(&self, value: String) -> Result<(), ValidationError> {
         match self {
             ParameterType::Regular => Ok(()),
             ParameterType::Choice { choices } => {
-                choices.contains(value).then(|| ()).ok_or_else(|| {
+                choices.contains(&value).then(|| ()).ok_or_else(|| {
                     ValidationError::InvalidValue(format!(
                         "The provided value {} must be one of {:?}",
                         &value, &choices
@@ -141,21 +142,25 @@ impl ParameterType {
 }
 
 impl TemplateDefinition {
-    pub fn template_for_format(&self, format: OutputFormat) -> anyhow::Result<String> {
+    pub fn template_for_format(
+        &self,
+        base_path: PathBuf,
+        format: OutputFormat,
+    ) -> anyhow::Result<String> {
         let tp = self
             .templates
             .get(&format)
             .ok_or(anyhow!("Format not available"))?;
         match &tp.0 {
             TemplateSource::String(s) => Ok(s.clone()),
-            TemplateSource::File(p) => Ok(fs::read_to_string(p)?),
+            TemplateSource::File(p) => Ok(fs::read_to_string(base_path.join(p))?),
         }
     }
 
-    pub fn template_strings(&self) -> HashMap<OutputFormat, String> {
+    pub fn template_strings(&self, base_path: PathBuf) -> HashMap<OutputFormat, String> {
         self.templates
             .iter()
-            .map(|(f, source)| (*f, self.template_for_format(*f).unwrap()))
+            .map(|(f, source)| (*f, self.template_for_format(base_path.clone(), *f).unwrap()))
             .collect()
     }
 
@@ -168,10 +173,11 @@ impl TemplateDefinition {
 
     pub fn validate_args(
         &self,
-        args: &BTreeMap<String, String>,
+        args: &TemplateContext,
     ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
         if let TemplateType::Shortcode(s) = &self.type_ {
             let res: Vec<Result<(), ValidationError>> = args
+                .map
                 .iter()
                 .enumerate()
                 .map(|(i, (k, v))| {
@@ -186,7 +192,7 @@ impl TemplateDefinition {
                             .ok_or_else(|| ValidationError::InvalidName(k.to_string()))?
                     };
 
-                    param.param_type.validate_value(v)
+                    param.param_type.validate_value(v.to_string())
                 })
                 .collect();
             Ok(res)

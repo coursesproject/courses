@@ -1,11 +1,15 @@
 use crate::ast::{math_block_md, Ast, Block, Inline, Shortcode};
+use crate::config::OutputFormat;
 use crate::document::{Document, DocumentMetadata};
 use crate::parsers::shortcodes::ShortCodeDef;
 use crate::renderers;
 use crate::renderers::{add_args, RenderContext, RenderResult, Renderer};
+use crate::templates::{TemplateContext, TemplateManager};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde_json::Value;
+use std::cmp::max;
+use std::collections::{BTreeMap, HashMap};
 use tera::Tera;
 
 #[derive(Serialize, Deserialize)]
@@ -18,8 +22,8 @@ impl Renderer for MarkdownRenderer {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
             ids_map: doc.id_map.clone(),
-            tera: ctx.tera.clone(),
-            tera_context: ctx.tera_context.clone(),
+            templates: ctx.templates.clone(),
+            extra_args: ctx.extra_args.clone(),
             list_idx: None,
             list_lvl: 0,
         };
@@ -40,8 +44,8 @@ pub struct ToMarkdownContext {
     pub metadata: DocumentMetadata,
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
-    pub tera: Tera,
-    pub tera_context: tera::Context,
+    pub templates: TemplateManager,
+    pub extra_args: TemplateContext,
     pub list_idx: Option<usize>,
     pub list_lvl: usize,
 }
@@ -97,49 +101,41 @@ impl ToMarkdown for Block {
             Block::BlockQuote(i) => Ok(i.to_markdown(ctx)?),
             Block::CodeBlock { source, .. } => Ok(format!("```\n{}\n```", source)),
             Block::List(idx, items) => {
+                let inner: Result<String> = items.into_iter().map(|b| b.to_markdown(ctx)).collect();
+                let inner = inner?;
+
                 ctx.list_lvl += 1;
+
                 let res = match idx {
-                    None => {
-                        ctx.list_idx = None;
-                        let inner: Result<String> =
-                            items.into_iter().map(|b| b.to_markdown(ctx)).collect();
-                        format!(
-                            "\n{}\n",
-                            renderers::render_value_template(
-                                &ctx.tera,
-                                "builtins/md/list_unordered.tera.md",
-                                inner?,
-                            )?
-                        )
-                    }
+                    None => renderers::render_value_template(
+                        &ctx.templates,
+                        "b_list_unordered",
+                        OutputFormat::Markdown,
+                        inner,
+                    )?,
                     Some(start) => {
-                        ctx.list_idx = Some(1);
-                        let inner: Result<String> =
-                            items.into_iter().map(|b| b.to_markdown(ctx)).collect();
-                        let mut context = tera::Context::new();
-                        context.insert("start", &start);
-                        context.insert("value", &inner?);
-                        format!(
-                            "\n{}\n",
-                            ctx.tera
-                                .render("builtins/md/list_ordered.tera.md", &context)?
-                        )
+                        let mut args = TemplateContext::new();
+                        args.insert("start", &start);
+                        args.insert("value", &inner);
+                        ctx.templates
+                            .render("b_list_ordered", OutputFormat::Markdown, &args)?
                     }
                 };
                 ctx.list_lvl -= 1;
                 Ok(res)
             }
             Block::ListItem(inner) => {
-                let mut context = tera::Context::new();
-                context.insert("idx", &ctx.list_idx);
+                let mut args = TemplateContext::new();
+                args.insert("idx", &ctx.list_idx);
                 if let Some(v) = ctx.list_idx.as_mut() {
                     *v += 1;
                 }
-                context.insert("value", &inner.to_markdown(ctx)?);
+                args.insert("value", &inner.to_markdown(ctx)?);
                 Ok(format!(
                     "{}{}\n",
-                    "\t".repeat(ctx.list_lvl - 1),
-                    ctx.tera.render("builtins/md/list_item.tera.md", &context)?
+                    "\t".repeat(ctx.list_lvl), // Todo: Strange
+                    ctx.templates
+                        .render("b_list_item", OutputFormat::Markdown, &args)?
                 ))
             }
         }
@@ -157,24 +153,23 @@ fn render_params(
 }
 
 fn render_shortcode_template(ctx: &mut ToMarkdownContext, shortcode: Shortcode) -> Result<String> {
-    let mut context = ctx.tera_context.clone();
+    let mut args = ctx.extra_args.clone();
 
-    match shortcode {
+    let name = match shortcode {
         Shortcode::Inline(def) => {
-            let name = format!("shortcodes/md/{}.tera.md", def.name,);
-            let p = render_params(def.parameters, ctx)?;
-            add_args(&mut context, def.id, def.num, &ctx.ids, &ctx.ids_map, p);
-            Ok(ctx.tera.render(&name, &context)?)
+            let params = render_params(def.parameters, ctx)?;
+            add_args(&mut args, def.id, def.num, &ctx.ids, &ctx.ids_map, params)?;
+            def.name
         }
         Shortcode::Block(def, body) => {
-            let name = format!("shortcodes/md/{}.tera.md", def.name,);
-            let p = render_params(def.parameters, ctx)?;
-            add_args(&mut context, def.id, def.num, &ctx.ids, &ctx.ids_map, p);
+            let params = render_params(def.parameters, ctx)?;
+            add_args(&mut args, def.id, def.num, &ctx.ids, &ctx.ids_map, params)?;
             let body = body.to_markdown(ctx)?;
-            context.insert("body", &body);
-            Ok(format!("{}\n\n", ctx.tera.render(&name, &context)?))
+            args.insert("body", &body);
+            def.name
         }
-    }
+    };
+    Ok(ctx.templates.render(&name, OutputFormat::Markdown, &args)?)
 }
 
 //

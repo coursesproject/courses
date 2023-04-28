@@ -1,5 +1,6 @@
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
+use cdoc::templates::TemplateManager;
 use std::path::PathBuf;
 use tera::Tera;
 
@@ -16,7 +17,7 @@ pub mod notebook;
 pub struct GeneratorContext {
     pub root: PathBuf,
     pub project: Project<Option<Document<RenderResult>>>,
-    pub tera: Tera,
+    pub templates: TemplateManager,
     pub config: ProjectConfig,
     pub build_dir: PathBuf,
 }
