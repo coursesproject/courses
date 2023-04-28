@@ -15,7 +15,8 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub repository: RepositoryConfig,
     pub outputs: Vec<OutputFormat>,
-    pub parsers: HashMap<OutputFormat, Parser>,
+    #[serde(flatten)]
+    pub parser: Parser,
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,
     pub notebook_meta: Option<NotebookMeta>,

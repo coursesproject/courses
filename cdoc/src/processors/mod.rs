@@ -33,7 +33,7 @@ pub trait AstPreprocessor: Display {
     fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
 }
 
-#[typetag::serde(tag = "type")]
+#[typetag::serde(tag = "name")]
 pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>>;
 }

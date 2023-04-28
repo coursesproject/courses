@@ -1,16 +1,19 @@
 use crate::ast::{Ast, Block, Inline, Shortcode};
+use crate::config::OutputFormat;
 use crate::document::{Document, DocumentMetadata};
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 use crate::parsers::shortcodes::ShortCodeDef;
 use crate::renderers;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde_json::Value;
+use std::collections::{BTreeMap, HashMap};
 use syntect::highlighting::Theme;
 use syntect::parsing::SyntaxSet;
 use tera::Tera;
 
 use crate::renderers::{add_args, RenderContext, RenderResult, Renderer};
+use crate::templates::TemplateManager;
 
 #[derive(Serialize, Deserialize)]
 pub struct HtmlRenderer {
@@ -29,8 +32,8 @@ impl Renderer for HtmlRenderer {
             metadata: doc.metadata.clone(),
             ids: doc.ids.clone(),
             ids_map: doc.id_map.clone(),
-            tera: ctx.tera.clone(),
-            tera_context: ctx.tera_context.clone(),
+            templates: ctx.templates.clone(),
+            extra_args: ctx.extra_args.clone(),
             syntax_set: ctx.syntax_set.clone(),
             theme: ctx.theme.clone(),
         };
@@ -49,8 +52,8 @@ pub struct ToHtmlContext {
     pub metadata: DocumentMetadata,
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
-    pub tera: Tera,
-    pub tera_context: tera::Context,
+    pub templates: TemplateManager,
+    pub extra_args: BTreeMap<String, Value>,
     pub syntax_set: SyntaxSet,
     pub theme: Theme,
 }
@@ -84,27 +87,27 @@ impl ToHtml for Inline {
             Inline::Rule => Ok("<hr>".to_string()),
             Inline::Image(_tp, url, alt, inner) => {
                 let inner_s = inner.to_html(ctx)?;
-                let mut context = tera::Context::new();
-                context.insert("url", &url);
-                context.insert("alt", &alt);
-                context.insert("inner", &inner_s);
-                Ok(ctx.tera.render("builtins/html/image.tera.html", &context)?)
+                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
+                args.insert("url", url.into());
+                args.insert("alt", alt.into());
+                args.insert("inner", inner_s.into());
+                Ok(ctx.templates.render("b_image", OutputFormat::Html, &args)?)
             }
             Inline::Link(_tp, url, alt, inner) => {
                 let inner_s = inner.to_html(ctx)?;
-                let mut context = tera::Context::new();
-                context.insert("url", &url);
-                context.insert("alt", &alt);
-                context.insert("inner", &inner_s);
-                Ok(ctx.tera.render("builtins/html/link.tera.html", &context)?)
+                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
+                args.insert("url", url.into());
+                args.insert("alt", alt.into());
+                args.insert("inner", inner_s.into());
+                Ok(ctx.templates.render("b_link", OutputFormat::Html, &args)?)
             }
             Inline::Html(s) => Ok(s),
             Inline::Math(s, display_mode, trailing_space) => {
-                let mut context = tera::Context::new();
-                context.insert("display_mode", &display_mode);
-                context.insert("trailing_space", &trailing_space);
-                context.insert("value", &s);
-                Ok(ctx.tera.render("builtins/html/math.tera.html", &context)?)
+                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
+                args.insert("display_mode", display_mode.into());
+                args.insert("trailing_space", trailing_space.into());
+                args.insert("value", s.into());
+                Ok(ctx.templates.render("b_math", OutputFormat::Html, &args)?)
             }
             Inline::Shortcode(s) => {
                 Ok(render_shortcode_template(ctx, s).unwrap_or_else(|e| e.to_string()))
@@ -117,16 +120,23 @@ impl ToHtml for OutputValue {
     fn to_html(self, ctx: &ToHtmlContext) -> Result<String> {
         match self {
             OutputValue::Plain(s) => renderers::render_value_template(
-                &ctx.tera,
-                "builtins/html/output_text.tera.html",
+                &ctx.templates,
+                "output_text",
+                OutputFormat::Html,
                 s.join(""),
             ),
-            OutputValue::Image(s) => {
-                renderers::render_value_template(&ctx.tera, "builtins/html/output_img.tera.html", s)
-            }
-            OutputValue::Svg(s) => {
-                renderers::render_value_template(&ctx.tera, "builtins/html/output_svg.tera.html", s)
-            }
+            OutputValue::Image(s) => renderers::render_value_template(
+                &ctx.templates,
+                "output_img",
+                OutputFormat::Html,
+                s,
+            ),
+            OutputValue::Svg(s) => renderers::render_value_template(
+                &ctx.templates,
+                "output_svg",
+                OutputFormat::Html,
+                s,
+            ),
             OutputValue::Json(s) => Ok(serde_json::to_string(&s)?),
             OutputValue::Html(s) => Ok(s),
             OutputValue::Javascript(_) => Ok("".to_string()),
@@ -139,20 +149,23 @@ impl ToHtml for CellOutput {
         match self {
             CellOutput::Stream { text, name } => match name {
                 StreamType::StdOut => renderers::render_value_template(
-                    &ctx.tera,
-                    "builtins/html/output_text.tera.html",
+                    &ctx.templates,
+                    "b_output_text",
+                    OutputFormat::Html,
                     text,
                 ),
                 StreamType::StdErr => renderers::render_value_template(
-                    &ctx.tera,
-                    "builtins/html/output_error.tera.html",
+                    &ctx.templates,
+                    "b_output_error",
+                    OutputFormat::Html,
                     text,
                 ),
             },
             CellOutput::Data { data, .. } => data.into_iter().map(|v| v.to_html(ctx)).collect(),
             CellOutput::Error { evalue, .. } => renderers::render_value_template(
-                &ctx.tera,
-                "builtins/html/output_error.tera.html",
+                &ctx.templates,
+                "b_output_error",
+                OutputFormat::Html,
                 evalue,
             ),
         }
@@ -188,18 +201,17 @@ impl ToHtml for Block {
                     &ctx.theme,
                 )?;
 
-                let mut context = tera::Context::new();
-                context.insert("interactive", &ctx.metadata.interactive);
-                context.insert("cell_outputs", &ctx.metadata.cell_outputs);
-                context.insert("editable", &ctx.metadata.editable);
-                context.insert("source", &source);
-                context.insert("highlighted", &highlighted);
-                context.insert("id", &id);
-                context.insert("tags", &tags);
-                context.insert("outputs", &outputs.to_html(ctx)?);
+                let mut args: BTreeMap<&str, Value> = BTreeMap::new();
+                args.insert("interactive", ctx.metadata.interactive.into());
+                args.insert("cell_outputs", ctx.metadata.cell_outputs.into());
+                args.insert("editable", ctx.metadata.editable.into());
+                args.insert("source", source.into());
+                args.insert("highlighted", highlighted.into());
+                args.insert("id", id.into());
+                args.insert("tags", tags.into());
+                args.insert("outputs", outputs.to_html(ctx)?.into());
 
-                let output = ctx.tera.render("builtins/html/cell.tera.html", &context)?;
-                Ok(output)
+                Ok(ctx.templates.render("b_cell", OutputFormat::Html, &args)?)
             }
             Block::List(idx, items) => {
                 let inner: Result<String> = items.into_iter().map(|b| b.to_html(ctx)).collect();
@@ -207,22 +219,24 @@ impl ToHtml for Block {
 
                 Ok(match idx {
                     None => renderers::render_value_template(
-                        &ctx.tera,
-                        "builtins/html/list_unordered.tera.html",
+                        &ctx.templates,
+                        "b_list_unordered",
+                        OutputFormat::Html,
                         inner,
                     )?,
                     Some(start) => {
-                        let mut context = tera::Context::new();
-                        context.insert("start", &start);
-                        context.insert("value", &inner);
-                        ctx.tera
-                            .render("builtins/html/list_ordered.tera.html", &context)?
+                        let mut args: BTreeMap<&str, Value> = BTreeMap::new();
+                        args.insert("start", start.into());
+                        args.insert("value", inner.into());
+                        ctx.templates
+                            .render("b_list_ordered", OutputFormat::Html, &args)?
                     }
                 })
             }
             Block::ListItem(inner) => renderers::render_value_template(
-                &ctx.tera,
-                "builtins/html/list_item.tera.html",
+                &ctx.templates,
+                "list_item",
+                OutputFormat::Html,
                 inner.to_html(ctx)?,
             ),
         }
@@ -232,33 +246,32 @@ impl ToHtml for Block {
 fn render_params(
     parameters: HashMap<String, Vec<Block>>,
     ctx: &ToHtmlContext,
-) -> Result<HashMap<String, String>> {
+) -> Result<HashMap<&str, String>> {
     parameters
         .into_iter()
-        .map(|(k, v)| Ok((k, v.to_html(ctx)?)))
+        .map(|(k, v)| Ok((k.as_str(), v.to_html(ctx)?)))
         .collect()
 }
 
 fn render_shortcode_template(ctx: &ToHtmlContext, shortcode: Shortcode) -> Result<String> {
-    let mut context = ctx.tera_context.clone();
+    let mut args = ctx.extra_args.clone();
+    let mut args = args.into_iter().map(|(k, v)| (k.as_str(), v)).collect();
 
-    match shortcode {
+    let name = match shortcode {
         Shortcode::Inline(def) => {
-            let name = format!("shortcodes/html/{}.tera.html", def.name,);
             add_args(
-                &mut context,
+                &mut args,
                 def.id,
                 def.num,
                 &ctx.ids,
                 &ctx.ids_map,
                 render_params(def.parameters, ctx)?,
             );
-            Ok(ctx.tera.render(&name, &context)?)
+            def.name
         }
         Shortcode::Block(def, body) => {
-            let name = format!("shortcodes/html/{}.tera.html", def.name,);
             add_args(
-                &mut context,
+                &mut args,
                 def.id,
                 def.num,
                 &ctx.ids,
@@ -266,8 +279,9 @@ fn render_shortcode_template(ctx: &ToHtmlContext, shortcode: Shortcode) -> Resul
                 render_params(def.parameters, ctx)?,
             );
             let body = body.to_html(ctx)?;
-            context.insert("body", &body);
-            Ok(ctx.tera.render(&name, &context)?)
+            args.insert("body", body.into());
+            def.name
         }
-    }
+    };
+    Ok(ctx.templates.render(&name, OutputFormat::Html, &args)?)
 }

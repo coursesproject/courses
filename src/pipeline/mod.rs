@@ -433,19 +433,18 @@ impl Pipeline {
             }
 
             // Move extra files
-            if let Some(parser) = self.project_config.parsers.get(format) {
-                // print!(", copying additional files");
-                let move_ctx = MoveContext {
-                    project_path: self.project_path.to_path_buf(),
-                    build_dir: self.get_build_path(*format),
-                    settings: parser.settings.clone(),
-                };
 
-                let res =
-                    Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
-                if let Err(e) = res {
-                    format_errs.push(e);
-                }
+            // print!(", copying additional files");
+            let move_ctx = MoveContext {
+                project_path: self.project_path.to_path_buf(),
+                build_dir: self.get_build_path(*format),
+                settings: self.project_config.parser.settings.clone(),
+            };
+
+            let res =
+                Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
+            if let Err(e) = res {
+                format_errs.push(e);
             }
 
             // Error display
@@ -592,12 +591,7 @@ impl Pipeline {
                 output_format: format,
             };
 
-            let res = self
-                .project_config
-                .parsers
-                .get(&format)
-                .ok_or_else(|| anyhow!("Invalid format"))?
-                .parse(&doc, &processor_ctx)?;
+            let res = self.project_config.parser.parse(&doc, &processor_ctx)?;
 
             // let res = print_err(res)?;
 

@@ -5,15 +5,16 @@ use thiserror::Error;
 use crate::document::Document;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Parser {
     #[serde(default)]
     pub preprocessors: Vec<Box<dyn AstPreprocessorConfig>>,
+    #[serde(default)]
     pub settings: ParserSettings,
 }
 
 /// Additional parser configuration.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ParserSettings {
     /// Include solutions for the [Exercises] preprocessor.
     #[serde(default)]

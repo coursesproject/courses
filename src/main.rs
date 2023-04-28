@@ -65,10 +65,10 @@ async fn cli_run() -> anyhow::Result<()> {
             let proj = Project::generate_from_directory(path.as_path())?;
             println!(" {}", style("done").green());
 
-            let config_path = path.join("config.yml");
+            let config_path = path.join("config.toml");
             let config_input = fs::read_to_string(config_path)?;
-            let config: ProjectConfig = serde_yaml::from_str(&config_input)
-                .context("Could not load project configuration")?;
+            let config: ProjectConfig =
+                toml::from_str(&config_input).context("Could not load project configuration")?;
 
             let mut pipeline = Pipeline::new(path.as_path(), mode, config, proj)?;
             pipeline.build_all(true)?;
@@ -85,10 +85,10 @@ async fn cli_run() -> anyhow::Result<()> {
             let proj = Project::generate_from_directory(path.as_path())?;
             println!(" {}", style("done").green());
 
-            let config_path = path.join("config.yml");
+            let config_path = path.join("config.toml");
             let config_input = fs::read_to_string(config_path)?;
-            let config: ProjectConfig = serde_yaml::from_str(&config_input)
-                .context("Could not load project configuration")?;
+            let config: ProjectConfig =
+                toml::from_str(&config_input).context("Could not load project configuration")?;
 
             let mut pipeline = Pipeline::new(
                 absolute_path.as_path(),
