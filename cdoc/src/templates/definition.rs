@@ -1,15 +1,13 @@
-use crate::config::{Format, OutputFormat};
 use crate::templates::TemplateContext;
 use anyhow::anyhow;
-use clap::builder::Str;
+
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
-use tera::Context;
+
 use thiserror::Error;
-use toml::Value;
 use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -94,6 +92,27 @@ impl Display for TemplateType {
     }
 }
 
+pub fn get_filters_from_files(dir: PathBuf) -> anyhow::Result<HashMap<String, String>> {
+    WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| {
+            let e = e.ok()?;
+            let ext = e.path().extension()?.to_str()?;
+            if ext == "rhai" {
+                Some(e)
+            } else {
+                None
+            }
+        })
+        .map(|e| {
+            let f_name = e.file_name().to_str().unwrap();
+            let dot_idx = f_name.find('.').unwrap();
+            let f_base = f_name[..dot_idx].to_string();
+            Ok((f_base, fs::read_to_string(e.path())?))
+        })
+        .collect()
+}
+
 pub fn get_templates_from_definitions(
     definitions: &HashMap<String, TemplateDefinition>,
     dir: PathBuf,
@@ -129,7 +148,7 @@ pub fn load_template_definitions(
         .map(|e| {
             let s = fs::read_to_string(e.path())?;
             let def: TemplateDefinition = serde_yaml::from_str(&s)?;
-            if &def.type_ == &TemplateType::Shortcode {
+            if def.type_ == TemplateType::Shortcode {
                 def.shortcode
                     .as_ref()
                     .ok_or(anyhow!("Missing shortcode definition for type 'shortcode'"))?;
@@ -140,7 +159,7 @@ pub fn load_template_definitions(
             }
 
             let f_name = e.file_name().to_str().unwrap();
-            let dot_idx = f_name.find(".").unwrap();
+            let dot_idx = f_name.find('.').unwrap();
             let f_base = format!("{}_{}", &def.type_, &f_name[..dot_idx]);
 
             Ok((f_base, def))
@@ -163,7 +182,7 @@ impl ParameterType {
         match self {
             ParameterType::Regular => Ok(()),
             ParameterType::Choice(choices) => {
-                choices.contains(&value).then(|| ()).ok_or_else(|| {
+                choices.contains(&value).then_some(()).ok_or_else(|| {
                     ValidationError::InvalidValue(format!(
                         "The provided value {} must be one of {:?}",
                         &value, &choices
@@ -173,7 +192,7 @@ impl ParameterType {
             ParameterType::Flag => {
                 value
                     .is_empty()
-                    .then(|| ())
+                    .then_some(())
                     .ok_or(ValidationError::InvalidValue(
                         "Flag parameters must not have any value.".to_string(),
                     ))
@@ -181,7 +200,7 @@ impl ParameterType {
             ParameterType::Positional => {
                 value
                     .is_empty()
-                    .then(|| ())
+                    .then_some(())
                     .ok_or(ValidationError::InvalidValue(
                         "Positional parameters must not have any value.".to_string(),
                     ))
@@ -204,8 +223,8 @@ impl TemplateDefinition {
 
     pub fn template_strings(&self, base_path: PathBuf) -> HashMap<String, String> {
         self.templates
-            .iter()
-            .map(|(f, source)| {
+            .keys()
+            .map(|f| {
                 (
                     f.to_string(),
                     self.template_for_format(base_path.clone(), f).unwrap(),
@@ -235,7 +254,7 @@ impl TemplateDefinition {
                     let param = if k.is_empty() {
                         s.parameters
                             .get(i)
-                            .ok_or_else(|| ValidationError::InvalidPosition(i))?
+                            .ok_or(ValidationError::InvalidPosition(i))?
                     } else {
                         s.parameters
                             .iter()

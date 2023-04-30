@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use cdoc::config::{Format, OutputFormat};
+use cdoc::config::Format;
 use cdoc::notebook::NotebookMeta;
 use cdoc::parser::Parser;
 

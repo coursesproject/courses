@@ -1,15 +1,13 @@
-use crate::ast::{Ast, Block, Shortcode};
-use crate::config::{Format, OutputFormat};
+use crate::ast::Ast;
+use crate::config::Format;
 use anyhow::Result;
-use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
-use std::ops::Deref;
-use std::rc::Rc;
+
+use std::collections::HashMap;
+
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+
 use syntect::highlighting::Theme;
 use syntect::parsing::SyntaxSet;
-use tera::Tera;
 
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
@@ -17,14 +15,12 @@ use crate::parsers::shortcodes::ShortCodeDef;
 use crate::templates::{TemplateContext, TemplateManager, TemplateType};
 
 pub mod generic;
-pub mod html;
-pub mod latex;
-pub mod markdown;
 pub mod notebook;
 
 pub type RenderResult = String;
 
 pub struct RenderContext<'a> {
+    pub doc: &'a Document<Ast>,
     pub templates: &'a TemplateManager,
     pub extra_args: TemplateContext,
     pub syntax_set: SyntaxSet,
@@ -36,25 +32,12 @@ pub struct RenderContext<'a> {
 }
 
 pub trait DocumentRenderer {
-    fn render_doc(
-        &mut self,
-        doc: &Document<Ast>,
-        ctx: &RenderContext,
-    ) -> Result<Document<RenderResult>>;
+    fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>>;
 }
 
-pub struct RendererConfig {
-    mapping: HashMap<String, Box<dyn DocumentRenderer>>,
-}
-
-impl RendererConfig {
-    pub fn add_mapping(&mut self, extension: &str, parser: Box<dyn DocumentRenderer>) {
-        self.mapping.insert(extension.to_string(), parser);
-    }
-
-    pub fn get_parser(&self, extension: &str) -> Option<&dyn DocumentRenderer> {
-        self.mapping.get(extension).map(|b| b.deref())
-    }
+pub trait RendererBuilder<'a> {
+    type Renderer;
+    fn build(self, doc: &'a Document<Ast>) -> Self::Renderer;
 }
 
 pub trait RenderElement<T> {
@@ -74,9 +57,8 @@ impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
 // }
 
 fn render_basic_template(name: &str, type_: TemplateType, ctx: &RenderContext) -> Result<String> {
-    Ok(ctx
-        .templates
-        .render(name, ctx.format, type_, &TemplateContext::new())?)
+    ctx.templates
+        .render(name, ctx.format, type_, &TemplateContext::default())
 }
 
 fn render_value_template(
@@ -85,9 +67,9 @@ fn render_value_template(
     value: &str,
     ctx: &RenderContext,
 ) -> Result<String> {
-    let mut args = TemplateContext::new();
+    let mut args = TemplateContext::default();
     args.insert("value", value);
-    Ok(ctx.templates.render(name, ctx.format, type_, &args)?)
+    ctx.templates.render(name, ctx.format, type_, &args)
 }
 
 static COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -111,29 +93,27 @@ fn add_args(
     ctx.insert("ids", &ids);
     ctx.insert("id_map", &id_map);
     for (k, v) in &arguments {
-        ctx.insert(&k, v);
+        ctx.insert(k, v);
     }
     Ok(())
 }
 
 fn render_image(url: &str, alt: &str, inner: &str, ctx: &RenderContext) -> Result<String> {
-    let mut args = TemplateContext::new();
+    let mut args = TemplateContext::default();
     args.insert("url", url);
     args.insert("alt", alt);
     args.insert("inner", inner);
-    Ok(ctx
-        .templates
-        .render("image", ctx.format, TemplateType::Builtin, &args)?)
+    ctx.templates
+        .render("image", ctx.format, TemplateType::Builtin, &args)
 }
 
 fn render_link(url: &str, alt: &str, inner: &str, ctx: &RenderContext) -> Result<String> {
-    let mut args = TemplateContext::new();
+    let mut args = TemplateContext::default();
     args.insert("url", url);
     args.insert("alt", alt);
     args.insert("inner", inner);
-    Ok(ctx
-        .templates
-        .render("link", ctx.format, TemplateType::Builtin, &args)?)
+    ctx.templates
+        .render("link", ctx.format, TemplateType::Builtin, &args)
 }
 
 fn render_math(
@@ -142,11 +122,10 @@ fn render_math(
     inner: &str,
     ctx: &RenderContext,
 ) -> Result<String> {
-    let mut args = TemplateContext::new();
+    let mut args = TemplateContext::default();
     args.insert("display_mode", &display_mode);
     args.insert("trailing_space", &trailing_space);
     args.insert("value", inner);
-    Ok(ctx
-        .templates
-        .render("math", ctx.format, TemplateType::Builtin, &args)?)
+    ctx.templates
+        .render("math", ctx.format, TemplateType::Builtin, &args)
 }

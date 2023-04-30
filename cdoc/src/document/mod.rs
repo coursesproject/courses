@@ -11,7 +11,6 @@ use crate::ast::{
     find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, Inline, Shortcode,
     ShortcodeBase, ShortcodeIdx,
 };
-use crate::config::{Format, OutputFormat};
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};

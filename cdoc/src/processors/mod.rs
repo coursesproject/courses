@@ -2,10 +2,10 @@ use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 
 use crate::ast::Ast;
-use tera::Tera;
+
 use thiserror::Error;
 
-use crate::config::{Format, OutputFormat};
+use crate::config::Format;
 use crate::document::Document;
 use crate::parsers::split::Rule;
 use crate::templates::TemplateManager;

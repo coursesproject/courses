@@ -1,55 +1,55 @@
-use crate::ast::{Ast, Block, Inline, Shortcode};
-use crate::config::{Format, HtmlFormat, OutputFormat};
-use crate::document::{Document, DocumentMetadata};
+use crate::ast::{Block, Inline, Shortcode};
+use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
-use crate::parsers::shortcodes::ShortCodeDef;
+
 use crate::renderers;
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
-use syntect::highlighting::Theme;
-use syntect::parsing::SyntaxSet;
-use tera::Tera;
+use pulldown_cmark::HeadingLevel;
+
+use std::collections::HashMap;
 
 use crate::renderers::{
     add_args, render_basic_template, render_image, render_link, render_math, render_value_template,
     DocumentRenderer, RenderContext, RenderElement, RenderResult,
 };
-use crate::templates::{TemplateContext, TemplateManager, TemplateType};
+use crate::templates::{TemplateContext, TemplateType};
+
+// pub struct GenericRendererBuilder;
+//
+// impl<'a> RendererBuilder<'a> for GenericRendererBuilder {
+//     type Renderer = GenericRenderer<'a>;
+//
+//     fn build(self, doc: &Document<Ast>) -> Self::Renderer {
+//         GenericRenderer {
+//             metadata: &doc.metadata,
+//         }
+//     }
+// }
 
 // #[derive(Serialize, Deserialize)]
-pub struct GenericRenderer<'a> {
-    pub interactive_cells: bool,
-    pub metadata: DocumentMetadata,
-    pub format: &'a dyn Format,
-}
+pub struct GenericRenderer;
 
 // #[typetag::serde(name = "renderer_config")]
-impl DocumentRenderer for GenericRenderer<'_> {
-    fn render_doc(
-        &mut self,
-        doc: &Document<Ast>,
-        ctx: &RenderContext,
-    ) -> Result<Document<RenderResult>> {
+impl DocumentRenderer for GenericRenderer {
+    fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
         // let doc = doc.to_events();
         // let dd = doc.to_events();
         //
         // let mut output = String::new();
         // html::push_html(&mut output, dd);
 
-        let content = self.render(&doc.content.0, ctx)?;
+        let content = self.render(&ctx.doc.content.0, ctx)?;
         Ok(Document {
             content,
-            metadata: doc.metadata.clone(),
-            variables: doc.variables.clone(),
-            ids: doc.ids.clone(),
-            id_map: doc.id_map.clone(),
+            metadata: ctx.doc.metadata.clone(),
+            variables: ctx.doc.variables.clone(),
+            ids: ctx.doc.ids.clone(),
+            id_map: ctx.doc.id_map.clone(),
         })
     }
 }
 
-impl GenericRenderer<'_> {
+impl GenericRenderer {
     fn render_params(
         &mut self,
         parameters: &mut HashMap<String, Vec<Block>>,
@@ -95,9 +95,8 @@ impl GenericRenderer<'_> {
                 def.name.clone()
             }
         };
-        Ok(ctx
-            .templates
-            .render(&name, ctx.format, TemplateType::Shortcode, &args)?)
+        ctx.templates
+            .render(&name, ctx.format, TemplateType::Shortcode, &args)
     }
 }
 
@@ -115,7 +114,7 @@ impl GenericRenderer<'_> {
 //     fn to_html(self, ctx: &ToHtmlContext) -> Result<String>;
 // }
 
-impl RenderElement<Inline> for GenericRenderer<'_> {
+impl RenderElement<Inline> for GenericRenderer {
     fn render(&mut self, elem: &Inline, ctx: &RenderContext) -> Result<String> {
         match elem {
             Inline::Text(s) => Ok(s.to_string()),
@@ -137,25 +136,23 @@ impl RenderElement<Inline> for GenericRenderer<'_> {
                 &self.render(inner, ctx)?,
                 ctx,
             ),
-            Inline::Code(s) => render_value_template("inline_code", TemplateType::Builtin, &s, ctx),
+            Inline::Code(s) => render_value_template("inline_code", TemplateType::Builtin, s, ctx),
             Inline::SoftBreak => render_basic_template("soft_break", TemplateType::Builtin, ctx),
             Inline::HardBreak => render_basic_template("hard_break", TemplateType::Builtin, ctx),
             Inline::Rule => render_basic_template("horizontal_rule", TemplateType::Builtin, ctx),
             Inline::Image(_tp, url, alt, inner) => {
                 let inner_s = self.render(inner, ctx)?;
-                render_image(&url, &alt, &inner_s, &ctx)
+                render_image(url, alt, &inner_s, ctx)
             }
             Inline::Link(_tp, url, alt, inner) => {
                 let inner_s = self.render(inner, ctx)?;
-                render_link(&url, &alt, &inner_s, &ctx)
+                render_link(url, alt, &inner_s, ctx)
             }
             Inline::Html(s) => Ok(s.to_string()),
             Inline::Math(s, display_mode, trailing_space) => {
                 render_math(*display_mode, *trailing_space, s, ctx)
             }
-            Inline::Shortcode(s) => Ok(self
-                .render_shortcode_template(ctx, &s)
-                .unwrap_or_else(|e| e.to_string())),
+            Inline::Shortcode(s) => Ok(self.render_shortcode_template(ctx, s)?),
         }
     }
 }
@@ -195,7 +192,7 @@ impl RenderElement<Inline> for GenericRenderer<'_> {
 // }
 //
 
-impl RenderElement<OutputValue> for GenericRenderer<'_> {
+impl RenderElement<OutputValue> for GenericRenderer {
     fn render(&mut self, elem: &OutputValue, ctx: &RenderContext) -> Result<String> {
         match elem {
             OutputValue::Plain(s) => renderers::render_value_template(
@@ -217,7 +214,7 @@ impl RenderElement<OutputValue> for GenericRenderer<'_> {
     }
 }
 
-impl RenderElement<CellOutput> for GenericRenderer<'_> {
+impl RenderElement<CellOutput> for GenericRenderer {
     fn render(&mut self, elem: &CellOutput, ctx: &RenderContext) -> Result<String> {
         match elem {
             CellOutput::Stream { text, name } => match name {
@@ -228,9 +225,7 @@ impl RenderElement<CellOutput> for GenericRenderer<'_> {
                     render_value_template("output_error", TemplateType::Builtin, text, ctx)
                 }
             },
-            CellOutput::Data { data, .. } => {
-                data.into_iter().map(|v| self.render(v, ctx)).collect()
-            }
+            CellOutput::Data { data, .. } => data.iter().map(|v| self.render(v, ctx)).collect(),
             CellOutput::Error { evalue, .. } => {
                 render_value_template("output_error", TemplateType::Builtin, evalue, ctx)
             }
@@ -238,11 +233,28 @@ impl RenderElement<CellOutput> for GenericRenderer<'_> {
     }
 }
 
-impl RenderElement<Block> for GenericRenderer<'_> {
+pub fn header_lvl_to_int(lvl: &HeadingLevel) -> usize {
+    match lvl {
+        HeadingLevel::H1 => 1,
+        HeadingLevel::H2 => 2,
+        HeadingLevel::H3 => 3,
+        HeadingLevel::H4 => 4,
+        HeadingLevel::H5 => 5,
+        HeadingLevel::H6 => 6,
+    }
+}
+
+impl RenderElement<Block> for GenericRenderer {
     fn render(&mut self, elem: &Block, ctx: &RenderContext) -> Result<String> {
         match elem {
             Block::Heading { lvl, inner, .. } => {
-                Ok(format!("<{lvl}>{}</{lvl}>", self.render(inner, ctx)?))
+                let mut args = TemplateContext::default();
+                // println!("{}", );
+                args.insert("level", &header_lvl_to_int(lvl));
+                args.insert("inner", &self.render(inner, ctx)?);
+                Ok(ctx
+                    .templates
+                    .render("header", ctx.format, TemplateType::Builtin, &args)?)
             }
             Block::Plain(inner) => self.render(inner, ctx),
             Block::Paragraph(inner) | Block::BlockQuote(inner) => self.render(inner, ctx),
@@ -255,16 +267,16 @@ impl RenderElement<Block> for GenericRenderer<'_> {
                 let id = renderers::get_id();
 
                 let highlighted = syntect::html::highlighted_html_for_string(
-                    &source,
+                    source,
                     &ctx.syntax_set,
                     ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
                     &ctx.theme,
                 )?;
 
-                let mut args = TemplateContext::new();
-                args.insert("interactive", &self.metadata.interactive);
-                args.insert("cell_outputs", &self.metadata.cell_outputs);
-                args.insert("editable", &self.metadata.editable);
+                let mut args = TemplateContext::default();
+                args.insert("interactive", &ctx.doc.metadata.interactive);
+                args.insert("cell_outputs", &ctx.doc.metadata.cell_outputs);
+                args.insert("editable", &ctx.doc.metadata.editable);
                 args.insert("source", &source);
                 args.insert("highlighted", &highlighted);
                 args.insert("id", &id);
@@ -276,8 +288,7 @@ impl RenderElement<Block> for GenericRenderer<'_> {
                     .render("cell", ctx.format, TemplateType::Builtin, &args)?)
             }
             Block::List(idx, items) => {
-                let inner: Result<String> =
-                    items.into_iter().map(|b| self.render(b, ctx)).collect();
+                let inner: Result<String> = items.iter().map(|b| self.render(b, ctx)).collect();
                 let inner = inner?;
 
                 Ok(match idx {
@@ -288,7 +299,7 @@ impl RenderElement<Block> for GenericRenderer<'_> {
                         ctx,
                     )?,
                     Some(start) => {
-                        let mut args = TemplateContext::new();
+                        let mut args = TemplateContext::default();
                         args.insert("start", &start);
                         args.insert("value", &inner);
                         ctx.templates.render(

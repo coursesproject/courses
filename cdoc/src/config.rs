@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 
-use crate::document::DocumentMetadata;
 use anyhow::anyhow;
 use clap::ValueEnum;
 use dyn_clone::DynClone;
@@ -15,6 +14,7 @@ use crate::processors::exercises::ExercisesConfig;
 // use crate::renderers::markdown::MarkdownRenderer;
 // use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::generic::GenericRenderer;
+use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::DocumentRenderer;
 
 #[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug, ValueEnum)]
@@ -30,6 +30,9 @@ pub trait Format: DynClone + Debug + Send + Sync {
     fn template_name(&self) -> &str;
     fn name(&self) -> &str;
     fn no_parse(&self) -> bool;
+    fn renderer(&self) -> Box<dyn DocumentRenderer>;
+    fn include_resources(&self) -> bool;
+    fn use_layout(&self) -> bool;
 }
 
 impl Display for dyn Format {
@@ -72,6 +75,18 @@ impl Format for NotebookFormat {
     fn no_parse(&self) -> bool {
         false
     }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(NotebookRenderer)
+    }
+
+    fn include_resources(&self) -> bool {
+        false
+    }
+
+    fn use_layout(&self) -> bool {
+        false
+    }
 }
 
 #[typetag::serde(name = "html")]
@@ -90,6 +105,16 @@ impl Format for HtmlFormat {
 
     fn no_parse(&self) -> bool {
         false
+    }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        true
+    }
+    fn use_layout(&self) -> bool {
+        true
     }
 }
 
@@ -110,6 +135,16 @@ impl Format for InfoFormat {
     fn no_parse(&self) -> bool {
         true
     }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        false
+    }
+    fn use_layout(&self) -> bool {
+        false
+    }
 }
 
 #[typetag::serde(name = "markdown")]
@@ -127,6 +162,15 @@ impl Format for MarkdownFormat {
     }
 
     fn no_parse(&self) -> bool {
+        false
+    }
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        false
+    }
+    fn use_layout(&self) -> bool {
         false
     }
 }
@@ -147,6 +191,15 @@ impl Format for LaTexFormat {
 
     fn no_parse(&self) -> bool {
         false
+    }
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        true
+    }
+    fn use_layout(&self) -> bool {
+        true
     }
 }
 

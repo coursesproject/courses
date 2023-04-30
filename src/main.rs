@@ -90,12 +90,8 @@ async fn cli_run() -> anyhow::Result<()> {
             let config: ProjectConfig =
                 toml::from_str(&config_input).context("Could not load project configuration")?;
 
-            let mut pipeline = Pipeline::new(
-                absolute_path.as_path(),
-                mode.clone(),
-                config.clone(),
-                proj.clone(),
-            )?;
+            let mut pipeline =
+                Pipeline::new(absolute_path.as_path(), mode, config.clone(), proj.clone())?;
 
             let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
@@ -124,7 +120,7 @@ async fn cli_run() -> anyhow::Result<()> {
                             let full_path = &event.path;
                             let p = full_path.strip_prefix(absolute_path.as_path()).unwrap();
 
-                            if !p.extension().unwrap().to_str().unwrap().contains("~") {
+                            if !p.extension().unwrap().to_str().unwrap().contains('~') {
                                 if p.starts_with(Path::new("content")) {
                                     // pipeline.build_file(p, &c2, &cf);
                                     let res = pipeline.build_single(full_path.to_path_buf());

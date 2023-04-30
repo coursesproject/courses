@@ -1,14 +1,13 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use clap::builder::Str;
+
 use clap::ValueEnum;
 use console::style;
 use image::ImageOutputFormat;
@@ -16,27 +15,20 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
-use tera::{Filter, Tera};
+use tera::Filter;
 
 use cdoc::ast::Ast;
-use cdoc::config::{Format, OutputFormat};
+use cdoc::config::Format;
 use cdoc::document::Document;
 use cdoc::processors::PreprocessorContext;
-use cdoc::renderers::generic::GenericRenderer;
-use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
-use cdoc::templates::{
-    load_template_definitions, TemplateContext, TemplateDefinition, TemplateManager,
-};
+
+use cdoc::renderers::{RenderContext, RenderResult};
+use cdoc::templates::{TemplateContext, TemplateManager};
 use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
 use serde::{Deserialize, Serialize};
 
-use crate::generators::html::HtmlGenerator;
-use crate::generators::info::InfoGenerator;
-use crate::generators::latex::LaTeXGenerator;
-use crate::generators::markdown::MarkdownGenerator;
-use crate::generators::notebook::CodeOutputGenerator;
-use crate::generators::{Generator, GeneratorContext};
+use crate::generators::Generator;
 use crate::project::config::ProjectConfig;
 use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectResult};
 
@@ -125,8 +117,10 @@ impl Pipeline {
         config: ProjectConfig,
         project: Project<()>,
     ) -> anyhow::Result<Self> {
-        let mut template_manager =
-            TemplateManager::from_path(project_path.as_ref().join("templates"))?;
+        let mut template_manager = TemplateManager::from_path(
+            project_path.as_ref().join("templates"),
+            project_path.as_ref().join("filters"),
+        )?;
 
         let cache_path = project_path.as_ref().join(".cache");
         fs::create_dir_all(&cache_path)?;
@@ -148,10 +142,10 @@ impl Pipeline {
 
     fn get_render_context<'a>(
         &'a self,
-        doc: &Document<Ast>,
+        doc: &'a Document<Ast>,
         format: &'a dyn Format,
     ) -> RenderContext<'a> {
-        let mut meta = TemplateContext::new();
+        let mut meta = TemplateContext::default();
         meta.insert("config", &self.project_config);
         let ts = ThemeSet::load_defaults();
         RenderContext {
@@ -165,19 +159,9 @@ impl Pipeline {
                 .clone()
                 .unwrap_or_default(),
             format,
+            doc,
             ids: doc.ids.clone(),
             ids_map: doc.id_map.clone(),
-        }
-    }
-
-    fn get_generator(&self, format: &dyn Format) -> Box<dyn Generator> {
-        match format.name() {
-            "notebook" => Box::new(CodeOutputGenerator),
-            "html" => Box::new(HtmlGenerator),
-            "info" => Box::new(InfoGenerator),
-            "latex" => Box::new(LaTeXGenerator),
-            "markdown" => Box::new(MarkdownGenerator),
-            _ => panic!("unsupported format"),
         }
     }
 
@@ -225,19 +209,16 @@ impl Pipeline {
                         let project =
                             self.update_cache(&item2, format.as_ref(), &output, project.clone());
 
-                        let ctx = GeneratorContext {
+                        let ctx = Generator {
                             root: self.project_path.clone(),
                             project,
                             templates: &self.templates,
                             config: self.project_config.clone(),
                             mode: self.mode,
                             build_dir: self.get_build_path(format.as_ref()),
+                            format: format.as_ref(),
                         };
-                        self.get_generator(format.as_ref()).generate_single(
-                            output,
-                            item2.clone(),
-                            &ctx,
-                        )?;
+                        ctx.generate_single(&output, &item2)?;
 
                         println!(" {}", style("done").green());
                     } else {
@@ -417,30 +398,25 @@ impl Pipeline {
             let mut format_errs = Vec::new();
             let (output, mut errs) = self.process_all(loaded.clone(), format.as_ref());
             format_errs.append(&mut errs);
-            let context = GeneratorContext {
+            let context = Generator {
                 root: self.project_path.to_path_buf(),
                 project: output.clone(),
                 mode: self.mode,
                 templates: &self.templates,
                 config: self.project_config.clone(),
+                format: format.as_ref(),
                 build_dir: self.get_build_path(format.as_ref()),
             };
             self.cached_contexts
                 .insert(format.name().to_string(), output.clone());
 
             // print!("[generating output");
-
-            let res = self
-                .get_generator(format.as_ref())
-                .generate(&context)
+            let res = context
+                .generate()
                 .with_context(|| format!("Could not generate {}", format));
 
-            match res {
-                Err(e) => format_errs.push(e),
-                Ok(_) => {
-                    // println!("   output generation \t{}", style("success").green());
-                    // self.cached_contexts.insert(*format, output);
-                }
+            if let Err(e) = res {
+                format_errs.push(e);
             }
 
             // Move extra files
@@ -606,14 +582,10 @@ impl Pipeline {
 
             // let res = print_err(res)?;
 
-            let ctx = self.get_render_context(&doc, format);
-            let mut renderer = GenericRenderer {
-                interactive_cells: doc.metadata.interactive,
-                metadata: doc.metadata,
-                format,
-            };
+            let ctx = self.get_render_context(&res, format);
+            let mut renderer = format.renderer();
 
-            Ok(Some(renderer.render_doc(&res, &ctx)?))
+            Ok(Some(renderer.render_doc(&ctx)?))
         } else {
             Ok(None)
         }

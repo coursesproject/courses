@@ -1,30 +1,24 @@
-use crate::config::{Format, OutputFormat};
+use crate::config::Format;
 use anyhow::{anyhow, Context as AnyhowContext};
-use serde::{Deserialize, Serialize};
+use rhai::{Dynamic, Engine, Scope};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::fs;
+
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+
 use tera::{Context, Filter, Tera};
-use walkdir::WalkDir;
 
 mod definition;
 
 pub use definition::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TemplateContext {
     pub map: BTreeMap<String, Value>,
 }
 
 impl TemplateContext {
-    pub fn new() -> Self {
-        TemplateContext {
-            map: BTreeMap::new(),
-        }
-    }
-
     pub fn to_tera_context(&self) -> anyhow::Result<Context> {
         Ok(Context::from_serialize(self.map.clone())?)
     }
@@ -37,7 +31,21 @@ impl TemplateContext {
     }
 }
 
-#[derive(Debug, Clone)]
+fn create_rhai_filter(source: String) -> impl Filter {
+    Box::new(
+        move |val: &Value, args: &HashMap<String, Value>| -> tera::Result<Value> {
+            let eng = Engine::new();
+            let mut scope = Scope::new();
+            scope.push("val", val.clone());
+            scope.push("args", args.clone());
+            let res: Dynamic = eng.eval_with_scope(&mut scope, &source).unwrap();
+
+            Ok(serde_json::to_value(res).unwrap())
+        },
+    )
+}
+
+#[derive(Clone)]
 pub struct TemplateManager {
     path: PathBuf,
     tera: Tera,
@@ -45,13 +53,27 @@ pub struct TemplateManager {
 }
 
 impl TemplateManager {
-    pub fn from_path(path: PathBuf) -> anyhow::Result<Self> {
-        TemplateManager::new(load_template_definitions(path.clone())?, path)
+    pub fn from_path(template_path: PathBuf, filter_path: PathBuf) -> anyhow::Result<Self> {
+        TemplateManager::new(
+            load_template_definitions(template_path.clone())?,
+            template_path,
+            filter_path,
+        )
     }
 
-    fn new(definitions: HashMap<String, TemplateDefinition>, dir: PathBuf) -> anyhow::Result<Self> {
+    fn new(
+        definitions: HashMap<String, TemplateDefinition>,
+        dir: PathBuf,
+        filter_path: PathBuf,
+    ) -> anyhow::Result<Self> {
         let defs = get_templates_from_definitions(&definitions, dir.clone());
+        let filters = get_filters_from_files(filter_path)?;
         let mut tera = Tera::new(&format!("{}/sources/**.html", dir.to_str().unwrap()))?;
+
+        filters.into_iter().for_each(|(name, source)| {
+            tera.register_filter(&name, create_rhai_filter(source));
+        });
+
         tera.add_raw_templates(defs)?;
         Ok(TemplateManager {
             path: dir,
@@ -115,6 +137,6 @@ impl TemplateManager {
         args: &TemplateContext,
     ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
         let def = self.definitions.get(name).ok_or(anyhow!("Invalid name"))?;
-        Ok(def.validate_args(args)?)
+        def.validate_args(args)
     }
 }
