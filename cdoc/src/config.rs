@@ -1,24 +1,206 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 
 use anyhow::anyhow;
 use clap::ValueEnum;
+use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
 use crate::processors::exercises::ExercisesConfig;
-use crate::renderers::html::HtmlRenderer;
-use crate::renderers::latex::LatexRenderer;
-use crate::renderers::markdown::MarkdownRenderer;
+// use crate::renderers::html::HtmlRenderer;
+// use crate::renderers::latex::LatexRenderer;
+// use crate::renderers::markdown::MarkdownRenderer;
+// use crate::renderers::notebook::NotebookRenderer;
+use crate::renderers::generic::GenericRenderer;
 use crate::renderers::notebook::NotebookRenderer;
-use crate::renderers::Renderer;
+use crate::renderers::DocumentRenderer;
 
 #[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum InputFormat {
     Markdown,
     Notebook,
+}
+
+#[typetag::serde]
+pub trait Format: DynClone + Debug + Send + Sync {
+    fn extension(&self) -> &str;
+    fn template_name(&self) -> &str;
+    fn name(&self) -> &str;
+    fn no_parse(&self) -> bool;
+    fn renderer(&self) -> Box<dyn DocumentRenderer>;
+    fn include_resources(&self) -> bool;
+    fn use_layout(&self) -> bool;
+}
+
+impl Display for dyn Format {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+dyn_clone::clone_trait_object!(Format);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NotebookFormat {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HtmlFormat {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InfoFormat {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MarkdownFormat {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LaTexFormat {}
+
+#[typetag::serde(name = "notebook")]
+impl Format for NotebookFormat {
+    fn extension(&self) -> &str {
+        "ipynb"
+    }
+
+    fn template_name(&self) -> &str {
+        "markdown"
+    }
+
+    fn name(&self) -> &str {
+        "notebook"
+    }
+
+    fn no_parse(&self) -> bool {
+        false
+    }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(NotebookRenderer)
+    }
+
+    fn include_resources(&self) -> bool {
+        false
+    }
+
+    fn use_layout(&self) -> bool {
+        false
+    }
+}
+
+#[typetag::serde(name = "html")]
+impl Format for HtmlFormat {
+    fn extension(&self) -> &str {
+        "html"
+    }
+
+    fn template_name(&self) -> &str {
+        "html"
+    }
+
+    fn name(&self) -> &str {
+        "html"
+    }
+
+    fn no_parse(&self) -> bool {
+        false
+    }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        true
+    }
+    fn use_layout(&self) -> bool {
+        true
+    }
+}
+
+#[typetag::serde(name = "info")]
+impl Format for InfoFormat {
+    fn extension(&self) -> &str {
+        "yml"
+    }
+
+    fn template_name(&self) -> &str {
+        "yml"
+    }
+
+    fn name(&self) -> &str {
+        "info"
+    }
+
+    fn no_parse(&self) -> bool {
+        true
+    }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        false
+    }
+    fn use_layout(&self) -> bool {
+        false
+    }
+}
+
+#[typetag::serde(name = "markdown")]
+impl Format for MarkdownFormat {
+    fn extension(&self) -> &str {
+        "md"
+    }
+
+    fn template_name(&self) -> &str {
+        "markdown"
+    }
+
+    fn name(&self) -> &str {
+        "markdown"
+    }
+
+    fn no_parse(&self) -> bool {
+        false
+    }
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        false
+    }
+    fn use_layout(&self) -> bool {
+        false
+    }
+}
+
+#[typetag::serde(name = "latex")]
+impl Format for LaTexFormat {
+    fn extension(&self) -> &str {
+        "tex"
+    }
+
+    fn template_name(&self) -> &str {
+        "latex"
+    }
+
+    fn name(&self) -> &str {
+        "latex"
+    }
+
+    fn no_parse(&self) -> bool {
+        false
+    }
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        Box::new(GenericRenderer)
+    }
+    fn include_resources(&self) -> bool {
+        true
+    }
+    fn use_layout(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug)]
@@ -125,18 +307,6 @@ impl OutputFormat {
             OutputFormat::Info => "info",
             OutputFormat::LaTeX => "latex",
             OutputFormat::Markdown => "markdown",
-        }
-    }
-
-    pub fn renderer(&self) -> Option<Box<dyn Renderer>> {
-        match self {
-            OutputFormat::Notebook => Some(Box::new(NotebookRenderer)),
-            OutputFormat::Html => Some(Box::new(HtmlRenderer {
-                interactive_cells: true,
-            })),
-            OutputFormat::Info => None,
-            OutputFormat::LaTeX => Some(Box::new(LatexRenderer)),
-            OutputFormat::Markdown => Some(Box::new(MarkdownRenderer)),
         }
     }
 }

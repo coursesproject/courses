@@ -11,7 +11,6 @@ use crate::ast::{
     find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, Inline, Shortcode,
     ShortcodeBase, ShortcodeIdx,
 };
-use crate::config::OutputFormat;
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
@@ -20,10 +19,10 @@ use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
 #[serde(deny_unknown_fields)]
 pub struct DocumentMetadata {
     pub title: Option<String>,
+    #[serde(default)]
+    pub draft: bool,
     #[serde(default = "default_true")]
     pub exercises: bool,
-    #[serde(default)]
-    pub notebook_output: bool,
     #[serde(default)]
     pub code_solutions: bool,
     #[serde(default = "default_true")]
@@ -35,22 +34,12 @@ pub struct DocumentMetadata {
     #[serde(default)]
     pub layout: LayoutSettings,
 
-    #[serde(default = "default_outputs")]
-    pub outputs: Vec<OutputFormat>,
+    #[serde(default)]
+    pub exclude_outputs: Option<Vec<String>>,
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
-}
-
-fn default_outputs() -> Vec<OutputFormat> {
-    vec![
-        OutputFormat::Notebook,
-        OutputFormat::Html,
-        OutputFormat::Info,
-        OutputFormat::LaTeX,
-        OutputFormat::Markdown,
-    ]
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -121,7 +110,7 @@ pub fn split_shortcodes(
             ShortcodeIdx::Inline(start, end) => {
                 md_str.push_str(&rest[..start]);
 
-                let code = parse_shortcode(rest[start + 2..end - 1].trim())?;
+                let code = parse_shortcode(rest[start + 2..end].trim())?;
 
                 counters
                     .get_mut(&code.name)
@@ -139,7 +128,7 @@ pub fn split_shortcodes(
             ShortcodeIdx::Block { def, end } => {
                 md_str.push_str(&rest[..def.0]);
 
-                let code = parse_shortcode(rest[def.0 + 2..def.1 - 1].trim())?;
+                let code = parse_shortcode(rest[def.0 + 2..def.1].trim())?;
 
                 counters
                     .get_mut(&code.name)

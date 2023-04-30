@@ -2,12 +2,13 @@ use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 
 use crate::ast::Ast;
-use tera::Tera;
+
 use thiserror::Error;
 
-use crate::config::OutputFormat;
+use crate::config::Format;
 use crate::document::Document;
 use crate::parsers::split::Rule;
+use crate::templates::TemplateManager;
 
 pub mod exercises;
 
@@ -22,10 +23,10 @@ pub enum Error {
     Any(#[from] anyhow::Error),
 }
 
-#[derive(Clone, Debug)]
-pub struct PreprocessorContext {
-    pub tera: Tera,
-    pub output_format: OutputFormat,
+#[derive(Clone)]
+pub struct PreprocessorContext<'a> {
+    pub templates: &'a TemplateManager,
+    pub output_format: &'a dyn Format,
 }
 
 pub trait AstPreprocessor: Display {
@@ -33,7 +34,7 @@ pub trait AstPreprocessor: Display {
     fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
 }
 
-#[typetag::serde(tag = "type")]
+#[typetag::serde(tag = "name")]
 pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>>;
 }

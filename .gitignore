@@ -3,3 +3,6 @@ docs/build/
 /target
 .idea/codeStyles/
 .fleet/
+.python-version
+.idea/qmlSettings.xml
+flamegraph.svg

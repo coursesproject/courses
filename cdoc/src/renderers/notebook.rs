@@ -5,41 +5,35 @@ use serde::{Deserialize, Serialize};
 
 use crate::document::Document;
 use crate::notebook::{Cell, CellCommon, Notebook, NotebookMeta};
-use crate::renderers::markdown::{ToMarkdown, ToMarkdownContext};
-use crate::renderers::{RenderContext, RenderResult, Renderer};
+use crate::renderers::generic::GenericRenderer;
+use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderResult};
+
+pub struct NotebookRendererBuilder;
 
 #[derive(Serialize, Deserialize)]
 pub struct NotebookRenderer;
 
-#[typetag::serde(name = "renderer_config")]
-impl Renderer for NotebookRenderer {
-    fn render(&self, doc: &Document<Ast>, ctx: &RenderContext) -> Result<Document<RenderResult>> {
-        let markdown_ctx = ToMarkdownContext {
-            metadata: doc.metadata.clone(),
-            ids: doc.ids.clone(),
-            ids_map: doc.id_map.clone(),
-            tera: ctx.tera.clone(),
-            tera_context: ctx.tera_context.clone(),
-            list_idx: None,
-            list_lvl: 0,
-        };
+impl DocumentRenderer for NotebookRenderer {
+    fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
+        let renderer = GenericRenderer;
 
         let writer = NotebookWriter {
             cell_source: String::new(),
             finished_cells: vec![],
-            markdown_ctx,
+            ctx,
             notebook_meta: ctx.notebook_output_meta.clone(),
+            renderer,
         };
 
-        let notebook: Notebook = writer.convert(doc.content.clone())?;
+        let notebook: Notebook = writer.convert(ctx.doc.content.clone())?;
         let output = serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)");
 
         Ok(Document {
             content: output,
-            metadata: doc.metadata.clone(),
-            variables: doc.variables.clone(),
-            ids: doc.ids.clone(),
-            id_map: doc.id_map.clone(),
+            metadata: ctx.doc.metadata.clone(),
+            variables: ctx.doc.variables.clone(),
+            ids: ctx.doc.ids.clone(),
+            id_map: ctx.doc.id_map.clone(),
         })
     }
 }
@@ -55,14 +49,15 @@ pub fn heading_num(h: HeadingLevel) -> usize {
     }
 }
 
-struct NotebookWriter {
+struct NotebookWriter<'a> {
     cell_source: String,
     finished_cells: Vec<Cell>,
     notebook_meta: NotebookMeta,
-    markdown_ctx: ToMarkdownContext,
+    ctx: &'a RenderContext<'a>,
+    renderer: GenericRenderer,
 }
 
-impl NotebookWriter {
+impl NotebookWriter<'_> {
     fn push_markdown_cell(&mut self) {
         self.finished_cells.push(Cell::Markdown {
             common: CellCommon {
@@ -73,14 +68,14 @@ impl NotebookWriter {
         self.cell_source = String::new();
     }
 
-    fn block(&mut self, block: Block) -> Result<()> {
+    fn block(&mut self, block: &Block) -> Result<()> {
         match block {
             Block::CodeBlock { source, .. } => {
                 self.push_markdown_cell();
                 let c = Cell::Code {
                     common: CellCommon {
                         metadata: Default::default(),
-                        source,
+                        source: source.clone(),
                     },
                     execution_count: None,
                     outputs: Vec::new(),
@@ -89,16 +84,18 @@ impl NotebookWriter {
             }
             _ => self
                 .cell_source
-                .push_str(&block.to_markdown(&mut self.markdown_ctx)?),
+                .push_str(&self.renderer.render(block, self.ctx)?),
         }
 
         Ok(())
     }
 
     fn convert(mut self, ast: Ast) -> Result<Notebook> {
-        for b in ast.0 {
+        for b in &ast.0 {
             self.block(b)?;
         }
+
+        self.push_markdown_cell();
 
         Ok(Notebook {
             metadata: self.notebook_meta,

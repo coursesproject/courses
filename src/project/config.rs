@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use cdoc::config::OutputFormat;
+use cdoc::config::Format;
 use cdoc::notebook::NotebookMeta;
 use cdoc::parser::Parser;
 
@@ -14,8 +14,9 @@ pub struct ProjectConfig {
     pub url_prefix: String,
     #[serde(default)]
     pub repository: RepositoryConfig,
-    pub outputs: Vec<OutputFormat>,
-    pub parsers: HashMap<OutputFormat, Parser>,
+    pub outputs: Vec<Box<dyn Format>>,
+    #[serde(flatten)]
+    pub parser: Parser,
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,
     pub notebook_meta: Option<NotebookMeta>,

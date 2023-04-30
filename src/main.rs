@@ -16,7 +16,7 @@ use notify_debouncer_mini::{
 };
 use penguin::Server;
 
-use courses::pipeline::Pipeline;
+use courses::pipeline::{Mode, Pipeline};
 use courses::project::config::ProjectConfig;
 use courses::project::Project;
 
@@ -34,14 +34,14 @@ enum Commands {
     Serve {
         #[arg(short, long)]
         path: Option<PathBuf>,
-        #[arg(short, long, default_value = "dev")]
-        mode: String,
+        #[arg(short, long, default_value = "draft")]
+        mode: Mode,
     },
     Build {
         #[arg(short, long)]
         path: Option<PathBuf>,
         #[arg(short, long, default_value = "release")]
-        mode: String,
+        mode: Mode,
     },
     Init {
         name: Option<String>,
@@ -65,10 +65,10 @@ async fn cli_run() -> anyhow::Result<()> {
             let proj = Project::generate_from_directory(path.as_path())?;
             println!(" {}", style("done").green());
 
-            let config_path = path.join("config.yml");
+            let config_path = path.join("config.toml");
             let config_input = fs::read_to_string(config_path)?;
-            let config: ProjectConfig = serde_yaml::from_str(&config_input)
-                .context("Could not load project configuration")?;
+            let config: ProjectConfig =
+                toml::from_str(&config_input).context("Could not load project configuration")?;
 
             let mut pipeline = Pipeline::new(path.as_path(), mode, config, proj)?;
             pipeline.build_all(true)?;
@@ -85,17 +85,13 @@ async fn cli_run() -> anyhow::Result<()> {
             let proj = Project::generate_from_directory(path.as_path())?;
             println!(" {}", style("done").green());
 
-            let config_path = path.join("config.yml");
+            let config_path = path.join("config.toml");
             let config_input = fs::read_to_string(config_path)?;
-            let config: ProjectConfig = serde_yaml::from_str(&config_input)
-                .context("Could not load project configuration")?;
+            let config: ProjectConfig =
+                toml::from_str(&config_input).context("Could not load project configuration")?;
 
-            let mut pipeline = Pipeline::new(
-                absolute_path.as_path(),
-                mode.clone(),
-                config.clone(),
-                proj.clone(),
-            )?;
+            let mut pipeline =
+                Pipeline::new(absolute_path.as_path(), mode, config.clone(), proj.clone())?;
 
             let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
@@ -115,41 +111,36 @@ async fn cli_run() -> anyhow::Result<()> {
             let notify_config = notify::Config::default();
 
             let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(
-                Duration::from_millis(20),
+                Duration::from_millis(100),
                 None,
                 move |res: DebounceEventResult| match res {
                     Ok(events) => events.iter().for_each(|event| {
+                        // println!("{:?}", event);
                         if let DebouncedEventKind::Any = &event.kind {
                             let full_path = &event.path;
                             let p = full_path.strip_prefix(absolute_path.as_path()).unwrap();
-                            println!();
 
-                            if p.starts_with(Path::new("content")) {
-                                // pipeline.build_file(p, &c2, &cf);
-                                let res = pipeline.build_single(full_path.to_path_buf());
-                                err_print(res);
-                            } else {
-                                if p.starts_with(Path::new("templates").join("shortcodes")) {
-                                    let res = pipeline.reload_shortcode_tera();
+                            if !p.extension().unwrap().to_str().unwrap().contains('~') {
+                                if p.starts_with(Path::new("content")) {
+                                    // pipeline.build_file(p, &c2, &cf);
+                                    let res = pipeline.build_single(full_path.to_path_buf());
                                     err_print(res);
-                                    println!("{}", style("reloaded shortcode templates").green());
-                                } else if p.starts_with(Path::new("templates").join("builtins")) {
-                                    let res = pipeline.reload_builtins_tera();
+                                } else if p.starts_with(Path::new("templates")) {
+                                    let res = pipeline.reload_templates();
                                     err_print(res);
-                                    println!("{}", style("reloaded builtin templates").green());
+                                    println!("{}", style("reloaded templates").green());
+                                    let res = pipeline.build_all(false);
+                                    err_print(res);
                                 }
-                                let res = pipeline.reload_base_tera();
-                                println!("{}", style("Reloaded page templates").green());
-                                err_print(res);
 
-                                let res = pipeline.build_all(false);
-                                err_print(res);
+                                controller.reload();
+                                println!();
+                                println!("Page reloaded");
+                                println!(
+                                    "Server open at: http://localhost:8000{}",
+                                    config.url_prefix
+                                );
                             }
-
-                            controller.reload();
-                            println!();
-                            println!("Page reloaded");
-                            println!("Server open at: http://localhost:8000{}", config.url_prefix);
                         }
                     }),
                     Err(errs) => errs.iter().for_each(|e| println!("Error {:?}", e)),

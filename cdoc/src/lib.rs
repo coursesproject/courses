@@ -7,3 +7,4 @@ pub mod parser;
 pub mod parsers;
 pub mod processors;
 pub mod renderers;
+pub mod templates;

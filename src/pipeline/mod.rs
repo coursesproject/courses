@@ -2,60 +2,37 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
+
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
+
+use clap::ValueEnum;
 use console::style;
 use image::ImageOutputFormat;
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
-use tera::{Filter, Tera};
+use tera::Filter;
 
-use cdoc::config::OutputFormat;
+use cdoc::ast::Ast;
+use cdoc::config::Format;
 use cdoc::document::Document;
 use cdoc::processors::PreprocessorContext;
+
 use cdoc::renderers::{RenderContext, RenderResult};
+use cdoc::templates::{TemplateContext, TemplateManager};
 use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
+use serde::{Deserialize, Serialize};
 
-use crate::generators::html::HtmlGenerator;
-use crate::generators::info::InfoGenerator;
-use crate::generators::latex::LaTeXGenerator;
-use crate::generators::markdown::MarkdownGenerator;
-use crate::generators::notebook::CodeOutputGenerator;
-use crate::generators::{Generator, GeneratorContext};
+use crate::generators::Generator;
 use crate::project::config::ProjectConfig;
-use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem};
+use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectResult};
 
 mod mover;
-
-pub struct Pipeline {
-    #[allow(unused)]
-    mode: String,
-    project_path: PathBuf,
-    project: Project<()>,
-    project_config: ProjectConfig,
-    base_tera: Tera,
-    shortcode_tera: Tera,
-    render_context: RenderContext,
-    cached_contexts: HashMap<OutputFormat, GeneratorContext>,
-}
-
-pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
-    match res {
-        Ok(s) => Some(s),
-        Err(e) => {
-            eprintln!("{} {}", style("Error:").red().bold(), e);
-            e.chain()
-                .skip(1)
-                .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
-            None
-        }
-    }
-}
 
 fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
     Box::new(
@@ -102,92 +79,98 @@ fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
     )
 }
 
+pub struct Pipeline {
+    #[allow(unused)]
+    mode: Mode,
+    project_path: PathBuf,
+    project: Project<()>,
+    project_config: ProjectConfig,
+    templates: TemplateManager,
+
+    cached_contexts: HashMap<String, ProjectResult>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, ValueEnum, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    Release,
+    Draft,
+}
+
+pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
+    match res {
+        Ok(s) => Some(s),
+        Err(e) => {
+            eprintln!("{} {}", style("Error:").red().bold(), e);
+            e.chain()
+                .skip(1)
+                .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+            None
+        }
+    }
+}
+
 impl Pipeline {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
-        mode: String,
+        mode: Mode,
         config: ProjectConfig,
         project: Project<()>,
     ) -> anyhow::Result<Self> {
-        let path_str = project_path
-            .as_ref()
-            .to_str()
-            .ok_or_else(|| anyhow!("Invalid path"))?;
-        let pattern = path_str.to_string() + "/templates/**/*.tera.*";
-        let mut base_tera = Tera::new(&pattern).context("Error preparing project templates")?;
+        let mut template_manager = TemplateManager::from_path(
+            project_path.as_ref().join("templates"),
+            project_path.as_ref().join("filters"),
+        )?;
 
         let cache_path = project_path.as_ref().join(".cache");
         fs::create_dir_all(&cache_path)?;
 
-        base_tera.register_filter(
+        template_manager.register_filter(
             "embed",
             create_embed_fn(project_path.as_ref().join("resources"), cache_path),
         );
-
-        let shortcode_pattern = path_str.to_string() + "/templates/shortcodes/**/*.tera.*";
-        let shortcode_tera =
-            Tera::new(&shortcode_pattern).context("Error preparing project templates")?;
-
-        let builtins_pattern = path_str.to_string() + "/templates/builtins/**/*.tera.*";
-        let mut builtins_tera =
-            Tera::new(&builtins_pattern).context("Error preparing project templates")?;
-        builtins_tera.autoescape_on(vec![".html", ".md", ".tex"]);
-
-        let mut meta = tera::Context::new();
-        meta.insert("config", &config);
-
-        let ts = ThemeSet::load_defaults();
-        let render_context = RenderContext {
-            tera: base_tera.clone(),
-            tera_context: meta,
-            syntax_set: SyntaxSet::load_defaults_newlines(),
-            theme: ts.themes["base16-ocean.light"].clone(),
-            notebook_output_meta: config.notebook_meta.clone().unwrap_or_default(),
-        };
 
         Ok(Pipeline {
             mode,
             project_path: project_path.as_ref().to_path_buf(),
             project,
             project_config: config,
-            base_tera,
-            shortcode_tera,
-            render_context,
+            templates: template_manager,
             cached_contexts: HashMap::new(),
         })
     }
 
-    fn get_generator(&self, format: OutputFormat) -> Box<dyn Generator> {
-        match format {
-            OutputFormat::Notebook => Box::new(CodeOutputGenerator),
-            OutputFormat::Html => Box::new(HtmlGenerator::new(self.base_tera.clone())),
-            OutputFormat::Info => Box::new(InfoGenerator),
-            OutputFormat::LaTeX => Box::new(LaTeXGenerator::new(self.base_tera.clone())),
-            OutputFormat::Markdown => Box::new(MarkdownGenerator::new(self.base_tera.clone())),
+    fn get_render_context<'a>(
+        &'a self,
+        doc: &'a Document<Ast>,
+        format: &'a dyn Format,
+    ) -> RenderContext<'a> {
+        let mut meta = TemplateContext::default();
+        meta.insert("config", &self.project_config);
+        let ts = ThemeSet::load_defaults();
+        RenderContext {
+            templates: &self.templates,
+            extra_args: meta,
+            syntax_set: SyntaxSet::load_defaults_newlines(),
+            theme: ts.themes["base16-ocean.light"].clone(),
+            notebook_output_meta: self
+                .project_config
+                .notebook_meta
+                .clone()
+                .unwrap_or_default(),
+            format,
+            doc,
+            ids: doc.ids.clone(),
+            ids_map: doc.id_map.clone(),
         }
     }
 
-    fn get_build_path(&self, format: OutputFormat) -> PathBuf {
-        match format {
-            OutputFormat::Notebook => self.project_path.join("build").join("notebooks"),
-            OutputFormat::Html => self.project_path.join("build").join("html"),
-            OutputFormat::Info => self.project_path.join("build"),
-            OutputFormat::LaTeX => self.project_path.join("build").join("latex"),
-            OutputFormat::Markdown => self.project_path.join("build").join("markdown"),
-        }
+    fn get_build_path(&self, format: &dyn Format) -> PathBuf {
+        self.project_path.join("build").join(format.name())
     }
 
-    pub fn reload_shortcode_tera(&mut self) -> anyhow::Result<()> {
-        self.render_context.tera.full_reload()?;
-        Ok(self.shortcode_tera.full_reload()?)
-    }
-
-    pub fn reload_base_tera(&mut self) -> anyhow::Result<()> {
-        Ok(self.base_tera.full_reload()?)
-    }
-
-    pub fn reload_builtins_tera(&mut self) -> anyhow::Result<()> {
-        Ok(self.render_context.tera.full_reload()?)
+    pub fn reload_templates(&mut self) -> anyhow::Result<()> {
+        self.templates.reload()
     }
 
     pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
@@ -207,8 +190,8 @@ impl Pipeline {
         let mut all_errors = Vec::new();
 
         for format in self.project_config.outputs.clone() {
-            print!("format: {}", style(format).bold());
-            let output = self.process_document(&loaded.doc, format);
+            print!("format: {}", style(&format).bold());
+            let output = self.process_document(&loaded.doc, format.as_ref());
 
             match output {
                 Err(e) => {
@@ -217,19 +200,25 @@ impl Pipeline {
                 }
                 Ok(output) => {
                     if let Some(output) = output {
-                        let context = self
+                        let project = self
                             .cached_contexts
-                            .get(&format)
+                            .get(format.name())
                             .ok_or_else(|| anyhow!("Cached context is missing"))?
                             .clone();
 
-                        let context = self.update_cache(&item2, &format, &output, context.clone());
+                        let project =
+                            self.update_cache(&item2, format.as_ref(), &output, project.clone());
 
-                        self.get_generator(format).generate_single(
-                            output,
-                            item2.clone(),
-                            context,
-                        )?;
+                        let ctx = Generator {
+                            root: self.project_path.clone(),
+                            project,
+                            templates: &self.templates,
+                            config: self.project_config.clone(),
+                            mode: self.mode,
+                            build_dir: self.get_build_path(format.as_ref()),
+                            format: format.as_ref(),
+                        };
+                        ctx.generate_single(&output, &item2)?;
 
                         println!(" {}", style("done").green());
                     } else {
@@ -270,13 +259,13 @@ impl Pipeline {
     fn update_cache(
         &mut self,
         item2: &ItemDescriptor<()>,
-        format: &OutputFormat,
+        format: &dyn Format,
         output: &Document<RenderResult>,
-        mut context: GeneratorContext,
-    ) -> GeneratorContext {
+        mut project: ProjectResult,
+    ) -> ProjectResult {
         let i3 = item2.clone();
         if let Some(part_id) = i3.part_idx {
-            let part = &mut context.project.content[part_id];
+            let part = &mut project.content[part_id];
             if let Some(chapter_id) = i3.chapter_idx {
                 let chapter = &mut part.chapters[chapter_id];
                 if let Some(doc_id) = i3.doc_idx {
@@ -288,11 +277,12 @@ impl Pipeline {
                 part.index.content = Arc::new(Some(output.clone()));
             }
         } else {
-            context.project.index.content = Arc::new(Some(output.clone()));
+            project.index.content = Arc::new(Some(output.clone()));
         }
 
-        self.cached_contexts.insert(*format, context.clone());
-        context
+        self.cached_contexts
+            .insert(format.name().to_string(), project.clone());
+        project
     }
 
     fn doc_from_path(&self, path: PathBuf) -> anyhow::Result<ItemDescriptor<()>> {
@@ -406,46 +396,42 @@ impl Pipeline {
                 " ".repeat(10 - format.to_string().len())
             );
             let mut format_errs = Vec::new();
-            let (output, mut errs) = self.process_all(loaded.clone(), *format);
+            let (output, mut errs) = self.process_all(loaded.clone(), format.as_ref());
             format_errs.append(&mut errs);
-            let context = GeneratorContext {
+            let context = Generator {
                 root: self.project_path.to_path_buf(),
-                project: output,
-                tera: self.base_tera.clone(),
+                project: output.clone(),
+                mode: self.mode,
+                templates: &self.templates,
                 config: self.project_config.clone(),
-                build_dir: self.get_build_path(*format),
+                format: format.as_ref(),
+                build_dir: self.get_build_path(format.as_ref()),
             };
-            self.cached_contexts.insert(*format, context.clone());
+            self.cached_contexts
+                .insert(format.name().to_string(), output.clone());
 
             // print!("[generating output");
-
-            let res = self
-                .get_generator(*format)
-                .generate(context.clone())
+            let res = context
+                .generate()
                 .with_context(|| format!("Could not generate {}", format));
 
-            match res {
-                Err(e) => format_errs.push(e),
-                Ok(_) => {
-                    // println!("   output generation \t{}", style("success").green());
-                    self.cached_contexts.insert(*format, context);
-                }
+            if let Err(e) = res {
+                format_errs.push(e);
             }
 
             // Move extra files
-            if let Some(parser) = self.project_config.parsers.get(format) {
-                // print!(", copying additional files");
-                let move_ctx = MoveContext {
-                    project_path: self.project_path.to_path_buf(),
-                    build_dir: self.get_build_path(*format),
-                    settings: parser.settings.clone(),
-                };
 
-                let res =
-                    Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
-                if let Err(e) = res {
-                    format_errs.push(e);
-                }
+            // print!(", copying additional files");
+            let move_ctx = MoveContext {
+                project_path: self.project_path.to_path_buf(),
+                build_dir: self.get_build_path(format.as_ref()),
+                settings: self.project_config.parser.settings.clone(),
+            };
+
+            let res =
+                Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
+            if let Err(e) = res {
+                format_errs.push(e);
             }
 
             // Error display
@@ -507,7 +493,7 @@ impl Pipeline {
     fn process_all(
         &self,
         project: Project<String>,
-        format: OutputFormat,
+        format: &dyn Format,
     ) -> (Project<Option<Document<RenderResult>>>, Vec<anyhow::Error>) {
         let spinner = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
             .unwrap()
@@ -568,7 +554,7 @@ impl Pipeline {
     fn process_document(
         &self,
         item: &ProjectItem<String>,
-        format: OutputFormat,
+        format: &dyn Format,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         let doc = item.format.loader().load(&item.content)?;
 
@@ -580,26 +566,26 @@ impl Pipeline {
                 ids: doc.ids,
                 id_map: doc.id_map,
             }))
-        } else if doc.metadata.outputs.contains(&format) {
+        } else if !doc
+            .metadata
+            .exclude_outputs
+            .as_ref()
+            .map(|o| o.contains(&format.name().to_string()))
+            .unwrap_or_default()
+        {
             let processor_ctx = PreprocessorContext {
-                tera: self.shortcode_tera.clone(),
+                templates: &self.templates,
                 output_format: format,
             };
 
-            let res = self
-                .project_config
-                .parsers
-                .get(&format)
-                .ok_or_else(|| anyhow!("Invalid format"))?
-                .parse(&doc, &processor_ctx)?;
+            let res = self.project_config.parser.parse(&doc, &processor_ctx)?;
 
             // let res = print_err(res)?;
 
-            if let Some(renderer) = format.renderer() {
-                Ok(Some(renderer.render(&res, &self.render_context)?))
-            } else {
-                Ok(None)
-            }
+            let ctx = self.get_render_context(&res, format);
+            let mut renderer = format.renderer();
+
+            Ok(Some(renderer.render_doc(&ctx)?))
         } else {
             Ok(None)
         }
