@@ -1,24 +1,24 @@
 use crate::generators::{Generator, GeneratorContext};
+use crate::pipeline::Mode;
 use crate::project::ItemDescriptor;
 use anyhow::Context;
-use cdoc::config::OutputFormat;
+use cdoc::config::{LaTexFormat, OutputFormat};
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
-use cdoc::templates::{TemplateContext, TemplateManager};
+use cdoc::templates::{TemplateContext, TemplateManager, TemplateType};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::rc::Rc;
 use tera::Tera;
 
-pub struct LaTeXGenerator {
-    templates: TemplateManager,
-}
+pub struct LaTeXGenerator;
 
 impl LaTeXGenerator {
-    pub fn new(templates: TemplateManager) -> Self {
-        LaTeXGenerator { templates }
-    }
+    // pub fn new(templates: Rc<TemplateManager>) -> Self {
+    //     LaTeXGenerator { templates }
+    // }
 
     fn write_document(
         &self,
@@ -53,7 +53,7 @@ impl LaTeXGenerator {
 }
 
 impl Generator for LaTeXGenerator {
-    fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
+    fn generate(&self, ctx: &GeneratorContext) -> anyhow::Result<()> {
         // Copy resources
         let resource_path_src = ctx.root.join("resources");
         let resource_path_build_dir = ctx.build_dir.as_path().join("resources");
@@ -71,18 +71,18 @@ impl Generator for LaTeXGenerator {
         let mut context = TemplateContext::new();
         context.insert("project", &proj);
         context.insert("config", &ctx.config);
-        let result = ctx
-            .templates
-            .render("main", OutputFormat::LaTeX, &context)?;
+        let result =
+            ctx.templates
+                .render("main", &LaTexFormat {}, TemplateType::Layout, &context)?;
         self.write_file(
             result,
             ctx.build_dir.as_path().to_path_buf(),
             "main".to_string(),
         )?;
 
-        let result = ctx
-            .templates
-            .render("preamble", OutputFormat::LaTeX, &context)?;
+        let result =
+            ctx.templates
+                .render("preamble", &LaTexFormat {}, TemplateType::Layout, &context)?;
         self.write_file(
             result,
             ctx.build_dir.as_path().to_path_buf(),
@@ -95,24 +95,29 @@ impl Generator for LaTeXGenerator {
         let pb = ProgressBar::new(0);
         pb.set_style(spinner);
 
-        for item in ctx.project {
+        for item in ctx.project.clone() {
             if let Some(c) = item.doc.content.deref() {
                 pb.set_message(format!("{}", item.doc.path.display()));
                 pb.inc(1);
+                if !(ctx.mode == Mode::Release && c.metadata.draft) {
+                    // TODO: Merge with single
+                    let mut context = TemplateContext::new();
+                    context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+                    context.insert("config", &ctx.config);
+                    context.insert("current_part", &item.part_id);
+                    context.insert("current_chapter", &item.chapter_id);
+                    context.insert("current_doc", &item.doc.id);
+                    context.insert("doc", &c);
+                    context.insert("mode", &ctx.mode);
 
-                // TODO: Merge with single
-                let mut context = TemplateContext::new();
-                context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-                context.insert("config", &ctx.config);
-                context.insert("current_part", &item.part_id);
-                context.insert("current_chapter", &item.chapter_id);
-                context.insert("current_doc", &item.doc.id);
-                context.insert("doc", &c);
-
-                let result = self
-                    .templates
-                    .render("section", OutputFormat::LaTeX, &context)?;
-                self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
+                    let result = ctx.templates.render(
+                        "section",
+                        &LaTexFormat {},
+                        TemplateType::Layout,
+                        &context,
+                    )?;
+                    self.write_document(result, item.doc.id, item.doc.path, ctx.build_dir.clone())?;
+                }
             }
         }
         pb.finish_and_clear();
@@ -124,25 +129,32 @@ impl Generator for LaTeXGenerator {
         &self,
         content: Document<RenderResult>,
         doc_info: ItemDescriptor<()>,
-        ctx: GeneratorContext,
+        ctx: &GeneratorContext,
     ) -> anyhow::Result<()> {
-        let proj = ctx.project.clone();
-        let mut context = TemplateContext::new();
-        context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
-        context.insert("config", &ctx.config);
-        context.insert("current_part", &doc_info.part_id);
-        context.insert("current_chapter", &doc_info.chapter_id);
-        context.insert("current_doc", &doc_info.doc.id);
-        context.insert("doc", &content);
-        context.insert("html", &content.content);
-        context.insert("title", "Test");
+        if !(ctx.mode == Mode::Release && content.metadata.draft) {
+            let proj = ctx.project.clone();
+            let mut context = TemplateContext::new();
+            context.insert("project", &proj); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+            context.insert("config", &ctx.config);
+            context.insert("current_part", &doc_info.part_id);
+            context.insert("current_chapter", &doc_info.chapter_id);
+            context.insert("current_doc", &doc_info.doc.id);
+            context.insert("doc", &content);
+            context.insert("html", &content.content);
+            context.insert("title", "Test");
+            context.insert("mode", &ctx.mode);
 
-        let result = self
-            .templates
-            .render("section", OutputFormat::LaTeX, &context)?;
+            let result =
+                ctx.templates
+                    .render("section", &LaTexFormat {}, TemplateType::Layout, &context)?;
 
-        self.write_document(result, doc_info.doc.id, doc_info.doc.path, ctx.build_dir)?;
-
+            self.write_document(
+                result,
+                doc_info.doc.id,
+                doc_info.doc.path,
+                ctx.build_dir.clone(),
+            )?;
+        }
         Ok(())
     }
 }

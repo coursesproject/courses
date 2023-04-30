@@ -1,6 +1,7 @@
-use crate::config::OutputFormat;
+use crate::config::{Format, OutputFormat};
 use crate::templates::TemplateContext;
 use anyhow::anyhow;
+use clap::builder::Str;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Display, Formatter};
@@ -15,26 +16,29 @@ use walkdir::WalkDir;
 pub struct TemplateDefinition {
     pub name: String,
     pub description: String,
-    #[serde(flatten, rename = "type")]
+    #[serde(rename = "type")]
     pub type_: TemplateType,
-    pub templates: HashMap<OutputFormat, Template>,
+    pub shortcode: Option<ShortcodeDefinition>,
+    pub templates: HashMap<String, Template>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum TemplateType {
-    Shortcode(ShortcodeDefinition),
+    Shortcode,
     Layout,
     Builtin,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShortcodeDefinition {
-    #[serde(rename = "type")]
-    pub type_: ShortcodeType,
+    pub kind: ShortcodeType,
+    #[serde(default)]
     pub parameters: Vec<ShortcodeParameter>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
 pub enum ShortcodeType {
     Inline,
     Block,
@@ -44,23 +48,36 @@ pub enum ShortcodeType {
 pub struct ShortcodeParameter {
     pub name: String,
     pub description: String,
+    #[serde(default)]
     pub optional: bool,
-    pub param_type: ParameterType,
+    #[serde(rename = "type")]
+    pub type_: ParameterType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum ParameterType {
     Regular,
-    Choice { choices: Vec<String> },
+    Choice(Vec<String>),
     Flag,
     Positional,
+}
+
+impl Display for ParameterType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParameterType::Regular => write!(f, "regular"),
+            ParameterType::Choice(cs) => write!(f, "{:?}", cs),
+            ParameterType::Flag => write!(f, "flag"),
+            ParameterType::Positional => write!(f, "positional"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Template(TemplateSource);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged)]
 pub enum TemplateSource {
     String(String),
     File(PathBuf),
@@ -69,12 +86,30 @@ pub enum TemplateSource {
 impl Display for TemplateType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let name = match self {
-            TemplateType::Shortcode(_) => "shortcode",
-            TemplateType::Layout => "generic",
+            TemplateType::Shortcode => "shortcode",
+            TemplateType::Layout => "layout",
             TemplateType::Builtin => "builtin",
         };
         write!(f, "{}", name)
     }
+}
+
+pub fn get_templates_from_definitions(
+    definitions: &HashMap<String, TemplateDefinition>,
+    dir: PathBuf,
+) -> Vec<(String, String)> {
+    definitions
+        .iter()
+        .flat_map(|(id, def)| {
+            def.template_strings(dir.join("sources"))
+                .iter()
+                .map(|(format, source)| {
+                    let name = format!("{}.{}", id, format);
+                    (name, source.clone())
+                })
+                .collect::<Vec<(String, String)>>()
+        })
+        .collect()
 }
 
 pub fn load_template_definitions(
@@ -85,7 +120,7 @@ pub fn load_template_definitions(
         .filter_map(|e| {
             let e = e.ok()?;
             let ext = e.path().extension()?.to_str()?;
-            if ext == ".yml" {
+            if ext == "yml" {
                 Some(e)
             } else {
                 None
@@ -94,7 +129,21 @@ pub fn load_template_definitions(
         .map(|e| {
             let s = fs::read_to_string(e.path())?;
             let def: TemplateDefinition = serde_yaml::from_str(&s)?;
-            Ok((def.name.clone(), def))
+            if &def.type_ == &TemplateType::Shortcode {
+                def.shortcode
+                    .as_ref()
+                    .ok_or(anyhow!("Missing shortcode definition for type 'shortcode'"))?;
+            } else if def.shortcode.is_some() {
+                return Err(anyhow!(
+                    "Shortcode definition must only be present for type 'shortcode'"
+                ));
+            }
+
+            let f_name = e.file_name().to_str().unwrap();
+            let dot_idx = f_name.find(".").unwrap();
+            let f_base = format!("{}_{}", &def.type_, &f_name[..dot_idx]);
+
+            Ok((f_base, def))
         })
         .collect()
 }
@@ -113,7 +162,7 @@ impl ParameterType {
     pub fn validate_value(&self, value: String) -> Result<(), ValidationError> {
         match self {
             ParameterType::Regular => Ok(()),
-            ParameterType::Choice { choices } => {
+            ParameterType::Choice(choices) => {
                 choices.contains(&value).then(|| ()).ok_or_else(|| {
                     ValidationError::InvalidValue(format!(
                         "The provided value {} must be one of {:?}",
@@ -142,14 +191,10 @@ impl ParameterType {
 }
 
 impl TemplateDefinition {
-    pub fn template_for_format(
-        &self,
-        base_path: PathBuf,
-        format: OutputFormat,
-    ) -> anyhow::Result<String> {
+    pub fn template_for_format(&self, base_path: PathBuf, format: &str) -> anyhow::Result<String> {
         let tp = self
             .templates
-            .get(&format)
+            .get(format)
             .ok_or(anyhow!("Format not available"))?;
         match &tp.0 {
             TemplateSource::String(s) => Ok(s.clone()),
@@ -157,16 +202,21 @@ impl TemplateDefinition {
         }
     }
 
-    pub fn template_strings(&self, base_path: PathBuf) -> HashMap<OutputFormat, String> {
+    pub fn template_strings(&self, base_path: PathBuf) -> HashMap<String, String> {
         self.templates
             .iter()
-            .map(|(f, source)| (*f, self.template_for_format(base_path.clone(), *f).unwrap()))
+            .map(|(f, source)| {
+                (
+                    f.to_string(),
+                    self.template_for_format(base_path.clone(), f).unwrap(),
+                )
+            })
             .collect()
     }
 
-    pub fn has_format(&self, format: OutputFormat) -> anyhow::Result<()> {
+    pub fn has_format(&self, format: &str) -> anyhow::Result<()> {
         self.templates
-            .get(&format)
+            .get(format)
             .ok_or(anyhow!("Format not supported by template"))?;
         Ok(())
     }
@@ -175,7 +225,8 @@ impl TemplateDefinition {
         &self,
         args: &TemplateContext,
     ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
-        if let TemplateType::Shortcode(s) = &self.type_ {
+        if let TemplateType::Shortcode = &self.type_ {
+            let s = self.shortcode.as_ref().unwrap();
             let res: Vec<Result<(), ValidationError>> = args
                 .map
                 .iter()
@@ -192,7 +243,7 @@ impl TemplateDefinition {
                             .ok_or_else(|| ValidationError::InvalidName(k.to_string()))?
                     };
 
-                    param.param_type.validate_value(v.to_string())
+                    param.type_.validate_value(v.to_string())
                 })
                 .collect();
             Ok(res)

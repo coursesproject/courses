@@ -11,7 +11,7 @@ use crate::ast::{
     find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, Inline, Shortcode,
     ShortcodeBase, ShortcodeIdx,
 };
-use crate::config::OutputFormat;
+use crate::config::{Format, OutputFormat};
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
@@ -20,6 +20,8 @@ use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
 #[serde(deny_unknown_fields)]
 pub struct DocumentMetadata {
     pub title: Option<String>,
+    #[serde(default)]
+    pub draft: bool,
     #[serde(default = "default_true")]
     pub exercises: bool,
     #[serde(default)]
@@ -34,7 +36,7 @@ pub struct DocumentMetadata {
     pub layout: LayoutSettings,
 
     #[serde(default)]
-    pub exclude_outputs: Option<Vec<OutputFormat>>,
+    pub exclude_outputs: Option<Vec<String>>,
 }
 
 const fn default_true() -> bool {

@@ -8,6 +8,8 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::InputFormat;
+use cdoc::document::Document;
+use cdoc::renderers::RenderResult;
 pub use iterator::*;
 pub use transform::*;
 
@@ -70,6 +72,8 @@ pub struct ProjectIterator<D> {
     doc_pos: usize,
     config: Project<D>,
 }
+
+pub type ProjectResult = Project<Option<Document<RenderResult>>>;
 
 /// Contains necessary information for reconstructing a Config from an iterator.
 #[derive(Clone)]

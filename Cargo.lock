@@ -311,6 +311,7 @@ dependencies = [
  "base64 0.21.0",
  "clap",
  "dyn-clone",
+ "image",
  "katex",
  "lazy_static",
  "pest",

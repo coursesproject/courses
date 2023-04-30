@@ -5,9 +5,10 @@ use crate::ast::Ast;
 use tera::Tera;
 use thiserror::Error;
 
-use crate::config::OutputFormat;
+use crate::config::{Format, OutputFormat};
 use crate::document::Document;
 use crate::parsers::split::Rule;
+use crate::templates::TemplateManager;
 
 pub mod exercises;
 
@@ -22,10 +23,10 @@ pub enum Error {
     Any(#[from] anyhow::Error),
 }
 
-#[derive(Clone, Debug)]
-pub struct PreprocessorContext {
-    pub tera: Tera,
-    pub output_format: OutputFormat,
+#[derive(Clone)]
+pub struct PreprocessorContext<'a> {
+    pub templates: &'a TemplateManager,
+    pub output_format: &'a dyn Format,
 }
 
 pub trait AstPreprocessor: Display {

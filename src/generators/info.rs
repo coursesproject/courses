@@ -9,7 +9,7 @@ use crate::project::ItemDescriptor;
 pub struct InfoGenerator;
 
 impl Generator for InfoGenerator {
-    fn generate(&self, ctx: GeneratorContext) -> anyhow::Result<()> {
+    fn generate(&self, ctx: &GeneratorContext) -> anyhow::Result<()> {
         let output = serde_yaml::to_string(&ctx.project)?;
         let path = ctx.build_dir.join("config.yml");
         fs::write(path, output)?;
@@ -20,7 +20,7 @@ impl Generator for InfoGenerator {
         &self,
         _content: Document<RenderResult>,
         _doc_info: ItemDescriptor<()>,
-        ctx: GeneratorContext,
+        ctx: &GeneratorContext,
     ) -> anyhow::Result<()> {
         self.generate(ctx)
     }
