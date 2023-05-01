@@ -1,0 +1,13 @@
+name: Emphasis
+description: Text emphasis.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <em>{{value}}</em>
+  markdown: !String |
+    _{{value}}_
+  latex: !String |
+    \emph{ {{value}} }

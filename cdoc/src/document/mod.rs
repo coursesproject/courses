@@ -110,40 +110,26 @@ pub fn split_shortcodes(
             ShortcodeIdx::Inline(start, end) => {
                 md_str.push_str(&rest[..start]);
 
-                let code = parse_shortcode(rest[start + 2..end].trim())?;
+                let c = rest[start + 2..end].trim();
+                shortcodes.push((c, ""));
 
-                counters
-                    .get_mut(&code.name)
-                    .map(|v| {
-                        v.0 += 1;
-                        v.1.push(code.clone());
-                    })
-                    .unwrap_or_else(|| {
-                        counters.insert(code.name.clone(), (1, vec![code.clone()]));
-                    });
+                // let code = parse_shortcode(rest[start + 2..end].trim())?;
 
-                shortcodes.push(Shortcode::Inline(code.into_base(counters)?));
+                // shortcodes.push(Shortcode::Inline(code.into_base(counters)?));
                 rest = &rest[end + 2..];
             }
             ShortcodeIdx::Block { def, end } => {
                 md_str.push_str(&rest[..def.0]);
 
-                let code = parse_shortcode(rest[def.0 + 2..def.1].trim())?;
-
-                counters
-                    .get_mut(&code.name)
-                    .map(|v| {
-                        v.0 += 1;
-                        v.1.push(code.clone());
-                    })
-                    .unwrap_or_else(|| {
-                        counters.insert(code.name.clone(), (1, vec![code.clone()]));
-                    });
-
+                let c = rest[def.0 + 2..def.1].trim();
                 let body = &rest[def.1 + 2..end.0];
-                let blocks = split_shortcodes(body, counters)?;
+                shortcodes.push((c, body));
+                // let code = parse_shortcode(rest[def.0 + 2..def.1].trim())?;
 
-                shortcodes.push(Shortcode::Block(code.into_base(counters)?, blocks));
+                // let body = &rest[def.1 + 2..end.0];
+                // let blocks = split_shortcodes(body, counters)?;
+
+                // shortcodes.push(Shortcode::Block(code.into_base(counters)?, blocks));
 
                 rest = &rest[end.1 + 2..];
             }
@@ -158,7 +144,7 @@ pub fn split_shortcodes(
 
     let mut md_blocks = Ast(split_markdown(&md_str)?);
 
-    ShortcodeInserter::new(shortcodes).walk_ast(&mut md_blocks)?;
+    ShortcodeInserter::new(shortcodes, counters).walk_ast(&mut md_blocks)?;
 
     Ok(md_blocks.0)
 }

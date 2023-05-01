@@ -1,0 +1,10 @@
+name: Banner
+description: Banner element.
+
+type: shortcode
+shortcode:
+  kind: inline
+
+
+templates:
+  html: !File "banner.tera.html"

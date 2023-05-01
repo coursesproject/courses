@@ -1,0 +1,13 @@
+name: Link
+description: Markdown link.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <a src="{{url}}" alt="{{alt}}">{{inner|safe}}</a>
+  markdown: !String |
+    [{{inner}}]({{url}})
+  latex: !String |
+    \href{ {{url | safe }} }{ {{inner | safe}} }

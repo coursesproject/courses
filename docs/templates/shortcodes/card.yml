@@ -1,0 +1,29 @@
+name: Card
+description: A bulma card element.
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: title
+      description: Card title.
+      type: regular
+    - name: color
+      description: Card color.
+      type: !choice [ primary, success, warning, info, danger ]
+
+
+templates:
+  html: !String |
+    <div class="column is-one-third">
+      <div class="card">
+          <div class="card-header has-background-{{color}}">
+              <p class="card-header-title">{{title}}</p>
+          </div>
+          <div class="card-content" >
+              <p class="content">
+                  {{body|safe}}
+              </p>
+          </div>
+      </div>
+    </div>

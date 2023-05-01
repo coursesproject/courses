@@ -6,7 +6,7 @@ string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
 basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")+}
 
 name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_"|"-")*}
-key = {(ASCII_ALPHA|"_"|"-")+}
+key = {(ASCII_ALPHANUMERIC|"_"|"-")+}
 value = {string|basic_val}
 param = {key ~ ("=" ~ value)?}
 

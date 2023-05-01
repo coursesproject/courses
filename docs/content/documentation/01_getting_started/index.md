@@ -1,6 +1,5 @@
 ---
 title: Getting started
-notebook_output: true
 ---
 
 # Getting started

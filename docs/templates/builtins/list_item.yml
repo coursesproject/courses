@@ -1,0 +1,13 @@
+name: List item
+description: Markdown list item.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <li>{{ value | safe }}</li>
+  markdown: !String |
+    {% if idx %}{{idx}}.{% else %}-{% endif %} {{ value | safe }}
+  latex: !String |
+    \item {{ value | safe }}

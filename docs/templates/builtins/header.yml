@@ -1,0 +1,13 @@
+name: Header
+description: Heading element.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <h{{level}}>{{inner}}</h{{level}}>
+  markdown: !String |
+    {% for i in range(end=level) %}#{% endfor %} {{inner}}
+  latex: !String |
+    \section{ {{inner}} }

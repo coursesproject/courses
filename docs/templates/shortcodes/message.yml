@@ -1,0 +1,29 @@
+name: Message
+description: A message box.
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: title
+      description: Box header.
+      type: regular
+    - name: color
+      description: Message color.
+      type: !choice [primary, success, warning, info, danger]
+
+
+templates:
+  html: !String |
+    <article class="message is-{{color}}">
+      <div class="message-header">{{ title | default(value=color) | capitalize }}</div>
+      <div class="message-body">{{ body|safe }}</div>
+    </article>
+  markdown: !String |
+    ```
+    **{{ title | default(value=color) | capitalize }}**
+    {{ body|safe }}
+    ```
+  latex: !String |
+    \paragraph{ {{ title | default(value=color) | capitalize }} }
+    {{ body|safe }}

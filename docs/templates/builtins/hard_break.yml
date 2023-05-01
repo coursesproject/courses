@@ -1,0 +1,13 @@
+name: Hard break
+description: Actual newline.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <br/>
+  markdown: !String |
+    \n
+  latex: !String |
+    \\

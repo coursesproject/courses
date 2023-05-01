@@ -53,14 +53,14 @@ how many linebreaks there is between arguments.
 
 ## Built-in codes
 
-### Image
+### Figure
 
-{{ image(url=cat.jpg, width="80%", caption="This is my image") }}
+{{ figure(url=cat.jpg, width="80%", caption="This is my image") }}
 
 Produces a figure for the webpage and a regular markdown image for the notebook.
 
 **Syntax:**
-`{{ image(url=cat.jpg, width="80%", caption="This is my image") }}`
+`{{ figure(url=cat.jpg, width="80%", caption="This is my image") }}`
 
 **Parameters:**
 

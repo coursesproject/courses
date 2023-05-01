@@ -1,0 +1,61 @@
+<h1>Template overview</h1>
+<table class="table is-bordered is-striped is-hoverable is-fullwidth">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>id</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Formats</th>
+    </tr>
+    </thead>
+    {% for id, def in defs %}
+
+        <tbody>
+        <tr>
+            <td>{% if def.shortcode %}<a href="#shortcode_details_{{ id }}">{{ def.name }}</a>{% else %}
+                {{ def.name }}{% endif %}</td>
+            <td>{{ id | replace(from="shortcode_", to="") |  replace(from="builtin_", to="") |  replace(from="layout_", to="") }}</td>
+            <td>{{ def.type }}</td>
+            <td>{{ def.description }}</td>
+            <td>{% for format, tp in def.templates %}{{ format }},{% endfor %}</td>
+        </tr>
+        </tbody>
+    {% endfor %}
+</table>
+
+<h2>Shortcodes</h2>
+{% for id, def in defs %}
+    {% if def.shortcode %}
+        <article class="message">
+            <div class="message-header">
+                <p id="shortcode_details_{{ id }}">{{ def.name }}
+                    ({{ id | replace(from="shortcode_", to="") }}): {{ def.shortcode.kind }}</p>
+            </div>
+            <div class="message-body">
+                <h5>Parameters</h5>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Optional</th>
+                        <th>Type</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for s in def.shortcode.parameters %}
+                        <tr>
+                            <td>{{ s.name }}</td>
+                            <td>{{ s.description }}</td>
+                            <td>{{ s.optional }}</td>
+                            <td>{{ s.type | json_encode | safe }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </article>
+    {% endif %}
+{% endfor %}

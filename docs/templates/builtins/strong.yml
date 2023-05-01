@@ -1,0 +1,13 @@
+name: Strong
+description: Strong/bold text.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <strong>{{ value }}</strong>
+  markdown: !String |
+    __{{ value }}__
+  latex: !String |
+    \textbf{ {{value}} }
