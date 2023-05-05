@@ -65,6 +65,16 @@ pub struct ProjectItem<C> {
     pub content: Arc<C>,
 }
 
+impl<C> ProjectItem<C> {
+    pub fn as_ref(&self) -> ProjectItem<&C> {
+        ProjectItem {
+            id: self.id.clone(),
+            format: self.format.clone(),
+            path: self.path.clone(),
+            content: Arc::new(self.content.as_ref()),
+        }
+    }
+}
 /// Iterates a Config.
 pub struct ProjectIterator<D> {
     part_pos: usize,
@@ -73,7 +83,8 @@ pub struct ProjectIterator<D> {
     config: Project<D>,
 }
 
-pub type ProjectResult = Project<Option<Document<RenderResult>>>;
+pub type ProjectResult<'a> = Project<&'a Option<Document<RenderResult>>>;
+pub type ProjectItemVec = Vec<ItemDescriptor<Option<Document<RenderResult>>>>;
 
 /// Contains necessary information for reconstructing a Config from an iterator.
 #[derive(Clone)]
@@ -90,10 +101,6 @@ pub struct ItemDescriptor<D> {
 impl<C> Project<C> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-
-    pub fn len(&self) -> usize {
-        1 + self.content.iter().map(|e| e.len()).sum::<usize>()
     }
 }
 
@@ -122,6 +129,12 @@ impl<C> Chapter<C> {
 //         1
 //     }
 // }
+
+impl<C> Project<C> {
+    pub fn len(&self) -> usize {
+        1 + self.content.iter().map(|p| p.len()).sum::<usize>()
+    }
+}
 
 impl Project<()> {
     /// Construct configuration from a directory (generally the project directory). The function

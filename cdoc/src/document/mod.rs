@@ -8,8 +8,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{
-    find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, Inline, Shortcode,
-    ShortcodeBase, ShortcodeIdx,
+    find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, Shortcode, ShortcodeBase,
+    ShortcodeIdx,
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
@@ -55,8 +55,6 @@ pub struct Document<C> {
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     pub id_map: HashMap<String, (usize, ShortCodeDef)>,
 }
-
-pub type EventContent = Vec<AEvent>;
 
 pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
     let mut rest = src;

@@ -1,7 +1,8 @@
-use crate::templates::TemplateContext;
+use crate::templates::Context;
 use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -175,6 +176,8 @@ pub enum ValidationError {
     InvalidName(String),
     #[error("Invalid parameter value: {0}")]
     InvalidValue(String),
+    #[error("Required parameter {0} missing")]
+    RequiredParameter(String),
 }
 
 impl ParameterType {
@@ -242,27 +245,19 @@ impl TemplateDefinition {
 
     pub fn validate_args(
         &self,
-        args: &TemplateContext,
+        args: &Context,
     ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
         if let TemplateType::Shortcode = &self.type_ {
             let s = self.shortcode.as_ref().unwrap();
-            let res: Vec<Result<(), ValidationError>> = args
-                .map
+            let res = s
+                .parameters
                 .iter()
-                .enumerate()
-                .map(|(i, (k, v))| {
-                    let param = if k.is_empty() {
-                        s.parameters
-                            .get(i)
-                            .ok_or(ValidationError::InvalidPosition(i))?
-                    } else {
-                        s.parameters
-                            .iter()
-                            .find(|p| &p.name == k)
-                            .ok_or_else(|| ValidationError::InvalidName(k.to_string()))?
-                    };
-
-                    param.type_.validate_value(v.to_string())
+                .map(|p| match args.get(&p.name) {
+                    None => p
+                        .optional
+                        .then_some(())
+                        .ok_or(ValidationError::RequiredParameter(p.name.clone())),
+                    Some(val) => p.type_.validate_value(val.to_string()),
                 })
                 .collect();
             Ok(res)

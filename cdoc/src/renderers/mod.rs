@@ -3,16 +3,18 @@ use crate::config::Format;
 use anyhow::Result;
 
 use std::collections::HashMap;
+use std::io::Write;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use syntect::highlighting::Theme;
 use syntect::parsing::SyntaxSet;
+use tera::Context;
 
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
 use crate::parsers::shortcodes::ShortCodeDef;
-use crate::templates::{TemplateContext, TemplateManager, TemplateType};
+use crate::templates::{TemplateManager, TemplateType};
 
 pub mod generic;
 pub mod notebook;
@@ -22,13 +24,13 @@ pub type RenderResult = String;
 pub struct RenderContext<'a> {
     pub doc: &'a Document<Ast>,
     pub templates: &'a TemplateManager,
-    pub extra_args: TemplateContext,
+    pub extra_args: Context,
     pub syntax_set: SyntaxSet,
     pub theme: Theme,
-    pub notebook_output_meta: NotebookMeta,
+    pub notebook_output_meta: &'a NotebookMeta,
     pub format: &'a dyn Format,
-    pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
-    pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
+    pub ids: &'a HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    pub ids_map: &'a HashMap<String, (usize, ShortCodeDef)>,
 }
 
 pub trait DocumentRenderer {
@@ -41,12 +43,18 @@ pub trait RendererBuilder<'a> {
 }
 
 pub trait RenderElement<T> {
-    fn render(&mut self, elem: &T, ctx: &RenderContext) -> Result<String>;
+    fn render(&mut self, elem: &T, ctx: &RenderContext, buf: impl Write) -> Result<()>;
+
+    fn render_inner(&mut self, elem: &T, ctx: &RenderContext) -> Result<String> {
+        let mut buf = Vec::new();
+        self.render(elem, ctx, &mut buf)?;
+        Ok(String::from_utf8(buf)?)
+    }
 }
 
 impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
-    fn render(&mut self, elem: &Vec<R>, ctx: &RenderContext) -> Result<String> {
-        elem.iter().map(|e| self.render(e, ctx)).collect()
+    fn render(&mut self, elem: &Vec<R>, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
+        elem.iter().map(|e| self.render(e, ctx, &mut buf)).collect()
     }
 }
 
@@ -56,9 +64,14 @@ impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
 //     }
 // }
 
-fn render_basic_template(name: &str, type_: TemplateType, ctx: &RenderContext) -> Result<String> {
+fn render_basic_template(
+    name: &str,
+    type_: TemplateType,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
     ctx.templates
-        .render(name, ctx.format, type_, &TemplateContext::default())
+        .render(name, ctx.format, type_, &Context::default(), buf)
 }
 
 fn render_value_template(
@@ -66,10 +79,11 @@ fn render_value_template(
     type_: TemplateType,
     value: &str,
     ctx: &RenderContext,
-) -> Result<String> {
-    let mut args = TemplateContext::default();
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
     args.insert("value", value);
-    ctx.templates.render(name, ctx.format, type_, &args)
+    ctx.templates.render(name, ctx.format, type_, &args, buf)
 }
 
 static COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -79,7 +93,7 @@ fn get_id() -> usize {
 }
 
 fn add_args(
-    ctx: &mut TemplateContext,
+    ctx: &mut Context,
     id: &Option<String>,
     num: usize,
     ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
@@ -98,22 +112,34 @@ fn add_args(
     Ok(())
 }
 
-fn render_image(url: &str, alt: &str, inner: &str, ctx: &RenderContext) -> Result<String> {
-    let mut args = TemplateContext::default();
+fn render_image(
+    url: &str,
+    alt: &str,
+    inner: &str,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
     args.insert("url", url);
     args.insert("alt", alt);
     args.insert("inner", inner);
     ctx.templates
-        .render("image", ctx.format, TemplateType::Builtin, &args)
+        .render("image", ctx.format, TemplateType::Builtin, &args, buf)
 }
 
-fn render_link(url: &str, alt: &str, inner: &str, ctx: &RenderContext) -> Result<String> {
-    let mut args = TemplateContext::default();
+fn render_link(
+    url: &str,
+    alt: &str,
+    inner: &str,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
     args.insert("url", url);
     args.insert("alt", alt);
     args.insert("inner", inner);
     ctx.templates
-        .render("link", ctx.format, TemplateType::Builtin, &args)
+        .render("link", ctx.format, TemplateType::Builtin, &args, buf)
 }
 
 fn render_math(
@@ -121,11 +147,12 @@ fn render_math(
     trailing_space: bool,
     inner: &str,
     ctx: &RenderContext,
-) -> Result<String> {
-    let mut args = TemplateContext::default();
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
     args.insert("display_mode", &display_mode);
     args.insert("trailing_space", &trailing_space);
     args.insert("value", inner);
     ctx.templates
-        .render("math", ctx.format, TemplateType::Builtin, &args)
+        .render("math", ctx.format, TemplateType::Builtin, &args, buf)
 }

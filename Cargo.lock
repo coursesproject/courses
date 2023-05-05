@@ -331,6 +331,7 @@ dependencies = [
  "pest_derive",
  "pulldown-cmark",
  "regex",
+ "replace_with",
  "rhai",
  "serde",
  "serde_json",
@@ -543,6 +544,7 @@ dependencies = [
  "notify-debouncer-mini",
  "penguin",
  "pollster",
+ "rayon",
  "reqwest",
  "rust-embed",
  "serde",
@@ -1433,6 +1435,7 @@ dependencies = [
  "console",
  "number_prefix",
  "portable-atomic",
+ "rayon",
  "unicode-width",
 ]
 
@@ -2384,6 +2387,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
 
 [[package]]
+name = "replace_with"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a8614ee435691de62bcffcf4a66d91b3594bf1428a5722e79103249a095690"
+
+[[package]]
 name = "reqwest"
 version = "0.11.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3002,9 +3011,7 @@ dependencies = [
  "libc",
  "mio",
  "num_cpus",
- "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.48.0",

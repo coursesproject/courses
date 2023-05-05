@@ -1,6 +1,7 @@
 use crate::ast::{Ast, Block};
 use anyhow::Result;
 use pulldown_cmark::HeadingLevel;
+use replace_with::replace_with_or_abort;
 use serde::{Deserialize, Serialize};
 
 use crate::document::Document;
@@ -18,7 +19,7 @@ impl DocumentRenderer for NotebookRenderer {
         let renderer = GenericRenderer;
 
         let writer = NotebookWriter {
-            cell_source: String::new(),
+            cell_source: Vec::new(),
             finished_cells: vec![],
             ctx,
             notebook_meta: ctx.notebook_output_meta.clone(),
@@ -50,7 +51,7 @@ pub fn heading_num(h: HeadingLevel) -> usize {
 }
 
 struct NotebookWriter<'a> {
-    cell_source: String,
+    cell_source: Vec<u8>,
     finished_cells: Vec<Cell>,
     notebook_meta: NotebookMeta,
     ctx: &'a RenderContext<'a>,
@@ -59,13 +60,15 @@ struct NotebookWriter<'a> {
 
 impl NotebookWriter<'_> {
     fn push_markdown_cell(&mut self) {
-        self.finished_cells.push(Cell::Markdown {
-            common: CellCommon {
-                metadata: Default::default(),
-                source: self.cell_source.clone(),
-            },
+        replace_with_or_abort(&mut self.cell_source, |source| {
+            self.finished_cells.push(Cell::Markdown {
+                common: CellCommon {
+                    metadata: Default::default(),
+                    source: String::from_utf8(source).unwrap(),
+                },
+            });
+            Vec::new()
         });
-        self.cell_source = String::new();
     }
 
     fn block(&mut self, block: &Block) -> Result<()> {
@@ -82,9 +85,10 @@ impl NotebookWriter<'_> {
                 };
                 self.finished_cells.push(c);
             }
-            _ => self
-                .cell_source
-                .push_str(&self.renderer.render(block, self.ctx)?),
+            _ => {
+                self.renderer
+                    .render(block, self.ctx, &mut self.cell_source)?;
+            }
         }
 
         Ok(())

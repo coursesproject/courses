@@ -48,21 +48,22 @@ linked-hash-map = {version="0.5.6", features=["serde_impl"]}
 image = "0.24.6"
 base64-simd = "0.8.0"
 
+
 # CLI libraries
 inquire = "0.5.2"
 clap = { version = "4.0.0-rc.2", features = ["derive"] }
 console = "0.15.2"
-indicatif = "0.17.2"
+indicatif = {version="0.17.2", features=["rayon"]}
 
 
 # Async + server stuff
 penguin = "0.1.7"
-tokio = { version = "1.21.2", features = ["full"] }
+tokio = { version = "1.21.2", features = ["macros", "rt"] }
 pollster = { version = "0.3.0", features = ["macro"]}
 notify = { version = "5.0.0" }
 notify-debouncer-mini = "0.2.1"
 reqwest = { version = "0.11.13", features = ["blocking"] }
 zip = "0.6.3"
-#rayon = "1.7.0"
+rayon = "1.7.0"
 
 tempfile = "3.3.0"

@@ -4,6 +4,7 @@ use rhai::{Dynamic, Engine, Scope};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
+use std::io::Write;
 
 use std::path::PathBuf;
 
@@ -12,24 +13,6 @@ use tera::{Context, Filter, Tera};
 mod definition;
 
 pub use definition::*;
-
-#[derive(Debug, Clone, Default)]
-pub struct TemplateContext {
-    pub map: BTreeMap<String, Value>,
-}
-
-impl TemplateContext {
-    pub fn to_tera_context(&self) -> anyhow::Result<Context> {
-        Ok(Context::from_serialize(self.map.clone())?)
-    }
-
-    pub fn insert<V: Serialize + ?Sized>(&mut self, key: &str, val: &V) {
-        self.map.insert(
-            key.to_string(),
-            serde_json::to_value(val).expect("Invalid value"),
-        );
-    }
-}
 
 fn create_rhai_filter(source: String) -> impl Filter {
     Box::new(
@@ -116,8 +99,9 @@ impl TemplateManager {
         id: &str,
         format: &dyn Format,
         type_: TemplateType,
-        args: &TemplateContext,
-    ) -> anyhow::Result<String> {
+        args: &Context,
+        buf: impl Write,
+    ) -> anyhow::Result<()> {
         let tp = self.get_template(id, type_)?;
         let format_str = format.template_name();
         tp.has_format(format_str).context(format!(
@@ -127,14 +111,14 @@ impl TemplateManager {
 
         let template_name = format!("{type_}_{id}.{format_str}");
 
-        let context = args.to_tera_context()?;
-        Ok(self.tera.render(&template_name, &context)?)
+        self.tera.render_to(&template_name, &args, buf)?;
+        Ok(())
     }
 
     pub fn validate_args_for_template(
         &self,
         name: &str,
-        args: &TemplateContext,
+        args: &Context,
     ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
         let def = self.definitions.get(name).ok_or(anyhow!("Invalid name"))?;
         def.validate_args(args)

@@ -90,6 +90,64 @@ impl<D> ItemDescriptor<D> {
     // }
 }
 
+impl<'a, D: Clone + Default> FromIterator<&'a ItemDescriptor<D>> for Project<&'a D> {
+    fn from_iter<T: IntoIterator<Item = &'a ItemDescriptor<D>>>(iter: T) -> Self {
+        // let mut index = it.next().unwrap().doc;
+        let mut index: Option<ProjectItem<&D>> = None;
+
+        let mut parts: Vec<Part<&D>> = vec![];
+
+        let mut last_chapter = 0;
+
+        for item in iter {
+            match item.part_idx.unwrap() {
+                0 => index = Some(item.doc.as_ref()),
+                _part_idx => {
+                    let part_id = item.part_id.clone().unwrap();
+                    match item.chapter_idx.unwrap() {
+                        0 => {
+                            last_chapter = 0;
+                            parts.push(Part {
+                                id: part_id,
+                                index: item.doc.as_ref(),
+                                chapters: vec![],
+                            })
+                        }
+                        chapter_idx => {
+                            let chapter_id = item.chapter_id.clone().unwrap();
+
+                            if last_chapter == chapter_idx {
+                                parts
+                                    .last_mut()
+                                    .unwrap()
+                                    .chapters
+                                    .last_mut()
+                                    .unwrap()
+                                    .documents
+                                    .push(item.doc.as_ref());
+                            } else {
+                                parts.last_mut().unwrap().chapters.push(Chapter {
+                                    id: chapter_id,
+                                    index: item.doc.as_ref(),
+                                    documents: vec![],
+                                    files: item.files.clone().expect("No files"),
+                                });
+                                last_chapter = chapter_idx;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Project {
+            project_path: Default::default(),
+            index: index.unwrap(),
+            content: parts,
+        }
+    }
+}
+
 /// Collect iterator of ConfigItem into Config (tree structure).
 impl<D: Clone + Default> FromIterator<ItemDescriptor<D>> for Project<D> {
     fn from_iter<T: IntoIterator<Item = ItemDescriptor<D>>>(iter: T) -> Self {

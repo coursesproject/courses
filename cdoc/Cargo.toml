@@ -47,6 +47,7 @@ dyn-clone = "1.0.10"
 lazy_static = "1.4.0"
 walkdir = "2.3.3"
 image = "0.24.6"
+replace_with = "0.1.7"
 
 rhai = {version="1.13.0", features=["serde"]}
 

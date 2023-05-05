@@ -1,5 +1,6 @@
-use crate::ast::{AstVisitor, Inline, Shortcode};
+use crate::ast::{AstVisitor, CodeAttributes, Inline, Shortcode};
 use crate::document::split_shortcodes;
+use crate::notebook::CellOutput;
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
 use regex::Regex;
 use std::collections::HashMap;
@@ -80,10 +81,44 @@ impl AstVisitor for ShortcodeInserter<'_> {
         self.walk_inline(inline)
     }
 
-    // fn visit_code(&mut self, _source: &mut String) -> anyhow::Result<()> {
-    //     let r = Regex::new(r"_[0-9]+_")?;
-    //     for m in r.find_iter() {
-    //         m.
-    //     }
-    // }
+    fn visit_code_block(
+        &mut self,
+        source: &mut String,
+        _reference: &mut Option<String>,
+        _attr: &mut CodeAttributes,
+        _tags: &mut Option<Vec<String>>,
+        _outputs: &mut Vec<CellOutput>,
+    ) -> anyhow::Result<()> {
+        self.replace_with_original(source)
+    }
+
+    fn visit_code(&mut self, source: &mut String) -> anyhow::Result<()> {
+        self.replace_with_original(source)
+    }
+}
+
+impl ShortcodeInserter<'_> {
+    fn replace_with_original(&mut self, source: &mut String) -> anyhow::Result<()> {
+        let r = Regex::new(r"_([0-9]+)_")?;
+
+        let mut out = String::new();
+        let mut start_idx = 0;
+
+        r.captures_iter(source).try_for_each(|m| {
+            if let Some(ms) = m.get(1) {
+                println!("{}", ms.as_str());
+                let idx = usize::from_str(ms.as_str())?;
+                out.push_str(&source[start_idx..ms.range().start - 1]);
+
+                let (def, body) = self.shortcodes[idx].clone();
+
+                out.push_str(def);
+                start_idx = ms.range().end + 1;
+            }
+
+            Ok::<(), anyhow::Error>(())
+        })?;
+        *source = out;
+        Ok(())
+    }
 }

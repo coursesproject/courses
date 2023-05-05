@@ -1,10 +1,9 @@
 mod collectors;
-mod events;
-mod iterators;
+
 mod visitor;
 
 pub use collectors::*;
-pub use events::*;
+
 pub use visitor::*;
 
 use crate::notebook::CellOutput;
