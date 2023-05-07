@@ -6,6 +6,7 @@ use crate::renderers;
 use anyhow::Result;
 use pulldown_cmark::HeadingLevel;
 
+use crate::parsers::shortcodes::{ParamValue, Parameter};
 use std::collections::HashMap;
 use std::io::{Cursor, Write};
 use tera::Context;
@@ -14,7 +15,7 @@ use crate::renderers::{
     add_args, render_basic_template, render_image, render_link, render_math, render_value_template,
     DocumentRenderer, RenderContext, RenderElement, RenderResult,
 };
-use crate::templates::TemplateType;
+use crate::templates::{TemplateType, ValidationError};
 
 // pub struct GenericRendererBuilder;
 //
@@ -57,15 +58,12 @@ impl DocumentRenderer for GenericRenderer {
 impl GenericRenderer {
     fn render_params(
         &mut self,
-        parameters: &mut HashMap<String, Vec<Block>>,
+        parameters: Vec<Parameter<Vec<Block>>>,
         ctx: &RenderContext,
-    ) -> Result<HashMap<String, String>> {
+    ) -> Result<Vec<Parameter<String>>> {
         parameters
-            .iter_mut()
-            .map(|(k, v)| {
-                let inner = self.render_inner(v, ctx)?;
-                Ok((k.to_string(), inner))
-            })
+            .into_iter()
+            .map(|p| p.try_map(|v| v.try_map(|i| Ok(self.render_inner(&i, ctx)?))))
             .collect()
     }
 
@@ -80,24 +78,38 @@ impl GenericRenderer {
 
         let name = match shortcode {
             Shortcode::Inline(def) => {
+                let rendered = self.render_params(def.parameters.clone(), ctx)?;
+                let r: anyhow::Result<Vec<()>> = ctx
+                    .templates
+                    .validate_args_for_template(&def.name, &rendered)?
+                    .into_iter()
+                    .collect();
+                r?;
                 add_args(
                     &mut args,
                     &def.id,
                     def.num,
                     &ctx.ids,
                     &ctx.ids_map,
-                    self.render_params(&mut def.parameters.clone(), ctx)?,
+                    rendered,
                 )?;
                 def.name.clone()
             }
             Shortcode::Block(def, body) => {
+                let rendered = self.render_params(def.parameters.clone(), ctx)?;
+                let r: anyhow::Result<Vec<()>> = ctx
+                    .templates
+                    .validate_args_for_template(&def.name, &rendered)?
+                    .into_iter()
+                    .collect();
+                r?;
                 add_args(
                     &mut args,
                     &def.id,
                     def.num,
                     &ctx.ids,
                     &ctx.ids_map,
-                    self.render_params(&mut def.parameters.clone(), ctx)?,
+                    rendered,
                 )?;
                 let body = self.render_inner(body, ctx)?;
                 args.insert("body", &body);
@@ -301,7 +313,13 @@ impl RenderElement<Block> for GenericRenderer {
                     .render("header", ctx.format, TemplateType::Builtin, &args, buf)?)
             }
             Block::Plain(inner) => self.render(inner, ctx, buf),
-            Block::Paragraph(inner) | Block::BlockQuote(inner) => self.render(inner, ctx, buf),
+            Block::Paragraph(inner) | Block::BlockQuote(inner) => render_value_template(
+                "paragraph",
+                TemplateType::Builtin,
+                &self.render_inner(inner, ctx)?,
+                ctx,
+                buf,
+            ),
             Block::CodeBlock {
                 source,
                 outputs,

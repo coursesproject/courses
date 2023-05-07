@@ -1,14 +1,17 @@
 WHITESPACE = _{(" "|"\n"|"\t"|"\r")}
 
 
-string_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'")*}
+string_base = _{(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'")*}
+string_val = {string_base}
+md_val = {string_val}
 string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
-basic_val = {(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")+}
+markdown_string = _{"|"~ ("\""|"“") ~ md_val ~ ("\""|"”")}
+basic_val = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")*}
 
 name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_"|"-")*}
 key = {(ASCII_ALPHANUMERIC|"_"|"-")+}
-value = {string|basic_val}
-param = {key ~ ("=" ~ value)?}
+value = {basic_val|string|markdown_string}
+param = {(key ~ "=" ~ value) | value}
 
 parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
 

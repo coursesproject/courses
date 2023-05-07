@@ -1,5 +1,12 @@
 name: Message
-description: A message box.
+description: A box with a title and message. Useful for drawing attention to something.
+
+examples:
+  - title: Generic
+    body: |
+      {% message(color=info, title="Optional title") %}
+      Message box
+      {% end %}
 
 type: shortcode
 shortcode:
@@ -7,6 +14,7 @@ shortcode:
   parameters:
     - name: title
       description: Box header.
+      optional: true
       type: regular
     - name: color
       description: Message color.

@@ -1,5 +1,6 @@
 name: Button row
 description: Simple row of buttons.
+private: true
 
 type: shortcode
 shortcode:

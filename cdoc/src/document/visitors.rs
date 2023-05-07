@@ -106,18 +106,25 @@ impl ShortcodeInserter<'_> {
 
         r.captures_iter(source).try_for_each(|m| {
             if let Some(ms) = m.get(1) {
-                println!("{}", ms.as_str());
                 let idx = usize::from_str(ms.as_str())?;
                 out.push_str(&source[start_idx..ms.range().start - 1]);
 
                 let (def, body) = self.shortcodes[idx].clone();
 
-                out.push_str(def);
+                if body.is_empty() {
+                    out.push_str(&format!("{{{{ {} }}}}", def));
+                } else {
+                    out.push_str(&format!("{{% {} %}}", def));
+                    let code = parse_shortcode(def)?;
+                    out.push_str(body);
+                    out.push_str(&format!("{{% end_{} %}}", code.name))
+                }
                 start_idx = ms.range().end + 1;
             }
 
             Ok::<(), anyhow::Error>(())
         })?;
+        out.push_str(&source[start_idx..]);
         *source = out;
         Ok(())
     }

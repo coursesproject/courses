@@ -6,8 +6,8 @@ type: builtin
 
 templates:
   html: !String |
-    <h{{level}}>{{inner}}</h{{level}}>
+    <h{{level}}>{{inner | safe}}</h{{level}}>
   markdown: !String |
-    {% for i in range(end=level) %}#{% endfor %} {{inner}}
+    {% for i in range(end=level) %}#{% endfor %} {{inner | safe}}
   latex: !String |
-    \section{ {{inner}} }
+    \section{ {{inner | safe}} }

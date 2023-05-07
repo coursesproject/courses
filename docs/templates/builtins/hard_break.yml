@@ -6,7 +6,7 @@ type: builtin
 
 templates:
   html: !String |
-    <br/>
+    <br>
   markdown: !String |
     \n
   latex: !String |

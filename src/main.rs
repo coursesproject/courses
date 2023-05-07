@@ -2,12 +2,13 @@
 
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use std::{env, fs};
 
 use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use console::style;
+
 use inquire::{InquireError, Select};
 use linked_hash_map::LinkedHashMap;
 use notify::{RecommendedWatcher, RecursiveMode};
@@ -53,60 +54,87 @@ enum Commands {
     Publish {},
 }
 
+fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
+    Ok(path.unwrap_or(env::current_dir()?))
+}
+
+fn init_config(path: &PathBuf) -> anyhow::Result<ProjectConfig> {
+    print!("Reading config...");
+    let config_path = path.join("config.toml");
+    let config_input = fs::read_to_string(config_path)?;
+    let config = toml::from_str(&config_input).context("Could not load project configuration")?;
+    println!(" {}", style("done").green());
+    Ok(config)
+}
+
+fn init_project(path: &PathBuf) -> anyhow::Result<Project<()>> {
+    print!("Configuring project...");
+    let proj = Project::generate_from_directory(path.as_path())?;
+    println!(" {}", style("done").green());
+    Ok(proj)
+}
+
+fn init_pipeline(
+    absolute_path: &PathBuf,
+    mode: Mode,
+    config: ProjectConfig,
+    project: Project<()>,
+) -> anyhow::Result<Pipeline> {
+    Pipeline::new(
+        absolute_path.as_path(),
+        mode,
+        config.clone(),
+        project.clone(),
+    )
+}
+
+fn init_and_build(path: Option<PathBuf>, mode: Mode) -> anyhow::Result<(Pipeline, PathBuf)> {
+    let path = path_with_default(path)?;
+    let config = init_config(&path)?;
+    let project = init_project(&path)?;
+
+    let mut absolute_path = env::current_dir()?;
+    absolute_path.push(path.as_path());
+
+    let pipeline = init_pipeline(&absolute_path, mode, config, project)?;
+
+    Ok((pipeline, absolute_path))
+}
+
 async fn cli_run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Build { path, mode } => {
-            let current_time = std::time::Instant::now();
-            let path = path.unwrap_or(env::current_dir()?);
-
-            print!("Configuring project...");
-            let proj = Project::generate_from_directory(path.as_path())?;
-            println!(" {}", style("done").green());
-
-            let config_path = path.join("config.toml");
-            let config_input = fs::read_to_string(config_path)?;
-            let config: ProjectConfig =
-                toml::from_str(&config_input).context("Could not load project configuration")?;
-
-            let mut pipeline = Pipeline::new(path.as_path(), mode, config, proj)?;
+            let current_time = SystemTime::now();
+            let (mut pipeline, _) = init_and_build(path, mode)?;
             pipeline.build_all(true)?;
 
-            println!("🌟 Done ({} ms)", current_time.elapsed().as_millis());
+            println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
             Ok(())
         }
         Commands::Serve { path, mode } => {
-            let path = path.unwrap_or(env::current_dir()?);
-            let mut absolute_path = env::current_dir()?;
-            absolute_path.push(path.as_path());
-
-            print!("Configuring project...");
-            let proj = Project::generate_from_directory(path.as_path())?;
-            println!(" {}", style("done").green());
-
-            let config_path = path.join("config.toml");
-            let config_input = fs::read_to_string(config_path)?;
-            let config: ProjectConfig =
-                toml::from_str(&config_input).context("Could not load project configuration")?;
-
-            let mut pipeline =
-                Pipeline::new(absolute_path.as_path(), mode, config.clone(), proj.clone())?;
-
+            let current_time = SystemTime::now();
+            let (mut pipeline, absolute_path) = init_and_build(path.clone(), mode)?;
             let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
+            println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
 
+            let path = path_with_default(path)?;
             let p2 = path.as_path().join("content");
             let tp = path.as_path().join("templates");
             let p_build = path.as_path().join("build/html");
 
             let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
-                .add_mount(config.url_prefix.clone(), p_build)?
+                .add_mount(pipeline.project_config.url_prefix.clone(), p_build)?
                 .build()?;
 
             print!("\n\n");
 
-            println!("Server open at: http://localhost:8000{}", config.url_prefix);
+            println!(
+                "Server open at: http://localhost:8000{}",
+                pipeline.project_config.url_prefix
+            );
 
             let notify_config = notify::Config::default();
 
@@ -121,6 +149,7 @@ async fn cli_run() -> anyhow::Result<()> {
                             let p = full_path.strip_prefix(absolute_path.as_path()).unwrap();
 
                             if !p.extension().unwrap().to_str().unwrap().contains('~') {
+                                let current_time = SystemTime::now();
                                 if p.starts_with(Path::new("content")) {
                                     // pipeline.build_file(p, &c2, &cf);
                                     let res = pipeline.build_single(full_path.to_path_buf());
@@ -135,10 +164,15 @@ async fn cli_run() -> anyhow::Result<()> {
 
                                 controller.reload();
                                 println!();
-                                println!("Page reloaded");
                                 println!(
-                                    "Server open at: http://localhost:8000{}",
-                                    config.url_prefix
+                                    "🌟 Done ({} ms)",
+                                    current_time.elapsed().unwrap().as_millis()
+                                );
+
+                                println!(
+                                    "{}http://localhost:8000{}",
+                                    style("Server open at: ").italic(),
+                                    pipeline.project_config.url_prefix
                                 );
                             }
                         }

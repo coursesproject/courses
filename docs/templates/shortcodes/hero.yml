@@ -1,5 +1,6 @@
 name: Hero
 description: Page hero element.
+private: true
 
 type: shortcode
 shortcode:

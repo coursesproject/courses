@@ -1,5 +1,6 @@
 name: Card
 description: A bulma card element.
+private: true
 
 type: shortcode
 shortcode:
@@ -10,7 +11,7 @@ shortcode:
       type: regular
     - name: color
       description: Card color.
-      type: !choice [ primary, success, warning, info, danger ]
+      type: !choice [ primary, success, warning, info, danger, white, black ]
 
 
 templates:

@@ -40,7 +40,7 @@ pub trait AstVisitor {
             Inline::Emphasis(ref mut is)
             | Inline::Strong(ref mut is)
             | Inline::Strikethrough(ref mut is) => self.visit_vec_inline(is),
-            Inline::Code(_) => Ok(()),
+            Inline::Code(s) => self.visit_code(s),
             Inline::SoftBreak => Ok(()),
             Inline::HardBreak => Ok(()),
             Inline::Rule => Ok(()),

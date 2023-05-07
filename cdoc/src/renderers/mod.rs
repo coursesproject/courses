@@ -13,7 +13,7 @@ use tera::Context;
 
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
-use crate::parsers::shortcodes::ShortCodeDef;
+use crate::parsers::shortcodes::{Parameter, ShortCodeDef};
 use crate::templates::{TemplateManager, TemplateType};
 
 pub mod generic;
@@ -98,7 +98,7 @@ fn add_args(
     num: usize,
     ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
     id_map: &HashMap<String, (usize, ShortCodeDef)>,
-    arguments: HashMap<String, String>,
+    arguments: Vec<Parameter<String>>,
 ) -> Result<()> {
     if let Some(id) = id {
         ctx.insert("id", &id);
@@ -106,8 +106,11 @@ fn add_args(
     ctx.insert("num", &num);
     ctx.insert("ids", &ids);
     ctx.insert("id_map", &id_map);
-    for (k, v) in &arguments {
-        ctx.insert(k, v);
+    for (i, p) in arguments.into_iter().enumerate() {
+        match p {
+            Parameter::Positional(val) => ctx.insert(format!("p{}", i), val.inner()),
+            Parameter::Keyword(k, v) => ctx.insert(k, v.inner()),
+        }
     }
     Ok(())
 }

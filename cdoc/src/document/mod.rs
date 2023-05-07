@@ -13,7 +13,7 @@ use crate::ast::{
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
-use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
+use crate::parsers::shortcodes::{parse_shortcode, ParamValue, Parameter, ShortCodeDef};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -152,12 +152,20 @@ impl ShortCodeDef {
         self,
         counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
     ) -> Result<ShortcodeBase> {
-        let parameters: Result<HashMap<String, Vec<Block>>> = self
+        let parameters: Result<Vec<Parameter<Vec<Block>>>> = self
             .parameters
             .into_iter()
-            .map(|(k, v)| {
-                let param_values = split_shortcodes(&v, counters)?;
-                Ok((k, param_values))
+            .map(|param| {
+                param.try_map(|v| {
+                    Ok(match v {
+                        ParamValue::Literal(s) => {
+                            ParamValue::Literal(vec![Block::Plain(Inline::Text(s))])
+                        }
+                        ParamValue::Markdown(s) => {
+                            ParamValue::Markdown(split_shortcodes(&s, counters)?)
+                        }
+                    })
+                })
             })
             .collect();
 
@@ -240,7 +248,7 @@ fn id_map_from_ids(
 }
 
 impl<C> Document<C> {
-    pub(crate) fn new(
+    pub fn new(
         content: C,
         metadata: DocumentMetadata,
         ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,

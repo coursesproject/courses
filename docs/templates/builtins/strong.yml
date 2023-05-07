@@ -6,8 +6,8 @@ type: builtin
 
 templates:
   html: !String |
-    <strong>{{ value }}</strong>
+    <strong>{{ value | safe }}</strong>
   markdown: !String |
-    __{{ value }}__
+    __{{ value | safe }}__
   latex: !String |
-    \textbf{ {{value}} }
+    \textbf{ {{value | safe}} }

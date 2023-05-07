@@ -1,17 +1,21 @@
-use crate::config::Format;
+use crate::config::{Format, HtmlFormat};
 use anyhow::{anyhow, Context as AnyhowContext};
 use rhai::{Dynamic, Engine, Scope};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::io::Write;
+use std::io::{Cursor, Write};
 
+use regex::Regex;
+use std::borrow::Borrow;
 use std::path::PathBuf;
+use std::{fmt, io};
 
-use tera::{Context, Filter, Tera};
+use tera::{Context, Filter, Function, Tera};
 
 mod definition;
 
+use crate::parsers::shortcodes::Parameter;
 pub use definition::*;
 
 fn create_rhai_filter(source: String) -> impl Filter {
@@ -28,10 +32,46 @@ fn create_rhai_filter(source: String) -> impl Filter {
     )
 }
 
+fn get_shortcode_tera_fn<'a>(
+    temp: TemplateManager,
+    id: String,
+    format: Box<dyn Format>,
+    type_: TemplateType,
+) -> impl Function + 'a {
+    Box::new(
+        move |args: &HashMap<String, Value>| -> tera::Result<Value> {
+            let mut ctx = Context::new();
+            args.into_iter().for_each(|(k, v)| {
+                let s = &v.to_string();
+                let len = s.len();
+                ctx.insert(k, &s[1..len - 1]);
+            });
+
+            let mut buf = Cursor::new(Vec::new());
+            match temp.render(&id, format.borrow(), type_.clone(), &ctx, &mut buf) {
+                Ok(()) => Ok(Value::String(String::from_utf8(buf.into_inner()).unwrap())),
+                Err(e) => {
+                    let mut buf = Vec::new();
+                    err_format(e, &mut buf)?;
+                    Ok(Value::String(String::from_utf8(buf).unwrap()))
+                }
+            }
+        },
+    )
+}
+
+fn err_format(e: anyhow::Error, mut f: impl Write) -> io::Result<()> {
+    write!(f, "Error {:?}", e)?;
+    e.chain()
+        .skip(1)
+        .try_for_each(|cause| write!(f, " caused by: {}\n{}", cause, e.backtrace()))?;
+    Ok(())
+}
+
 #[derive(Clone)]
 pub struct TemplateManager {
     path: PathBuf,
-    tera: Tera,
+    pub tera: Tera,
     pub definitions: HashMap<String, TemplateDefinition>,
 }
 
@@ -58,11 +98,42 @@ impl TemplateManager {
         });
 
         tera.add_raw_templates(defs)?;
-        Ok(TemplateManager {
+
+        let mut temp = TemplateManager {
             path: dir,
             tera,
-            definitions,
-        })
+            definitions: definitions.clone(),
+        };
+
+        let temp = temp.register_shortcode_fns()?;
+
+        Ok(temp)
+    }
+
+    fn register_shortcode_fns(mut self) -> anyhow::Result<Self> {
+        self.clone()
+            .definitions
+            .into_iter()
+            .try_for_each(|(tp_name, def)| {
+                let (_, id) = tp_name.split_once("_").unwrap();
+                let type_ = &def.type_;
+                for (format, _) in &def.templates {
+                    let format: Box<dyn Format> =
+                        serde_json::from_str(&format!("{{\"{}\": {{}}}}", format))
+                            .expect("problems!");
+
+                    let f = get_shortcode_tera_fn(
+                        self.clone(),
+                        id.to_string(),
+                        format.clone(),
+                        type_.clone(),
+                    );
+                    let name = format!("shortcode_{format}_{id}");
+                    self.tera.register_function(&name, f);
+                }
+                Ok::<(), anyhow::Error>(())
+            })?;
+        Ok(self)
     }
 
     pub fn reload(&mut self) -> anyhow::Result<()> {
@@ -117,10 +188,12 @@ impl TemplateManager {
 
     pub fn validate_args_for_template(
         &self,
-        name: &str,
-        args: &Context,
-    ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
-        let def = self.definitions.get(name).ok_or(anyhow!("Invalid name"))?;
-        def.validate_args(args)
+        id: &str,
+        args: &Vec<Parameter<String>>,
+    ) -> anyhow::Result<Vec<anyhow::Result<()>>> {
+        let tp = self
+            .get_template(id, TemplateType::Shortcode)
+            .context(format!("Invalid shortcode identifier '{}'", id))?;
+        tp.validate_args(args)
     }
 }

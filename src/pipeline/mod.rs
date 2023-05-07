@@ -18,19 +18,21 @@ use indicatif::{
 use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
-use tera::{Context, Filter};
+use tera::{Context, Filter, Function};
 
 use cdoc::ast::Ast;
 use cdoc::config::Format;
-use cdoc::document::Document;
+use cdoc::document::{split_shortcodes, Document, DocumentMetadata};
 use cdoc::processors::PreprocessorContext;
 
-use cdoc::renderers::{RenderContext, RenderResult};
+use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
 use cdoc::templates::TemplateManager;
 use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
 use serde::{Deserialize, Serialize};
 
+use cdoc::renderers;
+use cdoc::renderers::generic::GenericRenderer;
 use rayon::prelude::*;
 
 use crate::generators::Generator;
@@ -38,6 +40,7 @@ use crate::project::config::ProjectConfig;
 use crate::project::{
     section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec, ProjectResult,
 };
+use std::borrow::Borrow;
 
 mod mover;
 
@@ -86,12 +89,13 @@ fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
     )
 }
 
+#[derive(Clone)]
 pub struct Pipeline {
     #[allow(unused)]
-    mode: Mode,
-    project_path: PathBuf,
-    project: Project<()>,
-    project_config: ProjectConfig,
+    pub mode: Mode,
+    pub project_path: PathBuf,
+    pub project: Project<()>,
+    pub project_config: ProjectConfig,
     templates: TemplateManager,
 
     cached_contexts: Arc<Mutex<HashMap<String, ProjectItemVec>>>,
@@ -139,14 +143,59 @@ impl Pipeline {
             create_embed_fn(project_path.as_ref().join("resources"), cache_path),
         );
 
-        Ok(Pipeline {
+        let mut pipeline = Pipeline {
             mode,
             project_path: project_path.as_ref().to_path_buf(),
             project,
             project_config: config,
             templates: template_manager,
             cached_contexts: Arc::new(Mutex::new(HashMap::new())),
-        })
+        };
+
+        let p2 = pipeline.clone();
+
+        pipeline
+            .templates
+            .tera
+            .register_function("render", p2.create_render_source());
+
+        Ok(pipeline)
+    }
+
+    fn create_render_source(self) -> impl Function {
+        Box::new(
+            move |args: &HashMap<String, Value>| -> tera::Result<Value> {
+                let mut counters = HashMap::new();
+                let val = args
+                    .get("body")
+                    .ok_or(tera::Error::msg("missing argument 'body'"))?;
+                if let Value::String(s) = val {
+                    let ast =
+                        split_shortcodes(s, &mut counters).map_err(|e| tera::Error::msg(e))?;
+                    let doc = Document::new(Ast(ast), DocumentMetadata::default(), HashMap::new());
+
+                    let fstring = args
+                        .get("format")
+                        .ok_or(tera::Error::msg("missing argument 'format'"))?
+                        .to_string();
+                    let format: Box<dyn Format> = serde_json::from_str(&format!(
+                        "{{\"{}\": {{}}}}",
+                        &fstring[1..fstring.len() - 1]
+                    ))
+                    .expect("problems!");
+
+                    let mut ctx = self.get_render_context(&doc, format.borrow());
+                    let mut renderer = GenericRenderer;
+                    let res = renderer
+                        .render_doc(&mut ctx)
+                        .map_err(|e| tera::Error::msg(e))?;
+                    let val = res.content;
+                    Ok(Value::String(val))
+                } else {
+                    Err(tera::Error::msg("invalid type for 'body'"))
+                }
+            },
+        )
     }
 
     fn get_render_context<'a>(
@@ -301,22 +350,6 @@ impl Pipeline {
             })
             .unwrap();
         item.doc.content = Arc::new(Some(output.clone()));
-        //
-        // if let Some(part_id) = i3.part_idx {
-        //     let part = &mut project.content[part_id];
-        //     if let Some(chapter_id) = i3.chapter_idx {
-        //         let chapter = &mut part.chapters[chapter_id];
-        //         if let Some(doc_id) = i3.doc_idx {
-        //             chapter.documents[doc_id].content = Arc::new(Some(output.clone()));
-        //         } else {
-        //             chapter.index.content = Arc::new(Some(output.clone()));
-        //         }
-        //     } else {
-        //         part.index.content = Arc::new(Some(output.clone()));
-        //     }
-        // } else {
-        //     project.index.content = Arc::new(Some(output.clone()));
-        // }
 
         self.cached_contexts
             .lock()
@@ -448,12 +481,6 @@ impl Pipeline {
             .par_iter()
             .zip(bars.clone())
             .for_each(|(format, bar)| {
-                // print!(
-                //     "{}{}",
-                //     style(format).bold(),
-                //     " ".repeat(10 - format.to_string().len())
-                // );
-
                 let mut format_errs = Vec::new();
 
                 bar.set_message(format!(
@@ -524,16 +551,8 @@ impl Pipeline {
                     ));
                 }
 
-                // bar.finish();
-
                 all_errs.lock().unwrap().append(&mut format_errs);
             });
-
-        // for format in &self.project_config.outputs {
-        //
-        // }
-        // multi.clear()?;
-        // drop(multi);
 
         let all_errs = all_errs.lock().unwrap();
 
@@ -581,8 +600,6 @@ impl Pipeline {
             .collect::<Result<Project<String>, anyhow::Error>>()
     }
 
-    // fn load_single(&self, )
-
     fn process_all(
         &self,
         project: Project<String>,
@@ -592,8 +609,6 @@ impl Pipeline {
         Vec<ItemDescriptor<Option<Document<RenderResult>>>>,
         Arc<Mutex<Vec<anyhow::Error>>>,
     ) {
-        // pb.set_prefix(format!("[{}/?]", i + 1));
-
         let mut errs = Arc::new(Mutex::new(Vec::new()));
 
         let project_vec: Vec<ItemDescriptor<String>> = project.into_iter().collect();
