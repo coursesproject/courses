@@ -92,7 +92,18 @@ impl GenericRenderer {
                     .into_iter()
                     .collect();
                 r?;
-                add_args(&mut args, &def.id, def.num, ctx.ids, ctx.ids_map, rendered)?;
+                let tdef = ctx
+                    .templates
+                    .get_template(&def.name, TemplateType::Shortcode)?;
+                add_args(
+                    &tdef,
+                    &mut args,
+                    &def.id,
+                    def.num,
+                    ctx.ids,
+                    ctx.ids_map,
+                    rendered,
+                )?;
                 def.name.clone()
             }
             Shortcode::Block(def, body) => {
@@ -103,7 +114,18 @@ impl GenericRenderer {
                     .into_iter()
                     .collect();
                 r?;
-                add_args(&mut args, &def.id, def.num, ctx.ids, ctx.ids_map, rendered)?;
+                let tdef = ctx
+                    .templates
+                    .get_template(&def.name, TemplateType::Shortcode)?;
+                add_args(
+                    &tdef,
+                    &mut args,
+                    &def.id,
+                    def.num,
+                    ctx.ids,
+                    ctx.ids_map,
+                    rendered,
+                )?;
                 let body = self.render_inner(body, ctx)?;
                 args.insert("body", &body);
                 def.name.clone()

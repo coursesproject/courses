@@ -14,7 +14,7 @@ use tera::Context;
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
 use crate::parsers::shortcodes::{Parameter, ShortCodeDef};
-use crate::templates::{TemplateManager, TemplateType};
+use crate::templates::{TemplateDefinition, TemplateManager, TemplateType};
 
 pub mod generic;
 pub mod notebook;
@@ -93,7 +93,8 @@ fn get_id() -> usize {
 }
 
 fn add_args(
-    ctx: &mut Context,
+    def: &TemplateDefinition,
+    args: &mut Context,
     id: &Option<String>,
     num: usize,
     ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
@@ -101,15 +102,18 @@ fn add_args(
     arguments: Vec<Parameter<String>>,
 ) -> Result<()> {
     if let Some(id) = id {
-        ctx.insert("id", &id);
+        args.insert("id", &id);
     }
-    ctx.insert("num", &num);
-    ctx.insert("ids", &ids);
-    ctx.insert("id_map", &id_map);
+    args.insert("num", &num);
+    args.insert("ids", &ids);
+    args.insert("id_map", &id_map);
     for (i, p) in arguments.into_iter().enumerate() {
         match p {
-            Parameter::Positional(val) => ctx.insert(format!("p{}", i), val.inner()),
-            Parameter::Keyword(k, v) => ctx.insert(k, v.inner()),
+            Parameter::Positional(val) => args.insert(
+                def.shortcode.as_ref().unwrap().parameters[i].name.clone(),
+                val.inner(),
+            ),
+            Parameter::Keyword(k, v) => args.insert(k, v.inner()),
         }
     }
     Ok(())
