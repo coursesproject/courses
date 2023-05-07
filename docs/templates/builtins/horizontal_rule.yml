@@ -1,0 +1,13 @@
+name: Horizontal rule
+description: A horizontal rule.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <hr>
+  markdown: !String |
+    ---
+  latex: !String |
+    \hrule

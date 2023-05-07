@@ -1,0 +1,10 @@
+name: Soft break
+description: A break that is usually suppressed.
+
+type: builtin
+
+
+templates:
+  html: !String ""
+  markdown: !String ""
+  latex: !String ""

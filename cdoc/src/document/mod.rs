@@ -8,12 +8,11 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{
-    find_shortcode, str_to_blocks, AEvent, Ast, AstVisitor, Block, Inline, Shortcode,
-    ShortcodeBase, ShortcodeIdx,
+    find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, ShortcodeBase, ShortcodeIdx,
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
-use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
+use crate::parsers::shortcodes::{ParamValue, Parameter, ShortCodeDef};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,8 +54,6 @@ pub struct Document<C> {
     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
     pub id_map: HashMap<String, (usize, ShortCodeDef)>,
 }
-
-pub type EventContent = Vec<AEvent>;
 
 pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
     let mut rest = src;
@@ -110,40 +107,26 @@ pub fn split_shortcodes(
             ShortcodeIdx::Inline(start, end) => {
                 md_str.push_str(&rest[..start]);
 
-                let code = parse_shortcode(rest[start + 2..end].trim())?;
+                let c = rest[start + 2..end].trim();
+                shortcodes.push((c, ""));
 
-                counters
-                    .get_mut(&code.name)
-                    .map(|v| {
-                        v.0 += 1;
-                        v.1.push(code.clone());
-                    })
-                    .unwrap_or_else(|| {
-                        counters.insert(code.name.clone(), (1, vec![code.clone()]));
-                    });
+                // let code = parse_shortcode(rest[start + 2..end].trim())?;
 
-                shortcodes.push(Shortcode::Inline(code.into_base(counters)?));
+                // shortcodes.push(Shortcode::Inline(code.into_base(counters)?));
                 rest = &rest[end + 2..];
             }
             ShortcodeIdx::Block { def, end } => {
                 md_str.push_str(&rest[..def.0]);
 
-                let code = parse_shortcode(rest[def.0 + 2..def.1].trim())?;
-
-                counters
-                    .get_mut(&code.name)
-                    .map(|v| {
-                        v.0 += 1;
-                        v.1.push(code.clone());
-                    })
-                    .unwrap_or_else(|| {
-                        counters.insert(code.name.clone(), (1, vec![code.clone()]));
-                    });
-
+                let c = rest[def.0 + 2..def.1].trim();
                 let body = &rest[def.1 + 2..end.0];
-                let blocks = split_shortcodes(body, counters)?;
+                shortcodes.push((c, body));
+                // let code = parse_shortcode(rest[def.0 + 2..def.1].trim())?;
 
-                shortcodes.push(Shortcode::Block(code.into_base(counters)?, blocks));
+                // let body = &rest[def.1 + 2..end.0];
+                // let blocks = split_shortcodes(body, counters)?;
+
+                // shortcodes.push(Shortcode::Block(code.into_base(counters)?, blocks));
 
                 rest = &rest[end.1 + 2..];
             }
@@ -158,7 +141,7 @@ pub fn split_shortcodes(
 
     let mut md_blocks = Ast(split_markdown(&md_str)?);
 
-    ShortcodeInserter::new(shortcodes).walk_ast(&mut md_blocks)?;
+    ShortcodeInserter::new(shortcodes, counters).walk_ast(&mut md_blocks)?;
 
     Ok(md_blocks.0)
 }
@@ -168,12 +151,20 @@ impl ShortCodeDef {
         self,
         counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
     ) -> Result<ShortcodeBase> {
-        let parameters: Result<HashMap<String, Vec<Block>>> = self
+        let parameters: Result<Vec<Parameter<Vec<Block>>>> = self
             .parameters
             .into_iter()
-            .map(|(k, v)| {
-                let param_values = split_shortcodes(&v, counters)?;
-                Ok((k, param_values))
+            .map(|param| {
+                param.try_map(|v| {
+                    Ok(match v {
+                        ParamValue::Literal(s) => {
+                            ParamValue::Literal(vec![Block::Plain(Inline::Text(s))])
+                        }
+                        ParamValue::Markdown(s) => {
+                            ParamValue::Markdown(split_shortcodes(&s, counters)?)
+                        }
+                    })
+                })
             })
             .collect();
 
@@ -256,7 +247,7 @@ fn id_map_from_ids(
 }
 
 impl<C> Document<C> {
-    pub(crate) fn new(
+    pub fn new(
         content: C,
         metadata: DocumentMetadata,
         ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,

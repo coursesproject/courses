@@ -1,5 +1,6 @@
+use std::cmp::{Eq, PartialEq};
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 use anyhow::anyhow;
 use clap::ValueEnum;
@@ -34,6 +35,40 @@ pub trait Format: DynClone + Debug + Send + Sync {
     fn include_resources(&self) -> bool;
     fn use_layout(&self) -> bool;
 }
+
+impl PartialEq for dyn Format {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+
+// impl<'a> Borrow<dyn Format + 'a> for dyn Format {
+//     fn borrow(&self) -> &(dyn Format + 'a) {
+//         self
+//     }
+// }
+
+// impl PartialEq for Box<dyn Format> {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.name() == other.name()
+//     }
+// }
+
+// impl Hash for Box<dyn Format> {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         self.name().hash(state)
+//     }
+// }
+
+impl Hash for dyn Format {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name().hash(state)
+    }
+}
+
+impl Eq for dyn Format {}
+
+// impl Eq for Box<dyn Format> {}
 
 impl Display for dyn Format {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

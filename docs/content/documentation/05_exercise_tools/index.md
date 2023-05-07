@@ -1,6 +1,6 @@
 ---
 title: Exercise definitions
-code_split: false
+exercises: false
 ---
 
 # Code tools

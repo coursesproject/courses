@@ -1,0 +1,96 @@
+<table class="table is-bordered is-striped is-hoverable is-fullwidth">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>id</th>
+        <th>Kind</th>
+        <th>Description</th>
+        <th>Formats</th>
+    </tr>
+    </thead>
+    {% for id, def in defs %}
+    {% if def.shortcode and not def.private %}
+        <tbody>
+        <tr>
+            <td><a href="#shortcode_details_{{ id }}">{{ def.name }}</a></td>
+            <td>{{ id | replace(from="shortcode_", to="") }}</td>
+            <td>{{ def.shortcode.kind }}</td>
+            <td>{{ def.description }}</td>
+            <td>{% for format, tp in def.templates %}{{ format }},{% endfor %}</td>
+        </tr>
+        </tbody>
+    {% endif %}
+    {% endfor %}
+</table>
+
+<h2>Shortcodes</h2>
+{% for id, def in defs %}
+    {% if def.shortcode and not def.private %}
+        {% set shortcode = def.shortcode %}
+        <h3 id="shortcode_details_{{ id }}">{{ def.name }}</h3>
+
+
+        <p>{{ def.description }}</p>
+        <h5>Syntax:</h5>
+        {% set real_id = id | replace(from="shortcode_", to="") %}
+        {% if shortcode.kind == "block" %}
+
+<pre><code>{{ "{%" }} {{ real_id }}({% for p in shortcode.parameters %}{% if not loop.first %} {% endif %}{{ p.name }}{% if p.optional %} [optional]{% endif %}{% if not loop.last %},{% endif %}{% endfor %}) {{ "%}" }}
+body
+{{ "{%" }} end_{{ real_id }} {{ "%}" }}</code></pre>
+
+        {% else %}
+<pre><code>{{ "{{" }} {{ real_id }}({% for p in shortcode.parameters %}{% if not loop.first %} {% endif %}{{ p.name }}{% if p.optional %} [optional]{% endif %}{% if not loop.last %},{% endif %}{% endfor %}) {{ "}}" }}
+</code></pre>
+        {% endif %}
+        <ul>
+        {% for p in shortcode.parameters %}
+        <li><code>{{ p.name }}</code> {% if p.optional %}<span class="tag is-warning">optional</span>{% endif %}: {{ p.description }}
+            {% if p.type.choice %} Possible values:
+            <ul>
+            {% for c in p.type.choice %}<li>{{ c }}</li>{% endfor %}
+            </ul>
+            {% endif %} </li>
+        {% endfor %}
+        </ul>
+        {% if def.examples %}
+            {% for e in def.examples %}
+                <h5>Example: {{ e.title }}</h5>
+                <strong>code</strong>
+                <pre><code>{{ e.body }}</code></pre>
+<strong>result</strong>
+                {{ render(format="html", body=def.examples[0].body) | safe }}
+            {% endfor %}
+        {% endif %}
+<!--        <article class="message">-->
+<!--            <div class="message-header">-->
+<!--                <p id="shortcode_details_{{ id }}">{{ def.name }}-->
+<!--                    ({{ id | replace(from="shortcode_", to="") }}): {{ def.shortcode.kind }}</p>-->
+<!--            </div>-->
+<!--            <div class="message-body">-->
+<!--                <h5>Parameters</h5>-->
+<!--                <table>-->
+<!--                    <thead>-->
+<!--                    <tr>-->
+<!--                        <th>Name</th>-->
+<!--                        <th>Description</th>-->
+<!--                        <th>Optional</th>-->
+<!--                        <th>Type</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody>-->
+<!--                    {% for s in def.shortcode.parameters %}-->
+<!--                        <tr>-->
+<!--                            <td>{{ s.name }}</td>-->
+<!--                            <td>{{ s.description }}</td>-->
+<!--                            <td>{{ s.optional }}</td>-->
+<!--                            <td>{{ s.type | json_encode | safe }}</td>-->
+<!--                        </tr>-->
+<!--                    {% endfor %}-->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+
+<!--        </article>-->
+    {% endif %}
+{% endfor %}

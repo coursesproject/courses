@@ -1,0 +1,19 @@
+name: Image
+description: Markdown image.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <figure>
+      <img src="{{url}}" alt="{{alt}}">
+      {{inner|safe}}
+    </figure>
+  markdown: !String |
+    ![{{inner}}]({{url}})
+  latex: !String |
+    \begin{figure}
+      \includegraphics{resources/ {{url}} }
+      \caption{ {{alt}} }
+    \end{figure}

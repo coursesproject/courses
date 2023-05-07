@@ -1,0 +1,13 @@
+name: Output error
+description: Code cell error output.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <div class="notification is-warning">{{value}}</div>
+  markdown: !String |
+    `{{value}}`
+  latex: !String |
+    \emph{error: {{value}} }

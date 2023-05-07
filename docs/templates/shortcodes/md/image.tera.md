@@ -1,1 +1,0 @@
-![{{caption | default(value='')}}]({{config.url_prefix}}/resources/{{url}})

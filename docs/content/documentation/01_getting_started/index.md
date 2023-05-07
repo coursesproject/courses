@@ -1,6 +1,5 @@
 ---
 title: Getting started
-notebook_output: true
 ---
 
 # Getting started
@@ -12,11 +11,11 @@ For now, you have to compile Courses yourself. However, it only requires a few s
 
 
 1. You need to install rust and cargo to compile the application. Doing so is most easily accomplished by installing *rustup*. Simply follow the instructions on the [installation page](https://rustup.rs/).
-2. Install `courses` by opening a terminal (or command promt/powershell) and running the command `cargo install courses`.
+2. Install `courses` by opening a terminal (or command promt/powershell) and run the command `cargo install courses`.
 
 
 ## Usage
-Courses is a single *cli* program which provides facilities for creating new projects, serving projects locally, and building projects for distribution. Get an overview of the interface, by running `courses -h`. You should see something similar to the folowing:
+Courses is a single *cli* program which provides facilities for creating new projects, serving projects locally, and building projects for distribution. Get an overview of the interface, by running `courses -h`. You should see something similar to the following:
 
 ```text
 Usage: courses [OPTIONS] <COMMAND>

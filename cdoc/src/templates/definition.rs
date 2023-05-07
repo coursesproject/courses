@@ -1,5 +1,4 @@
-use crate::templates::TemplateContext;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context as AContext};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,17 +6,27 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::parsers::shortcodes::{ParamValue, Parameter};
 use thiserror::Error;
 use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TemplateDefinition {
     pub name: String,
+    #[serde(default)]
+    pub private: bool,
     pub description: String,
     #[serde(rename = "type")]
     pub type_: TemplateType,
     pub shortcode: Option<ShortcodeDefinition>,
     pub templates: HashMap<String, Template>,
+    pub examples: Option<Vec<Example>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Example {
+    pub title: String,
+    pub body: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -57,8 +66,6 @@ pub struct ShortcodeParameter {
 pub enum ParameterType {
     Regular,
     Choice(Vec<String>),
-    Flag,
-    Positional,
 }
 
 impl Display for ParameterType {
@@ -66,8 +73,6 @@ impl Display for ParameterType {
         match self {
             ParameterType::Regular => write!(f, "regular"),
             ParameterType::Choice(cs) => write!(f, "{:?}", cs),
-            ParameterType::Flag => write!(f, "flag"),
-            ParameterType::Positional => write!(f, "positional"),
         }
     }
 }
@@ -175,35 +180,22 @@ pub enum ValidationError {
     InvalidName(String),
     #[error("Invalid parameter value: {0}")]
     InvalidValue(String),
+    #[error("Required parameter {0} missing")]
+    RequiredParameter(String),
 }
 
 impl ParameterType {
-    pub fn validate_value(&self, value: String) -> Result<(), ValidationError> {
+    pub fn validate(&self, value: &ParamValue<String>) -> Result<(), ValidationError> {
         match self {
             ParameterType::Regular => Ok(()),
             ParameterType::Choice(choices) => {
-                choices.contains(&value).then_some(()).ok_or_else(|| {
+                let v = value.inner();
+                choices.contains(v).then_some(()).ok_or_else(|| {
                     ValidationError::InvalidValue(format!(
                         "The provided value {} must be one of {:?}",
-                        &value, &choices
+                        v, &choices
                     ))
                 })
-            }
-            ParameterType::Flag => {
-                value
-                    .is_empty()
-                    .then_some(())
-                    .ok_or(ValidationError::InvalidValue(
-                        "Flag parameters must not have any value.".to_string(),
-                    ))
-            }
-            ParameterType::Positional => {
-                value
-                    .is_empty()
-                    .then_some(())
-                    .ok_or(ValidationError::InvalidValue(
-                        "Positional parameters must not have any value.".to_string(),
-                    ))
             }
         }
     }
@@ -242,28 +234,27 @@ impl TemplateDefinition {
 
     pub fn validate_args(
         &self,
-        args: &TemplateContext,
-    ) -> Result<Vec<Result<(), ValidationError>>, anyhow::Error> {
+        args: &[Parameter<String>],
+    ) -> Result<Vec<anyhow::Result<()>>, anyhow::Error> {
         if let TemplateType::Shortcode = &self.type_ {
             let s = self.shortcode.as_ref().unwrap();
-            let res: Vec<Result<(), ValidationError>> = args
-                .map
+            let res: Vec<Result<(), anyhow::Error>> = args
                 .iter()
                 .enumerate()
-                .map(|(i, (k, v))| {
-                    let param = if k.is_empty() {
-                        s.parameters
-                            .get(i)
-                            .ok_or(ValidationError::InvalidPosition(i))?
-                    } else {
-                        s.parameters
-                            .iter()
-                            .find(|p| &p.name == k)
-                            .ok_or_else(|| ValidationError::InvalidName(k.to_string()))?
-                    };
-
-                    param.type_.validate_value(v.to_string())
+                .map(|(i, p)| match p {
+                    Parameter::Positional(val) => s
+                        .parameters
+                        .get(i)
+                        .map(|sp| sp.type_.validate(val))
+                        .ok_or(ValidationError::InvalidValue(val.inner().to_string()))?,
+                    Parameter::Keyword(key, val) => s
+                        .parameters
+                        .iter()
+                        .find(|sp| &sp.name == key)
+                        .map(|sp| sp.type_.validate(val))
+                        .ok_or(ValidationError::InvalidName(key.clone()))?,
                 })
+                .map(|r| r.context(format!("when parsing shortcode '{}'", self.name)))
                 .collect();
             Ok(res)
         } else {

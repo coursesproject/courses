@@ -1,13 +1,11 @@
 mod collectors;
-mod events;
-mod iterators;
+
 mod visitor;
 
-pub use collectors::*;
-pub use events::*;
 pub use visitor::*;
 
 use crate::notebook::CellOutput;
+use crate::parsers::shortcodes::Parameter;
 use pulldown_cmark::{HeadingLevel, LinkType, Options, Parser};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -63,21 +61,12 @@ impl ToString for Shortcode {
 
 impl ToString for ShortcodeBase {
     fn to_string(&self) -> String {
-        format!(
-            "{}#{}({})",
-            self.name,
-            self.id.clone().unwrap_or_default(),
-            self.parameters
-                .keys()
-                .cloned()
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
+        format!("{}#{}", self.name, self.id.clone().unwrap_or_default(),)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Ast(pub(crate) Vec<Block>);
+pub struct Ast(pub Vec<Block>);
 
 #[allow(unused)]
 #[derive(Clone, Debug, Default)]
@@ -139,7 +128,7 @@ pub struct ShortcodeBase {
     pub(crate) name: String,
     pub(crate) id: Option<String>,
     pub(crate) num: usize,
-    pub(crate) parameters: HashMap<String, Vec<Block>>,
+    pub(crate) parameters: Vec<Parameter<Vec<Block>>>,
 }
 
 pub enum ShortcodeIdx {

@@ -1,0 +1,15 @@
+name: Ordered list
+description: Markdown list.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <ol start="{{ start }}">{{ value | safe }}</ol>
+  markdown: !String |
+    {{ value | safe }}
+  latex: !String |
+    \begin{enumerate}
+    {{ value | safe }}
+    \end{enumerate}
