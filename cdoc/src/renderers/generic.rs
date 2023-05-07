@@ -3,11 +3,10 @@ use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 
 use crate::renderers;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use pulldown_cmark::HeadingLevel;
 
-use crate::parsers::shortcodes::{ParamValue, Parameter};
-use std::collections::HashMap;
+use crate::parsers::shortcodes::Parameter;
 use std::io::{Cursor, Write};
 use tera::Context;
 
@@ -15,7 +14,15 @@ use crate::renderers::{
     add_args, render_basic_template, render_image, render_link, render_math, render_value_template,
     DocumentRenderer, RenderContext, RenderElement, RenderResult,
 };
-use crate::templates::{TemplateType, ValidationError};
+use crate::templates::TemplateType;
+
+fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
+    let bytes = source.as_bytes();
+    let l = buf.write(bytes)?;
+    (l == bytes.len())
+        .then_some(())
+        .ok_or(anyhow!("did not write correct number of bytes"))
+}
 
 // pub struct GenericRendererBuilder;
 //
@@ -40,7 +47,7 @@ impl DocumentRenderer for GenericRenderer {
         //
         // let mut output = String::new();
         // html::push_html(&mut output, dd);
-        let mut buf = Vec::new();
+        let buf = Vec::new();
         let mut cursor = Cursor::new(buf);
         self.render(&ctx.doc.content.0, ctx, &mut cursor)?;
 
@@ -63,7 +70,7 @@ impl GenericRenderer {
     ) -> Result<Vec<Parameter<String>>> {
         parameters
             .into_iter()
-            .map(|p| p.try_map(|v| v.try_map(|i| Ok(self.render_inner(&i, ctx)?))))
+            .map(|p| p.try_map(|v| v.try_map(|i| self.render_inner(&i, ctx))))
             .collect()
     }
 
@@ -85,14 +92,7 @@ impl GenericRenderer {
                     .into_iter()
                     .collect();
                 r?;
-                add_args(
-                    &mut args,
-                    &def.id,
-                    def.num,
-                    &ctx.ids,
-                    &ctx.ids_map,
-                    rendered,
-                )?;
+                add_args(&mut args, &def.id, def.num, ctx.ids, ctx.ids_map, rendered)?;
                 def.name.clone()
             }
             Shortcode::Block(def, body) => {
@@ -103,14 +103,7 @@ impl GenericRenderer {
                     .into_iter()
                     .collect();
                 r?;
-                add_args(
-                    &mut args,
-                    &def.id,
-                    def.num,
-                    &ctx.ids,
-                    &ctx.ids_map,
-                    rendered,
-                )?;
+                add_args(&mut args, &def.id, def.num, ctx.ids, ctx.ids_map, rendered)?;
                 let body = self.render_inner(body, ctx)?;
                 args.insert("body", &body);
                 def.name.clone()
@@ -139,7 +132,7 @@ impl RenderElement<Inline> for GenericRenderer {
     fn render(&mut self, elem: &Inline, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
         match elem {
             Inline::Text(s) => {
-                buf.write(s.as_bytes())?;
+                let _ = buf.write(s.as_bytes())?;
                 Ok(())
             }
             Inline::Emphasis(inner) => render_value_template(
@@ -183,10 +176,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 let inner = self.render_inner(inner, ctx)?;
                 render_link(url, alt, &inner, ctx, buf)
             }
-            Inline::Html(s) => {
-                buf.write(s.as_bytes())?;
-                Ok(())
-            }
+            Inline::Html(s) => write_bytes(s, buf),
             Inline::Math(s, display_mode, trailing_space) => {
                 render_math(*display_mode, *trailing_space, s, ctx, buf)
             }
@@ -231,12 +221,7 @@ impl RenderElement<Inline> for GenericRenderer {
 //
 
 impl RenderElement<OutputValue> for GenericRenderer {
-    fn render(
-        &mut self,
-        elem: &OutputValue,
-        ctx: &RenderContext,
-        mut buf: impl Write,
-    ) -> Result<()> {
+    fn render(&mut self, elem: &OutputValue, ctx: &RenderContext, buf: impl Write) -> Result<()> {
         match elem {
             OutputValue::Plain(s) => {
                 render_value_template("output_text", TemplateType::Builtin, &s.join(""), ctx, buf)
@@ -247,14 +232,8 @@ impl RenderElement<OutputValue> for GenericRenderer {
             OutputValue::Svg(s) => {
                 renderers::render_value_template("output_svg", TemplateType::Builtin, s, ctx, buf)
             }
-            OutputValue::Json(s) => {
-                buf.write(serde_json::to_string(&s)?.as_bytes())?;
-                Ok(())
-            }
-            OutputValue::Html(s) => {
-                buf.write(s.as_bytes())?;
-                Ok(())
-            }
+            OutputValue::Json(s) => write_bytes(&serde_json::to_string(s)?, buf),
+            OutputValue::Html(s) => write_bytes(s, buf),
             OutputValue::Javascript(_) => Ok(()),
         }
     }
@@ -354,7 +333,7 @@ impl RenderElement<Block> for GenericRenderer {
                 // let inner: Result<String> = items.iter().map(|b| self.render(b, ctx)).collect();
                 // let inner = inner?;
 
-                Ok(match idx {
+                match idx {
                     None => render_value_template(
                         "list_unordered",
                         TemplateType::Builtin,
@@ -374,7 +353,8 @@ impl RenderElement<Block> for GenericRenderer {
                             buf,
                         )?
                     }
-                })
+                };
+                Ok(())
             }
             Block::ListItem(inner) => render_value_template(
                 "list_item",

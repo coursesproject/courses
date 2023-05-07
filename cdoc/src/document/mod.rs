@@ -8,12 +8,11 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::ast::{
-    find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, Shortcode, ShortcodeBase,
-    ShortcodeIdx,
+    find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, ShortcodeBase, ShortcodeIdx,
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
-use crate::parsers::shortcodes::{parse_shortcode, ParamValue, Parameter, ShortCodeDef};
+use crate::parsers::shortcodes::{ParamValue, Parameter, ShortCodeDef};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -1,14 +1,10 @@
-use crate::templates::Context;
 use anyhow::{anyhow, Context as AContext};
 
-use clap::builder::Str;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
-use tera::Filter;
 
 use crate::parsers::shortcodes::{ParamValue, Parameter};
 use thiserror::Error;
@@ -238,7 +234,7 @@ impl TemplateDefinition {
 
     pub fn validate_args(
         &self,
-        args: &Vec<Parameter<String>>,
+        args: &[Parameter<String>],
     ) -> Result<Vec<anyhow::Result<()>>, anyhow::Error> {
         if let TemplateType::Shortcode = &self.type_ {
             let s = self.shortcode.as_ref().unwrap();

@@ -1,17 +1,16 @@
 use crate::pipeline::Mode;
-use anyhow::Context as AContext;
+use anyhow::{anyhow, Context as AContext};
 use cdoc::config::Format;
 use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 use cdoc::templates::{TemplateManager, TemplateType};
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressIterator, ProgressStyle};
+use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::time::Duration;
 use tera::Context;
 
 use crate::project::config::ProjectConfig;
@@ -42,19 +41,6 @@ impl Generator<'_> {
         let file = File::create(section_build_path)?;
         let writer = BufWriter::new(file);
         Ok(writer)
-    }
-    fn write_document(&self, output: &str, doc_id: &str, doc_path: &PathBuf) -> anyhow::Result<()> {
-        let mut html_build_dir = self.build_dir.join(doc_path);
-        html_build_dir.pop(); // Pop filename
-
-        let section_build_path =
-            html_build_dir.join(format!("{}.{}", doc_id, self.format.extension()));
-
-        fs::create_dir_all(html_build_dir).context("Could not create directory")?;
-
-        fs::write(section_build_path, output).context("writing")?;
-
-        Ok(())
     }
 
     pub fn generate(&self, bar: ProgressBar) -> anyhow::Result<()> {
@@ -110,7 +96,11 @@ impl Generator<'_> {
                     &mut writer,
                 )?;
             } else {
-                writer.write(doc.content.as_bytes())?;
+                let bytes = doc.content.as_bytes();
+                let l = writer.write(bytes)?;
+                (l == bytes.len())
+                    .then_some(())
+                    .ok_or(anyhow!("did not write the correct amount of bytes"))?;
             };
         }
         Ok(())

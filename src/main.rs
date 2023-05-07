@@ -58,7 +58,7 @@ fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     Ok(path.unwrap_or(env::current_dir()?))
 }
 
-fn init_config(path: &PathBuf) -> anyhow::Result<ProjectConfig> {
+fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
     print!("Reading config...");
     let config_path = path.join("config.toml");
     let config_input = fs::read_to_string(config_path)?;
@@ -67,25 +67,20 @@ fn init_config(path: &PathBuf) -> anyhow::Result<ProjectConfig> {
     Ok(config)
 }
 
-fn init_project(path: &PathBuf) -> anyhow::Result<Project<()>> {
+fn init_project(path: &Path) -> anyhow::Result<Project<()>> {
     print!("Configuring project...");
-    let proj = Project::generate_from_directory(path.as_path())?;
+    let proj = Project::generate_from_directory(path)?;
     println!(" {}", style("done").green());
     Ok(proj)
 }
 
 fn init_pipeline(
-    absolute_path: &PathBuf,
+    absolute_path: &Path,
     mode: Mode,
     config: ProjectConfig,
     project: Project<()>,
 ) -> anyhow::Result<Pipeline> {
-    Pipeline::new(
-        absolute_path.as_path(),
-        mode,
-        config.clone(),
-        project.clone(),
-    )
+    Pipeline::new(absolute_path, mode, config, project)
 }
 
 fn init_and_build(path: Option<PathBuf>, mode: Mode) -> anyhow::Result<(Pipeline, PathBuf)> {

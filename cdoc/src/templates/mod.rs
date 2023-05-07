@@ -1,15 +1,13 @@
-use crate::config::{Format, HtmlFormat};
+use crate::config::Format;
 use anyhow::{anyhow, Context as AnyhowContext};
 use rhai::{Dynamic, Engine, Scope};
-use serde::Serialize;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::io::{Cursor, Write};
 
-use regex::Regex;
 use std::borrow::Borrow;
+use std::io;
 use std::path::PathBuf;
-use std::{fmt, io};
 
 use tera::{Context, Filter, Function, Tera};
 
@@ -41,7 +39,7 @@ fn get_shortcode_tera_fn<'a>(
     Box::new(
         move |args: &HashMap<String, Value>| -> tera::Result<Value> {
             let mut ctx = Context::new();
-            args.into_iter().for_each(|(k, v)| {
+            args.iter().for_each(|(k, v)| {
                 let s = &v.to_string();
                 let len = s.len();
                 ctx.insert(k, &s[1..len - 1]);
@@ -99,10 +97,10 @@ impl TemplateManager {
 
         tera.add_raw_templates(defs)?;
 
-        let mut temp = TemplateManager {
+        let temp = TemplateManager {
             path: dir,
             tera,
-            definitions: definitions.clone(),
+            definitions,
         };
 
         let temp = temp.register_shortcode_fns()?;
@@ -115,9 +113,9 @@ impl TemplateManager {
             .definitions
             .into_iter()
             .try_for_each(|(tp_name, def)| {
-                let (_, id) = tp_name.split_once("_").unwrap();
+                let (_, id) = tp_name.split_once('_').unwrap();
                 let type_ = &def.type_;
-                for (format, _) in &def.templates {
+                for format in def.templates.keys() {
                     let format: Box<dyn Format> =
                         serde_json::from_str(&format!("{{\"{}\": {{}}}}", format))
                             .expect("problems!");
@@ -182,14 +180,14 @@ impl TemplateManager {
 
         let template_name = format!("{type_}_{id}.{format_str}");
 
-        self.tera.render_to(&template_name, &args, buf)?;
+        self.tera.render_to(&template_name, args, buf)?;
         Ok(())
     }
 
     pub fn validate_args_for_template(
         &self,
         id: &str,
-        args: &Vec<Parameter<String>>,
+        args: &[Parameter<String>],
     ) -> anyhow::Result<Vec<anyhow::Result<()>>> {
         let tp = self
             .get_template(id, TemplateType::Shortcode)

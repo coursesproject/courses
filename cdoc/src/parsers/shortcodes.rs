@@ -2,7 +2,6 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Parser)]
 #[grammar = "parsers/shortcodes.pest"]

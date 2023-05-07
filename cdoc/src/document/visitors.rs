@@ -53,7 +53,7 @@ impl AstVisitor for ShortcodeInserter<'_> {
             let s: String = inner.iter_mut().map(|i| i.to_string()).collect();
 
             if let Ok(idx) = usize::from_str(&s) {
-                let (def, body) = self.shortcodes[idx].clone();
+                let (def, body) = self.shortcodes[idx];
                 let code = parse_shortcode(def)?;
 
                 self.counters
@@ -67,11 +67,11 @@ impl AstVisitor for ShortcodeInserter<'_> {
                             .insert(code.name.clone(), (1, vec![code.clone()]));
                     });
 
-                let base = code.into_base(&mut self.counters)?;
-                let code = if body == "" {
+                let base = code.into_base(self.counters)?;
+                let code = if body.is_empty() {
                     Shortcode::Inline(base)
                 } else {
-                    let body_blocks = split_shortcodes(body, &mut self.counters)?;
+                    let body_blocks = split_shortcodes(body, self.counters)?;
                     Shortcode::Block(base, body_blocks)
                 };
                 *inline = Inline::Shortcode(code);
@@ -109,7 +109,7 @@ impl ShortcodeInserter<'_> {
                 let idx = usize::from_str(ms.as_str())?;
                 out.push_str(&source[start_idx..ms.range().start - 1]);
 
-                let (def, body) = self.shortcodes[idx].clone();
+                let (def, body) = self.shortcodes[idx];
 
                 if body.is_empty() {
                     out.push_str(&format!("{{{{ {} }}}}", def));

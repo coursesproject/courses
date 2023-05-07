@@ -5,16 +5,13 @@ use std::path::{Path, PathBuf};
 
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use anyhow::{anyhow, Context as AContext};
 
 use clap::ValueEnum;
 use console::style;
 use image::ImageOutputFormat;
-use indicatif::{
-    MultiProgress, ParallelProgressIterator, ProgressBar, ProgressIterator, ProgressStyle,
-};
+use indicatif::{MultiProgress, ParallelProgressIterator, ProgressBar, ProgressStyle};
 use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
@@ -31,15 +28,12 @@ use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
 use serde::{Deserialize, Serialize};
 
-use cdoc::renderers;
 use cdoc::renderers::generic::GenericRenderer;
 use rayon::prelude::*;
 
 use crate::generators::Generator;
 use crate::project::config::ProjectConfig;
-use crate::project::{
-    section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec, ProjectResult,
-};
+use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec};
 use std::borrow::Borrow;
 
 mod mover;
@@ -170,8 +164,7 @@ impl Pipeline {
                     .get("body")
                     .ok_or(tera::Error::msg("missing argument 'body'"))?;
                 if let Value::String(s) = val {
-                    let ast =
-                        split_shortcodes(s, &mut counters).map_err(|e| tera::Error::msg(e))?;
+                    let ast = split_shortcodes(s, &mut counters).map_err(tera::Error::msg)?;
                     let doc = Document::new(Ast(ast), DocumentMetadata::default(), HashMap::new());
 
                     let fstring = args
@@ -184,11 +177,9 @@ impl Pipeline {
                     ))
                     .expect("problems!");
 
-                    let mut ctx = self.get_render_context(&doc, format.borrow());
+                    let ctx = self.get_render_context(&doc, format.borrow());
                     let mut renderer = GenericRenderer;
-                    let res = renderer
-                        .render_doc(&mut ctx)
-                        .map_err(|e| tera::Error::msg(e))?;
+                    let res = renderer.render_doc(&ctx).map_err(tera::Error::msg)?;
                     let val = res.content;
                     Ok(Value::String(val))
                 } else {
@@ -211,7 +202,7 @@ impl Pipeline {
             extra_args: meta,
             syntax_set: SyntaxSet::load_defaults_newlines(),
             theme: ts.themes["base16-ocean.light"].clone(),
-            notebook_output_meta: &self.project_config.notebook_meta.as_ref().unwrap(),
+            notebook_output_meta: self.project_config.notebook_meta.as_ref().unwrap(),
             format,
             doc,
             ids: &doc.ids,
@@ -336,13 +327,7 @@ impl Pipeline {
                         is_part
                             && match chapter {
                                 None => true,
-                                Some(is_chapter) => {
-                                    is_chapter
-                                        && match doc {
-                                            None => true,
-                                            Some(is_doc) => is_doc,
-                                        }
-                                }
+                                Some(is_chapter) => is_chapter && doc.unwrap_or(true),
                             }
                     }
                     None => true,
@@ -460,15 +445,15 @@ impl Pipeline {
         );
         println!("{}", style("-".repeat(60)).blue());
 
-        let mut all_errs = Arc::new(Mutex::new(Vec::new()));
+        let all_errs = Arc::new(Mutex::new(Vec::new()));
 
-        let mut multi = MultiProgress::new();
+        let multi = MultiProgress::new();
         let mut bars = Vec::new();
 
         let bar_len = self.project.len() * 2;
         let sty = ProgressStyle::with_template("{msg:<20} {pos}/{len} {bar:20.cyan/blue}")?;
 
-        for f in &self.project_config.outputs {
+        for _f in &self.project_config.outputs {
             let p = ProgressBar::new(bar_len as u64);
             let bar = multi.add(p);
             bar.set_style(sty.clone());
@@ -488,8 +473,7 @@ impl Pipeline {
                     style(format.name()).bold(),
                     style("parsing").blue()
                 ));
-                let (output, mut errs) =
-                    self.process_all(loaded.clone(), format.as_ref(), bar.clone());
+                let (output, errs) = self.process_all(loaded.clone(), format.as_ref(), bar.clone());
 
                 format_errs.append(&mut errs.lock().unwrap());
                 let context = Generator {
@@ -529,8 +513,7 @@ impl Pipeline {
                     settings: self.project_config.parser.settings.clone(),
                 };
 
-                let res =
-                    Mover::traverse_dir(self.project_path.join("content").to_path_buf(), &move_ctx);
+                let res = Mover::traverse_dir(self.project_path.join("content"), &move_ctx);
                 if let Err(e) = res {
                     format_errs.push(e);
                 }
@@ -605,11 +588,8 @@ impl Pipeline {
         project: Project<String>,
         format: &dyn Format,
         bar: ProgressBar,
-    ) -> (
-        Vec<ItemDescriptor<Option<Document<RenderResult>>>>,
-        Arc<Mutex<Vec<anyhow::Error>>>,
-    ) {
-        let mut errs = Arc::new(Mutex::new(Vec::new()));
+    ) -> (ProjectItemVec, Arc<Mutex<Vec<anyhow::Error>>>) {
+        let errs = Arc::new(Mutex::new(Vec::new()));
 
         let project_vec: Vec<ItemDescriptor<String>> = project.into_iter().collect();
 

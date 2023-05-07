@@ -2,8 +2,6 @@ mod collectors;
 
 mod visitor;
 
-pub use collectors::*;
-
 pub use visitor::*;
 
 use crate::notebook::CellOutput;

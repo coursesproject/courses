@@ -69,7 +69,7 @@ impl<C> ProjectItem<C> {
     pub fn as_ref(&self) -> ProjectItem<&C> {
         ProjectItem {
             id: self.id.clone(),
-            format: self.format.clone(),
+            format: self.format,
             path: self.path.clone(),
             content: Arc::new(self.content.as_ref()),
         }

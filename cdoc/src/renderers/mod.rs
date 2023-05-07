@@ -54,7 +54,7 @@ pub trait RenderElement<T> {
 
 impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
     fn render(&mut self, elem: &Vec<R>, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
-        elem.iter().map(|e| self.render(e, ctx, &mut buf)).collect()
+        elem.iter().try_for_each(|e| self.render(e, ctx, &mut buf))
     }
 }
 
