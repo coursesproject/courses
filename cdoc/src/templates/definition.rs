@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::parsers::shortcodes::{ParamValue, Parameter};
+use crate::parsers::shortcodes::{Argument, ArgumentValue};
 use thiserror::Error;
 use walkdir::WalkDir;
 
@@ -185,7 +185,7 @@ pub enum ValidationError {
 }
 
 impl ParameterType {
-    pub fn validate(&self, value: &ParamValue<String>) -> Result<(), ValidationError> {
+    pub fn validate(&self, value: &ArgumentValue<String>) -> Result<(), ValidationError> {
         match self {
             ParameterType::Regular => Ok(()),
             ParameterType::Choice(choices) => {
@@ -234,7 +234,7 @@ impl TemplateDefinition {
 
     pub fn validate_args(
         &self,
-        args: &[Parameter<String>],
+        args: &[Argument<String>],
     ) -> Result<Vec<anyhow::Result<()>>, anyhow::Error> {
         if let TemplateType::Shortcode = &self.type_ {
             let s = self.shortcode.as_ref().unwrap();
@@ -242,12 +242,12 @@ impl TemplateDefinition {
                 .iter()
                 .enumerate()
                 .map(|(i, p)| match p {
-                    Parameter::Positional(val) => s
+                    Argument::Positional(val) => s
                         .parameters
                         .get(i)
                         .map(|sp| sp.type_.validate(val))
                         .ok_or(ValidationError::InvalidValue(val.inner().to_string()))?,
-                    Parameter::Keyword(key, val) => s
+                    Argument::Keyword(key, val) => s
                         .parameters
                         .iter()
                         .find(|sp| &sp.name == key)

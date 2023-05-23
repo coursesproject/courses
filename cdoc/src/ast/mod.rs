@@ -5,25 +5,42 @@ mod visitor;
 pub use visitor::*;
 
 use crate::notebook::CellOutput;
-use crate::parsers::shortcodes::Parameter;
+use crate::parsers::shortcodes::Argument;
 use pulldown_cmark::{HeadingLevel, LinkType, Options, Parser};
 use serde_json::Value;
 use std::collections::HashMap;
 
+/// Inline elements.
 #[derive(Clone, Debug)]
 pub enum Inline {
+    /// Plain text
     Text(String),
+    /// Emphasis
     Emphasis(Vec<Inline>),
+    /// Strong
     Strong(Vec<Inline>),
+    /// Strikethrough
     Strikethrough(Vec<Inline>),
+    /// Inline code
     Code(String),
     SoftBreak,
     HardBreak,
+    /// Horizontal rule
     Rule,
+    /// An inline image (usually originates from a markdown image spec)
     Image(LinkType, String, String, Vec<Inline>),
+    /// An inline link (usually originates from a markdown link spec)
     Link(LinkType, String, String, Vec<Inline>),
+    /// Unescaped html.
     Html(String),
-    Math(String, bool, bool),
+    /// Math element (may be inline or display)
+    /// The trailing space element is necessary due to the way parsing currently works with
+    /// pulldown_cmark.
+    Math {
+        source: String,
+        display_block: bool,
+        trailing_space: bool,
+    },
     Shortcode(Shortcode),
 }
 
@@ -43,7 +60,7 @@ impl ToString for Inline {
             Inline::HardBreak => String::default(),
             Inline::Rule => String::default(),
             Inline::Html(s) => s.to_string(),
-            Inline::Math(s, _, _) => s.to_string(),
+            Inline::Math { source, .. } => source.to_string(),
             Inline::Shortcode(s) => s.to_string(),
             _ => String::default(),
         }
@@ -65,25 +82,38 @@ impl ToString for ShortcodeBase {
     }
 }
 
+/// Wraps Vec<Block> for trait implementations
 #[derive(Clone, Debug)]
 pub struct Ast(pub Vec<Block>);
 
-#[allow(unused)]
+/// Code cell attributes. Currently limited but may be extended to arbitrary values.
 #[derive(Clone, Debug, Default)]
 pub struct CodeAttributes {
+    /// Can edit cell
     pub(crate) editable: bool,
+    /// Cell is folded by default.
     pub(crate) fold: bool,
 }
 
+/// Code cell output (currently always from a notebook). These values are provided to the output_*.yml
+/// category of built in templates.  
 #[derive(Clone, Debug)]
 pub enum CodeOutput {
+    /// Base 64 encoded image
     Image(String),
+    /// Svg source
     Svg(String),
+    /// Json encoded as a map
     Json(HashMap<String, Value>),
+    /// Literal html
     Html(String),
+    /// Javascript source code
     Javascript(String),
 }
 
+/// The base ast component. Mostly corresponds to markdown blocks, but certain elements like Math
+/// are represented as Inline even in block display mode. The two enums might be combined in the
+/// future.
 #[derive(Clone, Debug)]
 pub enum Block {
     Heading {
@@ -95,43 +125,60 @@ pub enum Block {
     Plain(Inline),
     Paragraph(Vec<Inline>),
     BlockQuote(Vec<Inline>),
+    /// A code block. May originate from markdown fenced code blocks or notebook code cells.
     CodeBlock {
+        /// Code source
         source: String,
+        /// Code reference. Currently only used for markdown.
         reference: Option<String>,
+        /// Code attributes
         attr: CodeAttributes,
+        /// Code tags
         tags: Option<Vec<String>>,
+        /// Notebook cell outputs.
         outputs: Vec<CellOutput>,
     },
+    /// A list - ordered or unordered.
     List(Option<u64>, Vec<Block>),
     ListItem(Vec<Block>),
 }
 
+/// Shortcode source. Can contain recursive ast elements.
 #[derive(Debug, Clone)]
 pub enum Shortcode {
+    /// Inline code using the {{ name(param) }} syntax.
     Inline(ShortcodeBase),
+    /// Block code using the {% name(param) %} body {% end_name %} syntax. The body can contain any
+    /// valid ast elements.
     Block(ShortcodeBase, Vec<Block>),
 }
 
-pub fn str_to_blocks(input: &str) -> Vec<Block> {
+pub(crate) fn str_to_blocks(input: &str) -> Vec<Block> {
     let ast: Ast = Parser::new_ext(input, Options::all()).collect();
     ast.0
 }
 
-pub fn math_block_md(src: &str, display_block: bool, trailing_space: bool) -> String {
+pub(crate) fn math_block_md(src: &str, display_block: bool, trailing_space: bool) -> String {
     let delim = if display_block { "$$" } else { "$" };
     let trail = if trailing_space { " " } else { "" };
     format!("{}{}{}{}", delim, src, delim, trail)
 }
 
+/// Shortcode call and argument specification
 #[derive(Debug, Clone)]
 pub struct ShortcodeBase {
+    /// Shortcode name (currently equivalent to the filename of the corresponding template)
     pub(crate) name: String,
+    /// Shortcode reference - used to build a shortcode reference map for use in links.
     pub(crate) id: Option<String>,
+    /// Shortcode number by type. Useful for enumeration - available for use in the shortcode
+    /// template.
     pub(crate) num: usize,
-    pub(crate) parameters: Vec<Parameter<Vec<Block>>>,
+    /// List of shortcode parameters.
+    pub(crate) parameters: Vec<Argument<Vec<Block>>>,
 }
 
-pub enum ShortcodeIdx {
+pub(crate) enum ShortcodeIdx {
     Inline(usize, usize),
     Block {
         def: (usize, usize),
@@ -205,7 +252,7 @@ fn extract_inline(start: usize, input: &str) -> Option<ShortcodeIdx> {
     Some(ShortcodeIdx::Inline(start, end))
 }
 
-pub fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
+pub(crate) fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
     let mut rest = input;
     let mut offset = 0;
 
@@ -235,7 +282,7 @@ fn find_next_block(input: &str) -> Option<(usize, usize)> {
     Some((start, end))
 }
 
-pub fn find_shortcode(input: &str) -> Option<ShortcodeIdx> {
+pub(crate) fn find_shortcode(input: &str) -> Option<ShortcodeIdx> {
     let start_inline = input.find("{{");
     let start_block = input.find("{%");
 

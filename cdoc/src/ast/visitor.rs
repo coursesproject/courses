@@ -2,6 +2,8 @@ use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode, ShortcodeBase};
 use crate::notebook::CellOutput;
 use anyhow::Result;
 
+/// Implements the visitor pattern for the cdoc Ast type. Blanket implementations are provided so
+/// implementors only have to implement the methods they need to modify.
 pub trait AstVisitor {
     fn walk_ast(&mut self, ast: &mut Ast) -> Result<()> {
         self.visit_vec_block(&mut ast.0)
@@ -47,9 +49,11 @@ pub trait AstVisitor {
             Inline::Image(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Html(h) => self.visit_html_inline(h),
-            Inline::Math(ref mut s, ref mut display_block, ref mut trailing_space) => {
-                self.visit_math(s, display_block, trailing_space)
-            }
+            Inline::Math {
+                ref mut source,
+                ref mut display_block,
+                ref mut trailing_space,
+            } => self.visit_math(source, display_block, trailing_space),
             Inline::Shortcode(ref mut s) => self.visit_shortcode(s),
         }
     }

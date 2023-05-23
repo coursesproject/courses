@@ -2,19 +2,17 @@ use crate::ast::{Block, Inline, Shortcode};
 use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 
-use crate::renderers;
 use anyhow::{anyhow, Result};
 use pulldown_cmark::HeadingLevel;
 
-use crate::parsers::shortcodes::Parameter;
+use crate::parsers::shortcodes::{Argument, ShortCodeDef};
+use std::collections::HashMap;
 use std::io::{Cursor, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tera::Context;
 
-use crate::renderers::{
-    add_args, render_basic_template, render_image, render_link, render_math, render_value_template,
-    DocumentRenderer, RenderContext, RenderElement, RenderResult,
-};
-use crate::templates::TemplateType;
+use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderResult};
+use crate::templates::{TemplateDefinition, TemplateType};
 
 fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
     let bytes = source.as_bytes();
@@ -24,22 +22,8 @@ fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
         .ok_or(anyhow!("did not write correct number of bytes"))
 }
 
-// pub struct GenericRendererBuilder;
-//
-// impl<'a> RendererBuilder<'a> for GenericRendererBuilder {
-//     type Renderer = GenericRenderer<'a>;
-//
-//     fn build(self, doc: &Document<Ast>) -> Self::Renderer {
-//         GenericRenderer {
-//             metadata: &doc.metadata,
-//         }
-//     }
-// }
-
-// #[derive(Serialize, Deserialize)]
 pub struct GenericRenderer;
 
-// #[typetag::serde(name = "renderer_config")]
 impl DocumentRenderer for GenericRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
         // let doc = doc.to_events();
@@ -65,9 +49,9 @@ impl DocumentRenderer for GenericRenderer {
 impl GenericRenderer {
     fn render_params(
         &mut self,
-        parameters: Vec<Parameter<Vec<Block>>>,
+        parameters: Vec<Argument<Vec<Block>>>,
         ctx: &RenderContext,
-    ) -> Result<Vec<Parameter<String>>> {
+    ) -> Result<Vec<Argument<String>>> {
         parameters
             .into_iter()
             .map(|p| p.try_map(|v| v.try_map(|i| self.render_inner(&i, ctx))))
@@ -136,20 +120,6 @@ impl GenericRenderer {
     }
 }
 
-// pub struct ToHtmlContext<'a> {
-//     pub metadata: DocumentMetadata,
-//     pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
-//     pub ids_map: HashMap<String, (usize, ShortCodeDef)>,
-//     pub templates: &'a TemplateManager,
-//     pub extra_args: Context,
-//     pub syntax_set: SyntaxSet,
-//     pub theme: Theme,
-// }
-//
-// pub trait ToHtml {
-//     fn to_html(self, ctx: &ToHtmlContext) -> Result<String>;
-// }
-
 impl RenderElement<Inline> for GenericRenderer {
     fn render(&mut self, elem: &Inline, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
         match elem {
@@ -199,48 +169,15 @@ impl RenderElement<Inline> for GenericRenderer {
                 render_link(url, alt, &inner, ctx, buf)
             }
             Inline::Html(s) => write_bytes(s, buf),
-            Inline::Math(s, display_mode, trailing_space) => {
-                render_math(*display_mode, *trailing_space, s, ctx, buf)
-            }
+            Inline::Math {
+                source,
+                display_block,
+                trailing_space,
+            } => render_math(*display_block, *trailing_space, source, ctx, buf),
             Inline::Shortcode(s) => Ok(self.render_shortcode_template(ctx, s, buf)?),
         }
     }
 }
-
-// impl RenderElement for Inline {
-//     fn render(&mut self, doc: &Document<Ast>, ctx: &RenderContext) -> Result<String> {
-//         match self {
-//             Inline::Text(s) => Ok(s),
-//             Inline::Emphasis(inner) => Ok(format!("<em>{}</em>", inner.render(doc, ctx)?)),
-//             Inline::Strong(inner) => Ok(format!("<strong>{}</strong>", inner.render(doc, ctx)?)),
-//             Inline::Strikethrough(inner) => Ok(format!("<s>{}</s>", inner.render(doc, ctx)?)),
-//             Inline::Code(s) => Ok(format!("<code>{}</code>", s)),
-//             Inline::SoftBreak => Ok("<br>".to_string()),
-//             Inline::HardBreak => Ok("<br>".to_string()),
-//             Inline::Rule => Ok("<hr>".to_string()),
-//             Inline::Image(_tp, url, alt, inner) => {
-//                 let inner_s = inner.to_html(ctx)?;
-//                 render_image(&url, &alt, &inner_s, &ctx.templates, OutputFormat::Html)
-//             }
-//             Inline::Link(_tp, url, alt, inner) => {
-//                 let inner_s = inner.to_html(ctx)?;
-//                 render_link(&url, &alt, &inner_s, &ctx.templates, OutputFormat::Html)
-//             }
-//             Inline::Html(s) => Ok(s),
-//             Inline::Math(s, display_mode, trailing_space) => render_math(
-//                 *display_mode,
-//                 *trailing_space,
-//                 s,
-//                 ctx.templates,
-//                 OutputFormat::Html,
-//             ),
-//             Inline::Shortcode(s) => {
-//                 Ok(render_shortcode_template(ctx, s).unwrap_or_else(|e| e.to_string()))
-//             }
-//         }
-//     }
-// }
-//
 
 impl RenderElement<OutputValue> for GenericRenderer {
     fn render(&mut self, elem: &OutputValue, ctx: &RenderContext, buf: impl Write) -> Result<()> {
@@ -249,10 +186,10 @@ impl RenderElement<OutputValue> for GenericRenderer {
                 render_value_template("output_text", TemplateType::Builtin, &s.join(""), ctx, buf)
             }
             OutputValue::Image(s) => {
-                renderers::render_value_template("output_img", TemplateType::Builtin, s, ctx, buf)
+                render_value_template("output_img", TemplateType::Builtin, s, ctx, buf)
             }
             OutputValue::Svg(s) => {
-                renderers::render_value_template("output_svg", TemplateType::Builtin, s, ctx, buf)
+                render_value_template("output_svg", TemplateType::Builtin, s, ctx, buf)
             }
             OutputValue::Json(s) => write_bytes(&serde_json::to_string(s)?, buf),
             OutputValue::Html(s) => write_bytes(s, buf),
@@ -327,7 +264,7 @@ impl RenderElement<Block> for GenericRenderer {
                 tags,
                 ..
             } => {
-                let id = renderers::get_id();
+                let id = get_id();
 
                 let highlighted = syntect::html::highlighted_html_for_string(
                     source,
@@ -387,4 +324,104 @@ impl RenderElement<Block> for GenericRenderer {
             ),
         }
     }
+}
+
+fn render_basic_template(
+    name: &str,
+    type_: TemplateType,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    ctx.templates
+        .render(name, ctx.format, type_, &Context::default(), buf)
+}
+
+fn render_value_template(
+    name: &str,
+    type_: TemplateType,
+    value: &str,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
+    args.insert("value", value);
+    ctx.templates.render(name, ctx.format, type_, &args, buf)
+}
+
+static COUNTER: AtomicUsize = AtomicUsize::new(1);
+
+fn get_id() -> usize {
+    COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+fn add_args(
+    def: &TemplateDefinition,
+    args: &mut Context,
+    id: &Option<String>,
+    num: usize,
+    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    id_map: &HashMap<String, (usize, ShortCodeDef)>,
+    arguments: Vec<Argument<String>>,
+) -> Result<()> {
+    if let Some(id) = id {
+        args.insert("id", &id);
+    }
+    args.insert("num", &num);
+    args.insert("ids", &ids);
+    args.insert("id_map", &id_map);
+    for (i, p) in arguments.into_iter().enumerate() {
+        match p {
+            Argument::Positional(val) => args.insert(
+                def.shortcode.as_ref().unwrap().parameters[i].name.clone(),
+                val.inner(),
+            ),
+            Argument::Keyword(k, v) => args.insert(k, v.inner()),
+        }
+    }
+    Ok(())
+}
+
+fn render_image(
+    url: &str,
+    alt: &str,
+    inner: &str,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
+    args.insert("url", url);
+    args.insert("alt", alt);
+    args.insert("inner", inner);
+    ctx.templates
+        .render("image", ctx.format, TemplateType::Builtin, &args, buf)
+}
+
+fn render_link(
+    url: &str,
+    alt: &str,
+    inner: &str,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
+    args.insert("url", url);
+    args.insert("alt", alt);
+    args.insert("inner", inner);
+    ctx.templates
+        .render("link", ctx.format, TemplateType::Builtin, &args, buf)
+}
+
+fn render_math(
+    display_mode: bool,
+    trailing_space: bool,
+    inner: &str,
+    ctx: &RenderContext,
+    buf: impl Write,
+) -> Result<()> {
+    let mut args = Context::default();
+    args.insert("display_mode", &display_mode);
+    args.insert("trailing_space", &trailing_space);
+    args.insert("value", inner);
+    ctx.templates
+        .render("math", ctx.format, TemplateType::Builtin, &args, buf)
 }
