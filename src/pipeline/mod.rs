@@ -44,38 +44,44 @@ fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
             match from_value::<String>(url.clone()) {
                 Ok(v) => {
                     let mut file_no_ext = PathBuf::from_str(&v).unwrap();
-                    file_no_ext.set_extension(".txt");
+                    if file_no_ext.extension().unwrap().to_str().unwrap() == "svg" {
+                        let contents = fs::read_to_string(resource_path.join(v)).unwrap();
+                        Ok(to_value(contents).unwrap())
+                    } else {
+                        file_no_ext.set_extension(".txt");
 
-                    let cache_file = cache_path.join(&file_no_ext);
-                    let resource_file = resource_path.join(v);
-                    let resource_meta = resource_file.metadata()?;
+                        let cache_file = cache_path.join(&file_no_ext);
+                        let resource_file = resource_path.join(v);
+                        let resource_meta = resource_file.metadata()?;
 
-                    let data = match cache_file.metadata().ok().and_then(|meta| {
-                        (meta.modified().unwrap() > resource_meta.modified().unwrap()).then_some(())
-                    }) {
-                        None => {
-                            let img = ImageReader::open(&resource_file)
-                                .map_err(|_| tera::Error::msg("Could not open image"))?
-                                .decode()
-                                .map_err(|_| tera::Error::msg("Could not decode image"))?;
-                            // println!("loaded");
-                            let mut image_data: Vec<u8> = Vec::new();
-                            let mut img_writer = BufWriter::new(Cursor::new(&mut image_data));
-                            img.write_to(&mut img_writer, ImageOutputFormat::Jpeg(60))
-                                .map_err(|_| tera::Error::msg("Could not write image data"))?;
-                            drop(img_writer);
-                            // println!("semi");
-                            let data = base64_simd::STANDARD.encode_to_string(&image_data);
+                        let data = match cache_file.metadata().ok().and_then(|meta| {
+                            (meta.modified().unwrap() > resource_meta.modified().unwrap())
+                                .then_some(())
+                        }) {
+                            None => {
+                                let img = ImageReader::open(&resource_file)
+                                    .map_err(|_| tera::Error::msg("Could not open image"))?
+                                    .decode()
+                                    .map_err(|_| tera::Error::msg("Could not decode image"))?;
+                                // println!("loaded");
+                                let mut image_data: Vec<u8> = Vec::new();
+                                let mut img_writer = BufWriter::new(Cursor::new(&mut image_data));
+                                img.write_to(&mut img_writer, ImageOutputFormat::Jpeg(60))
+                                    .map_err(|_| tera::Error::msg("Could not write image data"))?;
+                                drop(img_writer);
+                                // println!("semi");
+                                let data = base64_simd::STANDARD.encode_to_string(&image_data);
 
-                            fs::create_dir_all(cache_file.parent().unwrap())?;
-                            fs::write(cache_file, &data)?;
-                            data
-                        }
-                        Some(_) => fs::read_to_string(&cache_file).unwrap(),
-                    };
+                                fs::create_dir_all(cache_file.parent().unwrap())?;
+                                fs::write(cache_file, &data)?;
+                                data
+                            }
+                            Some(_) => fs::read_to_string(&cache_file).unwrap(),
+                        };
 
-                    // println!("written");
-                    Ok(to_value(data).unwrap())
+                        // println!("written");
+                        Ok(to_value(data).unwrap())
+                    }
                 }
                 Err(_) => Err("file not found".into()),
             }
@@ -322,6 +328,15 @@ impl Pipeline {
                     .and_then(|i| i3.chapter_idx.map(|j| i == j));
                 let doc = item.doc_idx.and_then(|i| i3.doc_idx.map(|j| i == j));
                 // let combined = chapter.and_then(part);
+                // println!(
+                //     "{:?} {:?} {:?}, {:?} {:?} {:?}",
+                //     item.part_idx,
+                //     item.chapter_idx,
+                //     item.doc_idx,
+                //     i3.part_idx,
+                //     i3.chapter_idx,
+                //     i3.doc_idx
+                // );
                 match part {
                     Some(is_part) => {
                         is_part
@@ -385,7 +400,7 @@ impl Pipeline {
                 .iter()
                 .position(|e| e.id == el)
                 .expect("Part index not found");
-            part_idx = Some(pid);
+            part_idx = Some(pid + 1);
 
             match elem {
                 None => &part.index,
@@ -396,7 +411,7 @@ impl Pipeline {
                         .iter()
                         .position(|c| c.id == first_elem)
                         .expect("Part index not found");
-                    chapter_idx = Some(cid);
+                    chapter_idx = Some(cid + 1);
                     let doc = c.documents.iter().find(|d| d.id == file_id);
                     match doc {
                         None => &c.index,
@@ -406,7 +421,7 @@ impl Pipeline {
                                 .iter()
                                 .position(|d| d.id == file_id)
                                 .expect("Part index not found");
-                            doc_idx = Some(did);
+                            doc_idx = Some(did + 1);
 
                             d
                         }

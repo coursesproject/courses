@@ -16,15 +16,17 @@ pub struct ShortCodeDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
 pub enum ParamValue<T> {
     Literal(T),
     Markdown(T),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum Parameter<T> {
-    Positional(ParamValue<T>),
-    Keyword(String, ParamValue<T>),
+    Positional { value: ParamValue<T> },
+    Keyword { name: String, value: ParamValue<T> },
 }
 
 impl<T> ParamValue<T> {
@@ -56,8 +58,11 @@ impl<T> ParamValue<T> {
 impl<T> Parameter<T> {
     pub fn map<U, F: FnMut(ParamValue<T>) -> ParamValue<U>>(self, mut f: F) -> Parameter<U> {
         match self {
-            Parameter::Positional(v) => Parameter::Positional(f(v)),
-            Parameter::Keyword(k, v) => Parameter::Keyword(k, f(v)),
+            Parameter::Positional { value } => Parameter::Positional { value: f(value) },
+            Parameter::Keyword { name, value } => Parameter::Keyword {
+                name,
+                value: f(value),
+            },
         }
     }
     pub fn try_map<U, F: FnMut(ParamValue<T>) -> anyhow::Result<ParamValue<U>>>(
@@ -65,14 +70,17 @@ impl<T> Parameter<T> {
         mut f: F,
     ) -> anyhow::Result<Parameter<U>> {
         Ok(match self {
-            Parameter::Positional(v) => Parameter::Positional(f(v)?),
-            Parameter::Keyword(k, v) => Parameter::Keyword(k, f(v)?),
+            Parameter::Positional { value } => Parameter::Positional { value: f(value)? },
+            Parameter::Keyword { name, value } => Parameter::Keyword {
+                name,
+                value: f(value)?,
+            },
         })
     }
     pub fn get_value(&self) -> &ParamValue<T> {
         match self {
-            Parameter::Positional(v) => v,
-            Parameter::Keyword(_, v) => v,
+            Parameter::Positional { value } => value,
+            Parameter::Keyword { value, .. } => value,
         }
     }
 }
@@ -82,7 +90,7 @@ fn get_value(val: &Pair<Rule>) -> ParamValue<String> {
     match v.as_rule() {
         Rule::string_val => ParamValue::Literal(v.as_str().to_string()),
         Rule::basic_val => ParamValue::Literal(v.as_str().to_string()),
-        Rule::markdown_string => ParamValue::Markdown(v.as_str().to_string()),
+        Rule::md_val => ParamValue::Markdown(v.as_str().to_string()),
         _ => unreachable!(),
     }
 }
@@ -111,10 +119,12 @@ pub fn parse_shortcode(content: &str) -> Result<ShortCodeDef, Box<pest::error::E
                                     let k = v.as_str().to_string();
                                     let value_pair = inner.next().unwrap();
                                     let value = get_value(&value_pair);
-                                    parameters.push(Parameter::Keyword(k, value))
+                                    parameters.push(Parameter::Keyword { name: k, value })
                                 }
                                 Rule::value => {
-                                    parameters.push(Parameter::Positional(get_value(&v)));
+                                    parameters.push(Parameter::Positional {
+                                        value: get_value(&v),
+                                    });
                                 }
                                 _ => unreachable!(),
                             }

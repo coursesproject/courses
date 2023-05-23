@@ -1,9 +1,9 @@
 WHITESPACE = _{(" "|"\n"|"\t"|"\r")}
 
 
-string_base = _{(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'")*}
+string_base = _{(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | "`" | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'")*}
 string_val = {string_base}
-md_val = {string_val}
+md_val = {string_base}
 string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
 markdown_string = _{"|"~ ("\""|"“") ~ md_val ~ ("\""|"”")}
 basic_val = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")*}

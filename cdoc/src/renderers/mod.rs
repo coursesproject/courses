@@ -109,11 +109,11 @@ fn add_args(
     args.insert("id_map", &id_map);
     for (i, p) in arguments.into_iter().enumerate() {
         match p {
-            Parameter::Positional(val) => args.insert(
+            Parameter::Positional { value } => args.insert(
                 def.shortcode.as_ref().unwrap().parameters[i].name.clone(),
-                val.inner(),
+                value.inner(),
             ),
-            Parameter::Keyword(k, v) => args.insert(k, v.inner()),
+            Parameter::Keyword { name, value } => args.insert(name, value.inner()),
         }
     }
     Ok(())

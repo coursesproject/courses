@@ -242,17 +242,17 @@ impl TemplateDefinition {
                 .iter()
                 .enumerate()
                 .map(|(i, p)| match p {
-                    Parameter::Positional(val) => s
+                    Parameter::Positional { value } => s
                         .parameters
                         .get(i)
-                        .map(|sp| sp.type_.validate(val))
-                        .ok_or(ValidationError::InvalidValue(val.inner().to_string()))?,
-                    Parameter::Keyword(key, val) => s
+                        .map(|sp| sp.type_.validate(value))
+                        .ok_or(ValidationError::InvalidValue(value.inner().to_string()))?,
+                    Parameter::Keyword { name, value } => s
                         .parameters
                         .iter()
-                        .find(|sp| &sp.name == key)
-                        .map(|sp| sp.type_.validate(val))
-                        .ok_or(ValidationError::InvalidName(key.clone()))?,
+                        .find(|sp| &sp.name == name)
+                        .map(|sp| sp.type_.validate(value))
+                        .ok_or(ValidationError::InvalidName(name.clone()))?,
                 })
                 .map(|r| r.context(format!("when parsing shortcode '{}'", self.name)))
                 .collect();

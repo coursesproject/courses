@@ -61,8 +61,15 @@ fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
     print!("Reading config...");
     let config_path = path.join("config.toml");
-    let config_input = fs::read_to_string(config_path)?;
-    let config = toml::from_str(&config_input).context("Could not load project configuration")?;
+    let config = if config_path.is_file() {
+        let config_input = fs::read_to_string(config_path)?;
+        toml::from_str(&config_input).context("Could not load project configuration")?
+    } else {
+        let config_path = path.join("config.yml");
+        let config_input = fs::read_to_string(config_path)?;
+        serde_yaml::from_str(&config_input).context("Could not load project configuration")?
+    };
+
     println!(" {}", style("done").green());
     Ok(config)
 }

@@ -92,7 +92,7 @@ pub enum Block {
         classes: Vec<String>,
         inner: Vec<Inline>,
     },
-    Plain(Inline),
+    Plain(Vec<Inline>),
     Paragraph(Vec<Inline>),
     BlockQuote(Vec<Inline>),
     CodeBlock {
