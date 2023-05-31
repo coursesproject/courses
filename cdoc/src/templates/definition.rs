@@ -250,9 +250,9 @@ impl TemplateDefinition {
                     Argument::Keyword(key, val) => s
                         .parameters
                         .iter()
-                        .find(|sp| &sp.name == key)
-                        .map(|sp| sp.type_.validate(val))
-                        .ok_or(ValidationError::InvalidName(key.clone()))?,
+                        .find(|sp| &sp.name == name)
+                        .map(|sp| sp.type_.validate(value))
+                        .ok_or(ValidationError::InvalidName(name.clone()))?,
                 })
                 .map(|r| r.context(format!("when parsing shortcode '{}'", self.name)))
                 .collect();

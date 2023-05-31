@@ -73,20 +73,26 @@ In notebooks (`.ipynb` files) it is done by adding a `raw` cell to the very top 
 Document configurations consist of a number of possible fields, most of which have default values. This means you can usually leave out most options. The full set of options currently are:
 ```yaml
 title: # String (required)
-code_split: true # boolean
-notebook_output: true # boolean
+draft: # boolean
+exercises: # boolean
+code_solutions: # boolean
+cell_outputs: # boolean
+interactive: # boolean
+editable: # boolean
 layout:
   hide_sidebar: true # boolean
-output:
-  web: true # boolean
-  source: true # boolean
+exclude_outputs: # list
 ```
 with only the `title` being required.
 
-- `code_split`: Enable/disable parsing of the exercise placeholder/solution syntax in the document. This option is only useful for showing the actual syntax instead of parsing it, as is done on the page for its documentation.
-- `notebook_output`: Toggle the notebook cell outputs for the whole document. It is useful for exercise-like documents with outputs created during testing that should not be included in the outputs.
+- `draft`: Only show this page in draft mode.
+- `exercises`: Enable/disable parsing of the exercise placeholder/solution syntax in the document. This option is only useful for showing the actual syntax instead of parsing it, as is done on the page for its documentation.
+- `code_solutions`: Include parsed solutions in output
+- `cell_outputs`: Toggle the notebook cell outputs for the whole document. It is useful for exercise-like documents with outputs created during testing that should not be included in the outputs.
+- `interactive`: Used for interactive pages using Pyodide. Note that Pyodide has to be set up for this to work.
+- `editable`: Used in conjunction with the interactive flag to make a cell editable.
 - `layout`: Options for changing the webpage layout. Currently only supports hiding the sidebar.
-- `output`: Enable/disable output generation for web and/or notebooks (called `source` because script files are also included).
+- `exclude_outputs`: Disable output generation for listed formats.
 
 ## Global configuration
 The `config.yml` is used for changing settings related to the project as a whole. The default configuration is:

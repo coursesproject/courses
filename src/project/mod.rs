@@ -87,7 +87,7 @@ pub type ProjectResult<'a> = Project<&'a Option<Document<RenderResult>>>;
 pub type ProjectItemVec = Vec<ItemDescriptor<Option<Document<RenderResult>>>>;
 
 /// Contains necessary information for reconstructing a Config from an iterator.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ItemDescriptor<D> {
     pub part_id: Option<String>,
     pub chapter_id: Option<String>,

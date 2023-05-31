@@ -42,7 +42,7 @@ impl InnerContent {
 
     pub(crate) fn push_inline(&mut self, item: Inline) {
         match self {
-            InnerContent::Blocks(b) => b.push(Block::Plain(item)),
+            InnerContent::Blocks(b) => b.push(Block::Plain(vec![item])),
             InnerContent::Inlines(i) => i.push(item),
         }
     }

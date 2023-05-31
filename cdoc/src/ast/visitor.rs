@@ -16,7 +16,7 @@ pub trait AstVisitor {
     fn walk_block(&mut self, block: &mut Block) -> Result<()> {
         match *block {
             Block::Heading { .. } => Ok(()),
-            Block::Plain(ref mut i) => self.visit_inline(i),
+            Block::Plain(ref mut i) => self.visit_vec_inline(i),
             Block::Paragraph(ref mut is) | Block::BlockQuote(ref mut is) => {
                 self.visit_vec_inline(is)
             }

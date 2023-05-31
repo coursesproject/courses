@@ -122,7 +122,7 @@ pub enum Block {
         classes: Vec<String>,
         inner: Vec<Inline>,
     },
-    Plain(Inline),
+    Plain(Vec<Inline>),
     Paragraph(Vec<Inline>),
     BlockQuote(Vec<Inline>),
     /// A code block. May originate from markdown fenced code blocks or notebook code cells.

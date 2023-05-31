@@ -63,8 +63,8 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
     let mut res = String::new();
     let mut eq_idx = 0;
     while let Some(idx) = rest.find('$') {
-        let is_block = &rest[idx + 1..idx + 2] == "$";
-        let trailing_space = &rest[idx + 1..idx + 2] == " ";
+        let is_block = rest.len() > 2 && &rest[idx + 1..idx + 2] == "$";
+        let trailing_space = rest.len() > 2 && &rest[idx + 1..idx + 2] == " ";
 
         if is_eq {
             res.push_str(&format!("__{eq_idx}__"));
@@ -149,10 +149,21 @@ impl ShortCodeDef {
                 param.try_map(|v| {
                     Ok(match v {
                         ArgumentValue::Literal(s) => {
-                            ArgumentValue::Literal(vec![Block::Plain(Inline::Text(s))])
+                            ArgumentValue::Literal(vec![Block::Plain(vec![Inline::Text(s)])])
                         }
                         ArgumentValue::Markdown(s) => {
-                            ArgumentValue::Markdown(split_shortcodes(&s, counters)?)
+                            let blocks = split_shortcodes(&s, counters)?;
+                            let blocks = blocks
+                                .into_iter()
+                                .map(|b| {
+                                    if let Block::Paragraph(i) = b {
+                                        Block::Plain(i)
+                                    } else {
+                                        b
+                                    }
+                                })
+                                .collect();
+                            ArgumentValue::Markdown(blocks)
                         }
                     })
                 })
