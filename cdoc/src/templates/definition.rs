@@ -242,12 +242,12 @@ impl TemplateDefinition {
                 .iter()
                 .enumerate()
                 .map(|(i, p)| match p {
-                    Argument::Positional(val) => s
+                    Argument::Positional { value } => s
                         .parameters
                         .get(i)
-                        .map(|sp| sp.type_.validate(val))
-                        .ok_or(ValidationError::InvalidValue(val.inner().to_string()))?,
-                    Argument::Keyword(key, val) => s
+                        .map(|sp| sp.type_.validate(value))
+                        .ok_or(ValidationError::InvalidValue(value.inner().to_string()))?,
+                    Argument::Keyword { name, value } => s
                         .parameters
                         .iter()
                         .find(|sp| &sp.name == name)

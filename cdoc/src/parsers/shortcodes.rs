@@ -31,9 +31,12 @@ pub enum ArgumentValue<T> {
 pub enum Argument<T> {
     /// No key provided - it is inferred from its position in the vector of arguments and the names
     /// specified in the template definition file.
-    Positional { value: ParamValue<T> },
+    Positional { value: ArgumentValue<T> },
     /// Regular keyword argument.
-    Keyword { name: String, value: ParamValue<T> },
+    Keyword {
+        name: String,
+        value: ArgumentValue<T>,
+    },
 }
 
 impl<T> ArgumentValue<T> {
@@ -77,8 +80,8 @@ impl<T> Argument<T> {
         mut f: F,
     ) -> anyhow::Result<Argument<U>> {
         Ok(match self {
-            Argument::Positional { value } => Parameter::Positional { value: f(value)? },
-            Argument::Keyword { name, value } => Parameter::Keyword {
+            Argument::Positional { value } => Argument::Positional { value: f(value)? },
+            Argument::Keyword { name, value } => Argument::Keyword {
                 name,
                 value: f(value)?,
             },

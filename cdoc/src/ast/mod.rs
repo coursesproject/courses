@@ -6,6 +6,7 @@ pub use visitor::*;
 
 use crate::notebook::CellOutput;
 use crate::parsers::shortcodes::Argument;
+use anyhow::Context;
 use pulldown_cmark::{HeadingLevel, LinkType, Options, Parser};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -90,8 +91,10 @@ pub struct Ast(pub Vec<Block>);
 #[derive(Clone, Debug, Default)]
 pub struct CodeAttributes {
     /// Can edit cell
+    #[allow(unused)]
     pub(crate) editable: bool,
     /// Cell is folded by default.
+    #[allow(unused)]
     pub(crate) fold: bool,
 }
 
@@ -153,15 +156,9 @@ pub enum Shortcode {
     Block(ShortcodeBase, Vec<Block>),
 }
 
-pub(crate) fn str_to_blocks(input: &str) -> Vec<Block> {
-    let ast: Ast = Parser::new_ext(input, Options::all()).collect();
-    ast.0
-}
-
-pub(crate) fn math_block_md(src: &str, display_block: bool, trailing_space: bool) -> String {
-    let delim = if display_block { "$$" } else { "$" };
-    let trail = if trailing_space { " " } else { "" };
-    format!("{}{}{}{}", delim, src, delim, trail)
+pub(crate) fn str_to_blocks(input: &str) -> anyhow::Result<Ast> {
+    Ast::make_from_iter(Parser::new_ext(input, Options::all()))
+        .context("when parsing markdown source")
 }
 
 /// Shortcode call and argument specification
@@ -250,36 +247,6 @@ fn extract_inline(start: usize, input: &str) -> Option<ShortcodeIdx> {
         }
     }
     Some(ShortcodeIdx::Inline(start, end))
-}
-
-pub(crate) fn find_all_blocks(input: &str) -> Vec<(usize, usize)> {
-    let mut rest = input;
-    let mut offset = 0;
-
-    let mut res = Vec::new();
-    loop {
-        let next = find_next_block(rest);
-        match next {
-            None => return res,
-            Some((start, end)) => {
-                res.push((offset + start, offset + end));
-                rest = &rest[(end)..];
-                offset += end;
-            }
-        }
-    }
-}
-
-fn find_next_block(input: &str) -> Option<(usize, usize)> {
-    let start = input.find('`')?;
-    let end_delim = if input[(start + 1)..].len() > 2 && &input[(start + 1)..(start + 3)] == "``" {
-        "```"
-    } else {
-        "`"
-    };
-
-    let end = start + 1 + input[(start + 1)..].find(end_delim)? + end_delim.len();
-    Some((start, end))
 }
 
 pub(crate) fn find_shortcode(input: &str) -> Option<ShortcodeIdx> {

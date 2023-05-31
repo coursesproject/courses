@@ -16,7 +16,7 @@ pub struct NotebookRenderer;
 
 impl DocumentRenderer for NotebookRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
-        let renderer = GenericRenderer;
+        let renderer = GenericRenderer::default();
 
         let writer = NotebookWriter {
             cell_source: Vec::new(),
@@ -61,14 +61,16 @@ struct NotebookWriter<'a> {
 impl NotebookWriter<'_> {
     fn push_markdown_cell(&mut self) {
         replace_with_or_abort(&mut self.cell_source, |source| {
-            self.finished_cells.push(Cell::Markdown {
-                common: CellCommon {
-                    metadata: Default::default(),
-                    source: String::from_utf8(source).unwrap(),
-                },
-            });
+            if !source.is_empty() {
+                self.finished_cells.push(Cell::Markdown {
+                    common: CellCommon {
+                        metadata: Default::default(),
+                        source: String::from_utf8(source).unwrap(),
+                    },
+                });
+            }
             Vec::new()
-        });
+        })
     }
 
     fn block(&mut self, block: &Block) -> Result<()> {

@@ -87,7 +87,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
         res.push_str(rest)
     }
 
-    let mut md_blocks = Ast(str_to_blocks(&res));
+    let mut md_blocks = str_to_blocks(&res)?;
 
     MathInserter::new(math_blocks).walk_ast(&mut md_blocks)?;
 
@@ -274,21 +274,22 @@ impl TryFrom<Notebook> for Document<Ast> {
         let content: Vec<Block> = value
             .cells
             .into_iter()
-            .flat_map(|cell| match cell {
-                Cell::Markdown { common } => {
-                    split_shortcodes(&common.source, &mut counters).unwrap()
-                }
+            .map(|cell| match cell {
+                Cell::Markdown { common } => split_shortcodes(&common.source, &mut counters),
                 Cell::Code {
                     common, outputs, ..
-                } => vec![Block::CodeBlock {
+                } => Ok(vec![Block::CodeBlock {
                     source: common.source,
                     tags: common.metadata.tags,
                     attr: Default::default(),
                     reference: None,
                     outputs,
-                }],
-                Cell::Raw { .. } => vec![],
+                }]),
+                Cell::Raw { .. } => Ok(vec![]),
             })
+            .collect::<Result<Vec<Vec<Block>>>>()?
+            .into_iter()
+            .flatten()
             .collect();
         Ok(Document::new(Ast(content), meta, counters))
     }

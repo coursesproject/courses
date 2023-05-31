@@ -22,7 +22,11 @@ fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
         .ok_or(anyhow!("did not write correct number of bytes"))
 }
 
-pub struct GenericRenderer;
+#[derive(Default)]
+pub struct GenericRenderer {
+    list_level: usize,
+    current_list_idx: Vec<Option<u64>>,
+}
 
 impl DocumentRenderer for GenericRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
@@ -288,6 +292,8 @@ impl RenderElement<Block> for GenericRenderer {
                     .render("cell", ctx.format, TemplateType::Builtin, &args, buf)?)
             }
             Block::List(idx, items) => {
+                self.list_level += 1;
+                self.current_list_idx.push(idx.clone());
                 let inner = self.render_inner(items, ctx)?;
                 // let inner: Result<String> = items.iter().map(|b| self.render(b, ctx)).collect();
                 // let inner = inner?;
@@ -313,15 +319,24 @@ impl RenderElement<Block> for GenericRenderer {
                         )?
                     }
                 };
+
+                self.list_level -= 1;
+                self.current_list_idx.pop();
                 Ok(())
             }
-            Block::ListItem(inner) => render_value_template(
-                "list_item",
-                TemplateType::Builtin,
-                &self.render_inner(inner, ctx)?,
-                ctx,
-                buf,
-            ),
+            Block::ListItem(inner) => {
+                let mut args = Context::default();
+                args.insert("lvl", &self.list_level);
+                args.insert("idx", &self.current_list_idx.last().unwrap());
+                self.current_list_idx
+                    .last_mut()
+                    .unwrap()
+                    .as_mut()
+                    .map(|i| *i += 1);
+                args.insert("value", &self.render_inner(inner, ctx)?);
+                ctx.templates
+                    .render("list_item", ctx.format, TemplateType::Builtin, &args, buf)
+            }
         }
     }
 }
@@ -371,11 +386,11 @@ fn add_args(
     args.insert("id_map", &id_map);
     for (i, p) in arguments.into_iter().enumerate() {
         match p {
-            Argument::Positional(val) => args.insert(
+            Argument::Positional { value } => args.insert(
                 def.shortcode.as_ref().unwrap().parameters[i].name.clone(),
-                val.inner(),
+                value.inner(),
             ),
-            Argument::Keyword(k, v) => args.insert(k, v.inner()),
+            Argument::Keyword { name, value } => args.insert(name, value.inner()),
         }
     }
     Ok(())

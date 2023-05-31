@@ -1,4 +1,5 @@
 use crate::ast::{Ast, Block, CodeAttributes, Inline};
+use anyhow::{anyhow, Context};
 use pulldown_cmark::{Event, Tag};
 
 pub(crate) enum InnerContent {
@@ -23,20 +24,20 @@ impl InnerContent {
         }
     }
 
-    pub(crate) fn blocks_mut(&mut self) -> &mut Vec<Block> {
+    pub(crate) fn blocks_mut(&mut self) -> anyhow::Result<&mut Vec<Block>> {
         if let InnerContent::Blocks(b) = self {
-            b
+            Ok(b)
         } else {
-            panic!("Expected blocks")
+            Err(anyhow!("Expected block element"))
         }
     }
 
     #[allow(unused)]
-    fn inlines_mut(&mut self) -> &mut Vec<Inline> {
+    fn inlines_mut(&mut self) -> anyhow::Result<&mut Vec<Inline>> {
         if let InnerContent::Inlines(i) = self {
-            i
+            Ok(i)
         } else {
-            panic!("Expected inlines")
+            Err(anyhow!("Expected inline element"))
         }
     }
 
@@ -48,8 +49,10 @@ impl InnerContent {
     }
 }
 
-impl<'a> FromIterator<Event<'a>> for Ast {
-    fn from_iter<T: IntoIterator<Item = Event<'a>>>(iter: T) -> Self {
+impl Ast {
+    pub(crate) fn make_from_iter<'a, T: IntoIterator<Item = Event<'a>>>(
+        iter: T,
+    ) -> anyhow::Result<Self> {
         let iter = iter.into_iter();
 
         let mut inners = vec![InnerContent::Blocks(Vec::new())];
@@ -80,11 +83,13 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                             .last_mut()
                             .unwrap()
                             .blocks_mut()
+                            .context("for paragraph")?
                             .push(Block::Paragraph(inner.into_inlines())),
                         Tag::Heading(lvl, id, classes) => inners
                             .last_mut()
                             .unwrap()
                             .blocks_mut()
+                            .context("for heading")?
                             .push(Block::Heading {
                                 lvl,
                                 id: id.map(|s| s.to_string()),
@@ -95,12 +100,14 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                             .last_mut()
                             .unwrap()
                             .blocks_mut()
+                            .context("for blockquote")?
                             .push(Block::BlockQuote(inner.into_inlines())),
                         Tag::CodeBlock(_) => {
                             inners
                                 .last_mut()
                                 .unwrap()
                                 .blocks_mut()
+                                .context("for code block")?
                                 .push(Block::CodeBlock {
                                     source: inner
                                         .into_inlines()
@@ -117,11 +124,13 @@ impl<'a> FromIterator<Event<'a>> for Ast {
                             .last_mut()
                             .unwrap()
                             .blocks_mut()
+                            .context("for list")?
                             .push(Block::List(idx, inner.into_blocks())),
                         Tag::Item => inners
                             .last_mut()
                             .unwrap()
                             .blocks_mut()
+                            .context("for item")?
                             .push(Block::ListItem(inner.into_blocks())),
                         Tag::Emphasis => inners
                             .last_mut()
@@ -176,6 +185,6 @@ impl<'a> FromIterator<Event<'a>> for Ast {
             }
         }
         let blocks = inners.remove(0).into_blocks();
-        Ast(blocks)
+        Ok(Ast(blocks))
     }
 }
