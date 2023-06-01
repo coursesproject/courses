@@ -5,7 +5,7 @@ use replace_with::replace_with_or_abort;
 use serde::{Deserialize, Serialize};
 
 use crate::document::Document;
-use crate::notebook::{Cell, CellCommon, Notebook, NotebookMeta};
+use crate::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
 use crate::renderers::generic::GenericRenderer;
 use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderResult};
 
@@ -97,6 +97,29 @@ impl NotebookWriter<'_> {
     }
 
     fn convert(mut self, ast: Ast) -> Result<Notebook> {
+        let cell_meta = CellMeta {
+            jupyter: Some(JupyterLabMeta {
+                outputs_hidden: None,
+                source_hidden: Some(true),
+            }),
+            ..Default::default()
+        };
+        self.finished_cells.push(Cell::Code {
+            common: CellCommon {
+                metadata: cell_meta,
+                source: r#"import requests
+from IPython.core.display import HTML
+HTML(f"""
+<style>
+@import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+</style>
+""")"#
+                    .to_string(),
+            },
+            execution_count: None,
+            outputs: vec![],
+        });
+
         for b in &ast.0 {
             self.block(b)?;
         }

@@ -145,14 +145,21 @@ pub struct NotebookMeta {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CellMeta {
-    collapsed: Option<bool>,
-    autoscroll: Option<Value>,
-    deletable: Option<bool>,
+    pub collapsed: Option<bool>,
+    pub autoscroll: Option<Value>,
+    pub deletable: Option<bool>,
+    pub jupyter: Option<JupyterLabMeta>,
     pub format: Option<String>,
     pub name: Option<String>,
     pub tags: Option<Vec<String>>,
     #[serde(flatten)]
-    additional: Dict,
+    pub additional: Dict,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct JupyterLabMeta {
+    pub outputs_hidden: Option<bool>,
+    pub source_hidden: Option<bool>,
 }
 
 impl Notebook {

@@ -148,7 +148,7 @@ impl Format for HtmlFormat {
     }
 
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer::default())
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         true
@@ -177,7 +177,7 @@ impl Format for InfoFormat {
     }
 
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer::default())
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         false
@@ -205,7 +205,7 @@ impl Format for MarkdownFormat {
         false
     }
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer::default())
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         false
@@ -233,7 +233,7 @@ impl Format for LaTexFormat {
         false
     }
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer::default())
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         true

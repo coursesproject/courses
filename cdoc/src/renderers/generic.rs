@@ -293,7 +293,7 @@ impl RenderElement<Block> for GenericRenderer {
             }
             Block::List(idx, items) => {
                 self.list_level += 1;
-                self.current_list_idx.push(idx.clone());
+                self.current_list_idx.push(*idx);
                 let inner = self.render_inner(items, ctx)?;
                 // let inner: Result<String> = items.iter().map(|b| self.render(b, ctx)).collect();
                 // let inner = inner?;
@@ -328,11 +328,9 @@ impl RenderElement<Block> for GenericRenderer {
                 let mut args = Context::default();
                 args.insert("lvl", &self.list_level);
                 args.insert("idx", &self.current_list_idx.last().unwrap());
-                self.current_list_idx
-                    .last_mut()
-                    .unwrap()
-                    .as_mut()
-                    .map(|i| *i += 1);
+                if let Some(i) = self.current_list_idx.last_mut().unwrap().as_mut() {
+                    *i += 1;
+                }
                 args.insert("value", &self.render_inner(inner, ctx)?);
                 ctx.templates
                     .render("list_item", ctx.format, TemplateType::Builtin, &args, buf)
