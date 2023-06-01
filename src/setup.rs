@@ -53,9 +53,9 @@ mod tests {
         .expect("Setup failed");
 
         let index_path = tmpdir.path().join("content/index.md");
-        let tp_index_path = tmpdir.path().join("templates/index.tera.html");
-        let tp_section_path = tmpdir.path().join("templates/section.tera.html");
-        let tp_nav_path = tmpdir.path().join("templates/nav.tera.html");
+        let tp_index_path = tmpdir.path().join("templates/layouts/section.yml");
+        let tp_section_path = tmpdir.path().join("templates/sources/section.tera.html");
+        let tp_nav_path = tmpdir.path().join("templates/sources/nav.tera.html");
         assert!(index_path.is_file(), "Missing index.md");
         assert!(tp_index_path.is_file(), "Missing index.tera.html");
         assert!(tp_section_path.is_file(), "Missing section.tera.html");

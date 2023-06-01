@@ -13,7 +13,7 @@ use tera::{Context, Filter, Function, Tera};
 
 mod definition;
 
-use crate::parsers::shortcodes::Parameter;
+use crate::parsers::shortcodes::Argument;
 pub use definition::*;
 
 fn create_rhai_filter(source: String) -> impl Filter {
@@ -187,7 +187,7 @@ impl TemplateManager {
     pub fn validate_args_for_template(
         &self,
         id: &str,
-        args: &[Parameter<String>],
+        args: &[Argument<String>],
     ) -> anyhow::Result<Vec<anyhow::Result<()>>> {
         let tp = self
             .get_template(id, TemplateType::Shortcode)

@@ -184,7 +184,7 @@ impl Pipeline {
                     .expect("problems!");
 
                     let ctx = self.get_render_context(&doc, format.borrow());
-                    let mut renderer = GenericRenderer;
+                    let mut renderer = GenericRenderer::default();
                     let res = renderer.render_doc(&ctx).map_err(tera::Error::msg)?;
                     let val = res.content;
                     Ok(Value::String(val))

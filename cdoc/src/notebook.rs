@@ -2,6 +2,7 @@ use crate::ast::{Ast, Block, CodeAttributes};
 use crate::document::DocumentMetadata;
 use crate::parsers::split::parse_code_string;
 use crate::parsers::split_types::Output;
+use anyhow::Context;
 use base64;
 use base64::Engine;
 use pulldown_cmark::CodeBlockKind::Fenced;
@@ -144,14 +145,21 @@ pub struct NotebookMeta {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CellMeta {
-    collapsed: Option<bool>,
-    autoscroll: Option<Value>,
-    deletable: Option<bool>,
+    pub collapsed: Option<bool>,
+    pub autoscroll: Option<Value>,
+    pub deletable: Option<bool>,
+    pub jupyter: Option<JupyterLabMeta>,
     pub format: Option<String>,
     pub name: Option<String>,
     pub tags: Option<Vec<String>>,
     #[serde(flatten)]
-    additional: Dict,
+    pub additional: Dict,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct JupyterLabMeta {
+    pub outputs_hidden: Option<bool>,
+    pub source_hidden: Option<bool>,
 }
 
 impl Notebook {
@@ -437,11 +445,14 @@ impl<'a, 'b> Iterator for NotebookIterator<'a, 'b> {
     }
 }
 
-impl From<Cell> for Vec<Block> {
-    fn from(value: Cell) -> Self {
-        match value {
+impl TryFrom<Cell> for Vec<Block> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Cell) -> Result<Self, Self::Error> {
+        Ok(match value {
             Cell::Markdown { common } => {
-                let ast: Ast = Parser::new_ext(&common.source, Options::all()).collect();
+                let ast: Ast = Ast::make_from_iter(Parser::new_ext(&common.source, Options::all()))
+                    .context("when parsing markdown notebook cell")?;
                 ast.0
             }
             Cell::Code {
@@ -461,19 +472,62 @@ impl From<Cell> for Vec<Block> {
             Cell::Raw { .. } => {
                 vec![]
             }
-        }
+        })
     }
 }
 
-impl From<Notebook> for Ast {
-    fn from(value: Notebook) -> Self {
-        Ast(value
+// impl From<Cell> for Vec<Block> {
+//     fn from(value: Cell) -> Self {
+//         match value {
+//             Cell::Markdown { common } => {
+//                 let ast: Ast = Ast::make_from_iter(Parser::new_ext(&common.source, Options::all())).unwrap();
+//                 ast.0
+//             }
+//             Cell::Code {
+//                 common, outputs, ..
+//             } => {
+//                 vec![Block::CodeBlock {
+//                     source: common.source,
+//                     reference: None,
+//                     attr: CodeAttributes {
+//                         editable: true,
+//                         fold: common.metadata.collapsed.unwrap_or(false),
+//                     },
+//                     tags: common.metadata.tags,
+//                     outputs,
+//                 }]
+//             }
+//             Cell::Raw { .. } => {
+//                 vec![]
+//             }
+//         }
+//     }
+// }
+
+impl TryFrom<Notebook> for Ast {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Notebook) -> Result<Self, Self::Error> {
+        Ok(Ast(value
             .cells
             .into_iter()
-            .flat_map(|c| -> Vec<Block> { c.into() })
-            .collect())
+            .map(|c| -> anyhow::Result<Vec<Block>> { c.try_into() })
+            .collect::<anyhow::Result<Vec<Vec<Block>>>>()?
+            .into_iter()
+            .flatten()
+            .collect()))
     }
 }
+
+// impl From<Notebook> for Ast {
+//     fn from(value: Notebook) -> Self {
+//         Ast(value
+//             .cells
+//             .into_iter()
+//             .flat_map(|c| -> Vec<Block> { c.into() })
+//             .collect())
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

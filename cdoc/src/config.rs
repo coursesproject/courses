@@ -10,10 +10,6 @@ use serde::{Deserialize, Serialize};
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 use crate::parser::{Parser, ParserSettings};
 use crate::processors::exercises::ExercisesConfig;
-// use crate::renderers::html::HtmlRenderer;
-// use crate::renderers::latex::LatexRenderer;
-// use crate::renderers::markdown::MarkdownRenderer;
-// use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::generic::GenericRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::DocumentRenderer;
@@ -25,13 +21,22 @@ pub enum InputFormat {
     Notebook,
 }
 
+/// Implementors define a format. This trait should make format extensions easy to implement.
 #[typetag::serde]
 pub trait Format: DynClone + Debug + Send + Sync {
+    /// Return the file extension used for the given format.
     fn extension(&self) -> &str;
+    /// Template format name. Useful if templates are reused across formats as is the case for
+    /// notebooks which use markdown.
     fn template_name(&self) -> &str;
+    /// Format name that is used in status messages, build output and in the configuration file.
     fn name(&self) -> &str;
+    /// Return true if the format should not be parsed. This may be removed in the future and is
+    /// currently only used for the info format which exports all parsed contents in a project.
     fn no_parse(&self) -> bool;
+    /// Return a renderer instance. Currently does not allow for configuration.
     fn renderer(&self) -> Box<dyn DocumentRenderer>;
+    /// Determines whether non-source files should be copied to
     fn include_resources(&self) -> bool;
     fn use_layout(&self) -> bool;
 }
@@ -116,7 +121,7 @@ impl Format for NotebookFormat {
     }
 
     fn include_resources(&self) -> bool {
-        false
+        true
     }
 
     fn use_layout(&self) -> bool {
@@ -143,7 +148,7 @@ impl Format for HtmlFormat {
     }
 
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer)
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         true
@@ -172,7 +177,7 @@ impl Format for InfoFormat {
     }
 
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer)
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         false
@@ -200,7 +205,7 @@ impl Format for MarkdownFormat {
         false
     }
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer)
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         false
@@ -228,7 +233,7 @@ impl Format for LaTexFormat {
         false
     }
     fn renderer(&self) -> Box<dyn DocumentRenderer> {
-        Box::new(GenericRenderer)
+        Box::<GenericRenderer>::default()
     }
     fn include_resources(&self) -> bool {
         true

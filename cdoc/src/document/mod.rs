@@ -12,7 +12,7 @@ use crate::ast::{
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
-use crate::parsers::shortcodes::{ParamValue, Parameter, ShortCodeDef};
+use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeDef};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -68,11 +68,11 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
 
         if is_eq {
             res.push_str(&format!("__{eq_idx}__"));
-            math_blocks.push(Inline::Math(
-                rest[..idx].to_string(),
-                is_block,
+            math_blocks.push(Inline::Math {
+                source: rest[..idx].to_string(),
+                display_block: is_block,
                 trailing_space,
-            ));
+            });
             eq_idx += 1;
         } else {
             res.push_str(&rest[..idx]);
@@ -87,7 +87,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
         res.push_str(rest)
     }
 
-    let mut md_blocks = Ast(str_to_blocks(&res));
+    let mut md_blocks = str_to_blocks(&res)?;
 
     MathInserter::new(math_blocks).walk_ast(&mut md_blocks)?;
 
@@ -110,9 +110,6 @@ pub fn split_shortcodes(
                 let c = rest[start + 2..end].trim();
                 shortcodes.push((c, ""));
 
-                // let code = parse_shortcode(rest[start + 2..end].trim())?;
-
-                // shortcodes.push(Shortcode::Inline(code.into_base(counters)?));
                 rest = &rest[end + 2..];
             }
             ShortcodeIdx::Block { def, end } => {
@@ -121,12 +118,6 @@ pub fn split_shortcodes(
                 let c = rest[def.0 + 2..def.1].trim();
                 let body = &rest[def.1 + 2..end.0];
                 shortcodes.push((c, body));
-                // let code = parse_shortcode(rest[def.0 + 2..def.1].trim())?;
-
-                // let body = &rest[def.1 + 2..end.0];
-                // let blocks = split_shortcodes(body, counters)?;
-
-                // shortcodes.push(Shortcode::Block(code.into_base(counters)?, blocks));
 
                 rest = &rest[end.1 + 2..];
             }
@@ -151,16 +142,16 @@ impl ShortCodeDef {
         self,
         counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
     ) -> Result<ShortcodeBase> {
-        let parameters: Result<Vec<Parameter<Vec<Block>>>> = self
+        let parameters: Result<Vec<Argument<Vec<Block>>>> = self
             .parameters
             .into_iter()
             .map(|param| {
                 param.try_map(|v| {
                     Ok(match v {
-                        ParamValue::Literal(s) => {
-                            ParamValue::Literal(vec![Block::Plain(vec![Inline::Text(s)])])
+                        ArgumentValue::Literal(s) => {
+                            ArgumentValue::Literal(vec![Block::Plain(vec![Inline::Text(s)])])
                         }
-                        ParamValue::Markdown(s) => {
+                        ArgumentValue::Markdown(s) => {
                             let blocks = split_shortcodes(&s, counters)?;
                             let blocks = blocks
                                 .into_iter()
@@ -172,7 +163,7 @@ impl ShortCodeDef {
                                     }
                                 })
                                 .collect();
-                            ParamValue::Markdown(blocks)
+                            ArgumentValue::Markdown(blocks)
                         }
                     })
                 })
@@ -228,18 +219,6 @@ impl DocPos {
     }
 }
 
-impl<T> Document<T> {
-    pub fn map<O, F: Fn(T) -> O>(self, f: F) -> Document<O> {
-        Document {
-            content: f(self.content),
-            metadata: self.metadata,
-            variables: self.variables,
-            ids: self.ids,
-            id_map: self.id_map,
-        }
-    }
-}
-
 fn id_map_from_ids(
     ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
 ) -> HashMap<String, (usize, ShortCodeDef)> {
@@ -272,6 +251,16 @@ impl<C> Document<C> {
             id_map,
         }
     }
+
+    pub fn map<O, F: Fn(C) -> O>(self, f: F) -> Document<O> {
+        Document {
+            content: f(self.content),
+            metadata: self.metadata,
+            variables: self.variables,
+            ids: self.ids,
+            id_map: self.id_map,
+        }
+    }
 }
 
 impl TryFrom<Notebook> for Document<Ast> {
@@ -285,21 +274,22 @@ impl TryFrom<Notebook> for Document<Ast> {
         let content: Vec<Block> = value
             .cells
             .into_iter()
-            .flat_map(|cell| match cell {
-                Cell::Markdown { common } => {
-                    split_shortcodes(&common.source, &mut counters).unwrap()
-                }
+            .map(|cell| match cell {
+                Cell::Markdown { common } => split_shortcodes(&common.source, &mut counters),
                 Cell::Code {
                     common, outputs, ..
-                } => vec![Block::CodeBlock {
+                } => Ok(vec![Block::CodeBlock {
                     source: common.source,
                     tags: common.metadata.tags,
                     attr: Default::default(),
                     reference: None,
                     outputs,
-                }],
-                Cell::Raw { .. } => vec![],
+                }]),
+                Cell::Raw { .. } => Ok(vec![]),
             })
+            .collect::<Result<Vec<Vec<Block>>>>()?
+            .into_iter()
+            .flatten()
             .collect();
         Ok(Document::new(Ast(content), meta, counters))
     }
