@@ -535,6 +535,7 @@ dependencies = [
  "image",
  "indicatif",
  "inquire",
+ "lazy_static",
  "linked-hash-map",
  "notify",
  "notify-debouncer-mini",

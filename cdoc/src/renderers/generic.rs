@@ -1,11 +1,12 @@
 use crate::ast::{Block, Inline, Shortcode};
-use crate::document::Document;
+use crate::document::{Document, DocumentMetadata};
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 
 use anyhow::{anyhow, Result};
 use pulldown_cmark::HeadingLevel;
 
 use crate::parsers::shortcodes::{Argument, ShortCodeDef};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -22,12 +23,13 @@ fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
         .ok_or(anyhow!("did not write correct number of bytes"))
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct GenericRenderer {
     list_level: usize,
     current_list_idx: Vec<Option<u64>>,
 }
 
+#[typetag::serde(name = "generic")]
 impl DocumentRenderer for GenericRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
         // let doc = doc.to_events();
@@ -83,15 +85,7 @@ impl GenericRenderer {
                 let tdef = ctx
                     .templates
                     .get_template(&def.name, TemplateType::Shortcode)?;
-                add_args(
-                    &tdef,
-                    &mut args,
-                    &def.id,
-                    def.num,
-                    ctx.ids,
-                    ctx.ids_map,
-                    rendered,
-                )?;
+                add_args(&tdef, &mut args, &def.id, def.num, rendered)?;
                 def.name.clone()
             }
             Shortcode::Block(def, body) => {
@@ -105,22 +99,19 @@ impl GenericRenderer {
                 let tdef = ctx
                     .templates
                     .get_template(&def.name, TemplateType::Shortcode)?;
-                add_args(
-                    &tdef,
-                    &mut args,
-                    &def.id,
-                    def.num,
-                    ctx.ids,
-                    ctx.ids_map,
-                    rendered,
-                )?;
+                add_args(&tdef, &mut args, &def.id, def.num, rendered)?;
                 let body = self.render_inner(body, ctx)?;
                 args.insert("body", &body);
                 def.name.clone()
             }
         };
-        ctx.templates
-            .render(&name, ctx.format, TemplateType::Shortcode, &args, buf)
+        ctx.templates.render(
+            &name,
+            ctx.format.template_prefix(),
+            TemplateType::Shortcode,
+            &args,
+            buf,
+        )
     }
 }
 
@@ -250,9 +241,13 @@ impl RenderElement<Block> for GenericRenderer {
                 // println!("{}", );
                 args.insert("level", &header_lvl_to_int(lvl));
                 args.insert("inner", &self.render_inner(inner, ctx)?);
-                Ok(ctx
-                    .templates
-                    .render("header", ctx.format, TemplateType::Builtin, &args, buf)?)
+                Ok(ctx.templates.render(
+                    "header",
+                    ctx.format.template_prefix(),
+                    TemplateType::Builtin,
+                    &args,
+                    buf,
+                )?)
             }
             Block::Plain(inner) => self.render(inner, ctx, buf),
             Block::Paragraph(inner) | Block::BlockQuote(inner) => render_value_template(
@@ -287,9 +282,13 @@ impl RenderElement<Block> for GenericRenderer {
                 args.insert("tags", &tags);
                 args.insert("outputs", &self.render_inner(outputs, ctx)?);
 
-                Ok(ctx
-                    .templates
-                    .render("cell", ctx.format, TemplateType::Builtin, &args, buf)?)
+                Ok(ctx.templates.render(
+                    "cell",
+                    ctx.format.template_prefix(),
+                    TemplateType::Builtin,
+                    &args,
+                    buf,
+                )?)
             }
             Block::List(idx, items) => {
                 self.list_level += 1;
@@ -312,7 +311,7 @@ impl RenderElement<Block> for GenericRenderer {
                         args.insert("value", &inner);
                         ctx.templates.render(
                             "list_ordered",
-                            ctx.format,
+                            ctx.format.template_prefix(),
                             TemplateType::Builtin,
                             &args,
                             buf,
@@ -332,8 +331,13 @@ impl RenderElement<Block> for GenericRenderer {
                     *i += 1;
                 }
                 args.insert("value", &self.render_inner(inner, ctx)?);
-                ctx.templates
-                    .render("list_item", ctx.format, TemplateType::Builtin, &args, buf)
+                ctx.templates.render(
+                    "list_item",
+                    ctx.format.template_prefix(),
+                    TemplateType::Builtin,
+                    &args,
+                    buf,
+                )
             }
         }
     }
@@ -345,8 +349,13 @@ fn render_basic_template(
     ctx: &RenderContext,
     buf: impl Write,
 ) -> Result<()> {
-    ctx.templates
-        .render(name, ctx.format, type_, &Context::default(), buf)
+    ctx.templates.render(
+        name,
+        ctx.format.template_prefix(),
+        type_,
+        &Context::default(),
+        buf,
+    )
 }
 
 fn render_value_template(
@@ -358,7 +367,8 @@ fn render_value_template(
 ) -> Result<()> {
     let mut args = Context::default();
     args.insert("value", value);
-    ctx.templates.render(name, ctx.format, type_, &args, buf)
+    ctx.templates
+        .render(name, ctx.format.template_prefix(), type_, &args, buf)
 }
 
 static COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -372,16 +382,13 @@ fn add_args(
     args: &mut Context,
     id: &Option<String>,
     num: usize,
-    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
-    id_map: &HashMap<String, (usize, ShortCodeDef)>,
     arguments: Vec<Argument<String>>,
 ) -> Result<()> {
     if let Some(id) = id {
         args.insert("id", &id);
     }
     args.insert("num", &num);
-    args.insert("ids", &ids);
-    args.insert("id_map", &id_map);
+
     for (i, p) in arguments.into_iter().enumerate() {
         match p {
             Argument::Positional { value } => args.insert(
@@ -405,8 +412,13 @@ fn render_image(
     args.insert("url", url);
     args.insert("alt", alt);
     args.insert("inner", inner);
-    ctx.templates
-        .render("image", ctx.format, TemplateType::Builtin, &args, buf)
+    ctx.templates.render(
+        "image",
+        ctx.format.template_prefix(),
+        TemplateType::Builtin,
+        &args,
+        buf,
+    )
 }
 
 fn render_link(
@@ -420,8 +432,13 @@ fn render_link(
     args.insert("url", url);
     args.insert("alt", alt);
     args.insert("inner", inner);
-    ctx.templates
-        .render("link", ctx.format, TemplateType::Builtin, &args, buf)
+    ctx.templates.render(
+        "link",
+        ctx.format.template_prefix(),
+        TemplateType::Builtin,
+        &args,
+        buf,
+    )
 }
 
 fn render_math(
@@ -435,6 +452,11 @@ fn render_math(
     args.insert("display_mode", &display_mode);
     args.insert("trailing_space", &trailing_space);
     args.insert("value", inner);
-    ctx.templates
-        .render("math", ctx.format, TemplateType::Builtin, &args, buf)
+    ctx.templates.render(
+        "math",
+        ctx.format.template_prefix(),
+        TemplateType::Builtin,
+        &args,
+        buf,
+    )
 }

@@ -2,7 +2,9 @@ use crate::ast::Ast;
 use crate::config::Format;
 use anyhow::Result;
 
+use dyn_clone::DynClone;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::io::Write;
 
 use syntect::highlighting::Theme;
@@ -23,17 +25,18 @@ pub struct RenderContext<'a> {
     pub doc: &'a Document<Ast>,
     pub templates: &'a TemplateManager,
     pub extra_args: Context,
-    pub syntax_set: SyntaxSet,
-    pub theme: Theme,
+    pub syntax_set: &'a SyntaxSet,
+    pub theme: &'a Theme,
     pub notebook_output_meta: &'a NotebookMeta,
     pub format: &'a dyn Format,
-    pub ids: &'a HashMap<String, (usize, Vec<ShortCodeDef>)>,
-    pub ids_map: &'a HashMap<String, (usize, ShortCodeDef)>,
 }
 
-pub trait DocumentRenderer {
+#[typetag::serde]
+pub trait DocumentRenderer: DynClone + Debug + Send + Sync {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>>;
 }
+
+dyn_clone::clone_trait_object!(DocumentRenderer);
 
 pub trait RenderElement<T> {
     fn render(&mut self, elem: &T, ctx: &RenderContext, buf: impl Write) -> Result<()>;

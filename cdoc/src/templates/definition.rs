@@ -84,6 +84,7 @@ pub struct Template(TemplateSource);
 pub enum TemplateSource {
     String(String),
     File(PathBuf),
+    Derive(String),
 }
 
 impl Display for TemplateType {
@@ -210,6 +211,7 @@ impl TemplateDefinition {
         match &tp.0 {
             TemplateSource::String(s) => Ok(s.clone()),
             TemplateSource::File(p) => Ok(fs::read_to_string(base_path.join(p))?),
+            TemplateSource::Derive(parent) => self.template_for_format(base_path, parent),
         }
     }
 

@@ -23,6 +23,7 @@ pub enum ArgumentValue<T> {
     Literal(T),
     // A value that is parsed as markdown with shortcodes. Useful for rich text such as captions.
     Markdown(T),
+    // List(Vec<ArgumentValue<T>>),
 }
 
 /// A shortcode argument

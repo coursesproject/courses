@@ -11,9 +11,10 @@ use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderRes
 
 pub struct NotebookRendererBuilder;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NotebookRenderer;
 
+#[typetag::serde(name = "notebook")]
 impl DocumentRenderer for NotebookRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
         let renderer = GenericRenderer::default();

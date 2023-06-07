@@ -33,7 +33,7 @@ fn create_rhai_filter(source: String) -> impl Filter {
 fn get_shortcode_tera_fn<'a>(
     temp: TemplateManager,
     id: String,
-    format: Box<dyn Format>,
+    template_prefix: String,
     type_: TemplateType,
 ) -> impl Function + 'a {
     Box::new(
@@ -46,7 +46,7 @@ fn get_shortcode_tera_fn<'a>(
             });
 
             let mut buf = Cursor::new(Vec::new());
-            match temp.render(&id, format.borrow(), type_.clone(), &ctx, &mut buf) {
+            match temp.render(&id, &template_prefix, type_.clone(), &ctx, &mut buf) {
                 Ok(()) => Ok(Value::String(String::from_utf8(buf.into_inner()).unwrap())),
                 Err(e) => {
                     let mut buf = Vec::new();
@@ -115,18 +115,14 @@ impl TemplateManager {
             .try_for_each(|(tp_name, def)| {
                 let (_, id) = tp_name.split_once('_').unwrap();
                 let type_ = &def.type_;
-                for format in def.templates.keys() {
-                    let format: Box<dyn Format> =
-                        serde_json::from_str(&format!("{{\"{}\": {{}}}}", format))
-                            .expect("problems!");
-
+                for template_prefix in def.templates.keys() {
                     let f = get_shortcode_tera_fn(
                         self.clone(),
                         id.to_string(),
-                        format.clone(),
+                        template_prefix.clone(),
                         type_.clone(),
                     );
-                    let name = format!("shortcode_{format}_{id}");
+                    let name = format!("shortcode_{template_prefix}_{id}");
                     self.tera.register_function(&name, f);
                 }
                 Ok::<(), anyhow::Error>(())
@@ -166,13 +162,13 @@ impl TemplateManager {
     pub fn render(
         &self,
         id: &str,
-        format: &dyn Format,
+        template_prefix: &str,
         type_: TemplateType,
         args: &Context,
         buf: impl Write,
     ) -> anyhow::Result<()> {
         let tp = self.get_template(id, type_)?;
-        let format_str = format.template_name();
+        let format_str = template_prefix;
         tp.has_format(format_str).context(format!(
             "template with id '{id}' does not support format '{format_str}"
         ))?;

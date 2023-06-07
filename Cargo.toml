@@ -47,6 +47,7 @@ beau_collector = "0.2.1"
 linked-hash-map = {version="0.5.6", features=["serde_impl"]}
 image = "0.24.6"
 base64-simd = "0.8.0"
+lazy_static = "1.4.0"
 
 
 # CLI libraries

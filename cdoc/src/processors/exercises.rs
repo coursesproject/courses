@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 use crate::ast::{Ast, AstVisitor, CodeAttributes};
-use crate::document::Document;
+use crate::document::{Document, DocumentMetadata};
 use crate::notebook::CellOutput;
+use crate::parser::ParserSettings;
 use crate::parsers::split::parse_code_string;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
 
@@ -12,8 +13,14 @@ pub struct ExercisesConfig;
 
 #[typetag::serde(name = "exercises")]
 impl AstPreprocessorConfig for ExercisesConfig {
-    fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>> {
-        Ok(Box::new(Exercises))
+    fn build(
+        &self,
+        _ctx: &PreprocessorContext,
+        settings: &ParserSettings,
+    ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
+        Ok(Box::new(Exercises {
+            include_solutions: settings.solutions,
+        }))
     }
 }
 
@@ -24,8 +31,10 @@ impl AstPreprocessorConfig for ExercisesConfig {
 //     }
 // }
 
-#[derive(Debug)]
-pub struct Exercises;
+#[derive(Debug, Default)]
+pub struct Exercises {
+    include_solutions: bool,
+}
 
 impl AstVisitor for Exercises {
     fn visit_code_block(
@@ -37,8 +46,13 @@ impl AstVisitor for Exercises {
         _outputs: &mut Vec<CellOutput>,
     ) -> anyhow::Result<()> {
         let res = parse_code_string(source.clone().as_ref())?;
-        let (pc, _) = res.split();
-        *source = pc.strip_suffix('\n').unwrap_or(&pc).to_string();
+
+        let (pc, solution) = res.split();
+        let out_string = if self.include_solutions { solution } else { pc };
+        *source = out_string
+            .strip_suffix('\n')
+            .unwrap_or(&out_string)
+            .to_string();
         Ok(())
     }
 }

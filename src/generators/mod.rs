@@ -90,7 +90,7 @@ impl Generator<'_> {
 
                 self.templates.render(
                     "section",
-                    self.format,
+                    self.format.template_prefix(),
                     TemplateType::Layout,
                     &context,
                     &mut writer,

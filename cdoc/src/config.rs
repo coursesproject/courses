@@ -1,6 +1,7 @@
 use std::cmp::{Eq, PartialEq};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::ValueEnum;
@@ -28,7 +29,7 @@ pub trait Format: DynClone + Debug + Send + Sync {
     fn extension(&self) -> &str;
     /// Template format name. Useful if templates are reused across formats as is the case for
     /// notebooks which use markdown.
-    fn template_name(&self) -> &str;
+    fn template_prefix(&self) -> &str;
     /// Format name that is used in status messages, build output and in the configuration file.
     fn name(&self) -> &str;
     /// Return true if the format should not be parsed. This may be removed in the future and is
@@ -98,13 +99,61 @@ pub struct MarkdownFormat {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LaTexFormat {}
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DynamicFormat {
+    pub extension: String,
+    pub template_prefix: String,
+    pub name: String,
+    #[serde(default = "default_renderer")]
+    pub renderer: Box<dyn DocumentRenderer>,
+    #[serde(default)]
+    pub include_resources: bool,
+    #[serde(default)]
+    pub use_layout: bool,
+}
+
+fn default_renderer() -> Box<dyn DocumentRenderer> {
+    Box::new(GenericRenderer::default())
+}
+
+#[typetag::serde(name = "dynamic")]
+impl Format for DynamicFormat {
+    fn extension(&self) -> &str {
+        &self.extension
+    }
+
+    fn template_prefix(&self) -> &str {
+        &self.template_prefix
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn no_parse(&self) -> bool {
+        false
+    }
+
+    fn renderer(&self) -> Box<dyn DocumentRenderer> {
+        self.renderer.clone()
+    }
+
+    fn include_resources(&self) -> bool {
+        self.include_resources
+    }
+
+    fn use_layout(&self) -> bool {
+        self.use_layout
+    }
+}
+
 #[typetag::serde(name = "notebook")]
 impl Format for NotebookFormat {
     fn extension(&self) -> &str {
         "ipynb"
     }
 
-    fn template_name(&self) -> &str {
+    fn template_prefix(&self) -> &str {
         "markdown"
     }
 
@@ -135,7 +184,7 @@ impl Format for HtmlFormat {
         "html"
     }
 
-    fn template_name(&self) -> &str {
+    fn template_prefix(&self) -> &str {
         "html"
     }
 
@@ -164,7 +213,7 @@ impl Format for InfoFormat {
         "yml"
     }
 
-    fn template_name(&self) -> &str {
+    fn template_prefix(&self) -> &str {
         "yml"
     }
 
@@ -193,7 +242,7 @@ impl Format for MarkdownFormat {
         "md"
     }
 
-    fn template_name(&self) -> &str {
+    fn template_prefix(&self) -> &str {
         "markdown"
     }
 
@@ -221,7 +270,7 @@ impl Format for LaTexFormat {
         "tex"
     }
 
-    fn template_name(&self) -> &str {
+    fn template_prefix(&self) -> &str {
         "latex"
     }
 

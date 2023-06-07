@@ -7,6 +7,7 @@ use thiserror::Error;
 
 use crate::config::Format;
 use crate::document::Document;
+use crate::parser::ParserSettings;
 use crate::parsers::split::Rule;
 use crate::templates::TemplateManager;
 
@@ -36,7 +37,11 @@ pub trait AstPreprocessor: Display {
 
 #[typetag::serde(tag = "name")]
 pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
-    fn build(&self, ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn AstPreprocessor>>;
+    fn build(
+        &self,
+        ctx: &PreprocessorContext,
+        settings: &ParserSettings,
+    ) -> anyhow::Result<Box<dyn AstPreprocessor>>;
 }
 
 dyn_clone::clone_trait_object!(AstPreprocessorConfig);

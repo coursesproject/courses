@@ -15,6 +15,7 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub repository: RepositoryConfig,
     pub outputs: Vec<Box<dyn Format>>,
+    // pub profiles: HashMap<String, Parser>,
     #[serde(flatten)]
     pub parser: Parser,
     #[serde(default)]

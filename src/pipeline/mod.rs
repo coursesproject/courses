@@ -34,6 +34,7 @@ use rayon::prelude::*;
 use crate::generators::Generator;
 use crate::project::config::ProjectConfig;
 use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec};
+use lazy_static::lazy_static;
 use std::borrow::Borrow;
 
 mod mover;
@@ -121,6 +122,11 @@ pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
     }
 }
 
+lazy_static! {
+    static ref default_syntax: SyntaxSet = SyntaxSet::load_defaults_newlines();
+    static ref default_theme: ThemeSet = ThemeSet::load_defaults();
+}
+
 impl Pipeline {
     pub fn new<P: AsRef<Path>>(
         project_path: P,
@@ -202,17 +208,18 @@ impl Pipeline {
     ) -> RenderContext<'a> {
         let mut meta = Context::default();
         meta.insert("config", &self.project_config);
-        let ts = ThemeSet::load_defaults();
+        meta.insert("ids", &doc.ids);
+        meta.insert("id_map", &doc.id_map);
+        meta.insert("doc_meta", &doc.metadata);
+        let ts = &default_theme;
         RenderContext {
             templates: &self.templates,
             extra_args: meta,
-            syntax_set: SyntaxSet::load_defaults_newlines(),
-            theme: ts.themes["base16-ocean.light"].clone(),
+            syntax_set: &default_syntax,
+            theme: &ts.themes["base16-ocean.light"],
             notebook_output_meta: self.project_config.notebook_meta.as_ref().unwrap(),
             format,
             doc,
-            ids: &doc.ids,
-            ids_map: &doc.id_map,
         }
     }
 

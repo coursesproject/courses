@@ -43,7 +43,7 @@ impl Parser {
         let mut built = self
             .preprocessors
             .iter()
-            .map(|p| p.build(ctx))
+            .map(|p| p.build(ctx, &self.settings))
             .collect::<anyhow::Result<Vec<Box<dyn AstPreprocessor>>>>()?;
 
         let doc = built.iter_mut().fold(Ok(doc), |c, ast_processor| {
