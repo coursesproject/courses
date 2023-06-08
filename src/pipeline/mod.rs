@@ -123,8 +123,8 @@ pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
 }
 
 lazy_static! {
-    static ref default_syntax: SyntaxSet = SyntaxSet::load_defaults_newlines();
-    static ref default_theme: ThemeSet = ThemeSet::load_defaults();
+    static ref DEFAULT_SYNTAX: SyntaxSet = SyntaxSet::load_defaults_newlines();
+    static ref DEFAULT_THEME: ThemeSet = ThemeSet::load_defaults();
 }
 
 impl Pipeline {
@@ -211,11 +211,11 @@ impl Pipeline {
         meta.insert("ids", &doc.ids);
         meta.insert("id_map", &doc.id_map);
         meta.insert("doc_meta", &doc.metadata);
-        let ts = &default_theme;
+        let ts = &DEFAULT_THEME;
         RenderContext {
             templates: &self.templates,
             extra_args: meta,
-            syntax_set: &default_syntax,
+            syntax_set: &DEFAULT_SYNTAX,
             theme: &ts.themes["base16-ocean.light"],
             notebook_output_meta: self.project_config.notebook_meta.as_ref().unwrap(),
             format,

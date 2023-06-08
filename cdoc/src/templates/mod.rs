@@ -1,11 +1,9 @@
-use crate::config::Format;
 use anyhow::{anyhow, Context as AnyhowContext};
 use rhai::{Dynamic, Engine, Scope};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{Cursor, Write};
 
-use std::borrow::Borrow;
 use std::io;
 use std::path::PathBuf;
 

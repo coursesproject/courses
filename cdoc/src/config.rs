@@ -1,7 +1,6 @@
 use std::cmp::{Eq, PartialEq};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::ValueEnum;
@@ -113,7 +112,7 @@ pub struct DynamicFormat {
 }
 
 fn default_renderer() -> Box<dyn DocumentRenderer> {
-    Box::new(GenericRenderer::default())
+    Box::<GenericRenderer>::default()
 }
 
 #[typetag::serde(name = "dynamic")]

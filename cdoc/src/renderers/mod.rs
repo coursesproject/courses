@@ -3,7 +3,7 @@ use crate::config::Format;
 use anyhow::Result;
 
 use dyn_clone::DynClone;
-use std::collections::HashMap;
+
 use std::fmt::Debug;
 use std::io::Write;
 
@@ -13,7 +13,7 @@ use tera::Context;
 
 use crate::document::Document;
 use crate::notebook::NotebookMeta;
-use crate::parsers::shortcodes::ShortCodeDef;
+
 use crate::templates::TemplateManager;
 
 pub mod generic;

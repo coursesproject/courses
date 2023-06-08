@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 use crate::ast::{Ast, AstVisitor, CodeAttributes};
-use crate::document::{Document, DocumentMetadata};
+use crate::document::Document;
 use crate::notebook::CellOutput;
 use crate::parser::ParserSettings;
 use crate::parsers::split::parse_code_string;
@@ -23,13 +23,6 @@ impl AstPreprocessorConfig for ExercisesConfig {
         }))
     }
 }
-
-// #[typetag::serde(name = "code_split")]
-// impl EventPreprocessorConfig for ExercisesConfig {
-//     fn build(&self, _ctx: &PreprocessorContext) -> anyhow::Result<Box<dyn EventPreprocessor>> {
-//         Ok(Box::new(Exercises))
-//     }
-// }
 
 #[derive(Debug, Default)]
 pub struct Exercises {
@@ -67,67 +60,6 @@ impl AstPreprocessor for Exercises {
         Ok(input)
     }
 }
-
-// impl EventPreprocessor for Exercises {
-//     fn name(&self) -> String {
-//         "Code split".to_string()
-//     }
-//
-//     fn process(&self, input: Document<EventContent>) -> Result<Document<EventContent>, Error> {
-//         let mut code_block = false;
-//         let mut source = "".to_string();
-//         let mut code_attr = String::new();
-//
-//         let content = input
-//             .content
-//             .into_iter()
-//             .flat_map(|event| match &event {
-//                 AEvent::Start(tag) => {
-//                     if let ATag::CodeBlock(ACodeBlockKind::Fenced(attr)) = &tag {
-//                         code_block = true;
-//                         code_attr = attr.to_string();
-//                     }
-//                     vec![Ok(AEvent::Start(tag.clone()))]
-//                 }
-//                 AEvent::End(tag) => {
-//                     if let ATag::CodeBlock(ACodeBlockKind::Fenced(_)) = tag {
-//                         // TODO: Here
-//                         let res = parse_code_string(source.clone().as_ref());
-//                         code_block = false;
-//                         source = String::new();
-//                         match res {
-//                             Ok(doc) => {
-//                                 let (pc, _solution) = doc.split();
-//                                 vec![
-//                                     Ok(AEvent::Text(pc.trim().to_string())),
-//                                     Ok(AEvent::End(tag.clone())),
-//                                 ]
-//                             }
-//                             Err(e) => vec![Err(CodeParseError(human_errors(*e)))],
-//                         }
-//                     } else {
-//                         vec![Ok(event)]
-//                     }
-//                 }
-//                 AEvent::Text(txt) => {
-//                     if code_block {
-//                         source.push_str(txt.as_ref());
-//                         vec![]
-//                     } else {
-//                         vec![Ok(AEvent::Text(txt.clone()))]
-//                     }
-//                 }
-//                 _ => vec![Ok(event)],
-//             })
-//             .collect::<Result<Vec<AEvent>, Error>>()?;
-//
-//         Ok(Document {
-//             metadata: input.metadata,
-//             variables: input.variables,
-//             content,
-//         })
-//     }
-// }
 
 impl Display for Exercises {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

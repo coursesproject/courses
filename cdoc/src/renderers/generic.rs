@@ -1,13 +1,13 @@
 use crate::ast::{Block, Inline, Shortcode};
-use crate::document::{Document, DocumentMetadata};
+use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 
 use anyhow::{anyhow, Result};
 use pulldown_cmark::HeadingLevel;
 
-use crate::parsers::shortcodes::{Argument, ShortCodeDef};
+use crate::parsers::shortcodes::Argument;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tera::Context;
@@ -267,9 +267,9 @@ impl RenderElement<Block> for GenericRenderer {
 
                 let highlighted = syntect::html::highlighted_html_for_string(
                     source,
-                    &ctx.syntax_set,
+                    ctx.syntax_set,
                     ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
-                    &ctx.theme,
+                    ctx.theme,
                 )?;
 
                 let mut args = Context::default();
