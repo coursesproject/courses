@@ -124,11 +124,11 @@ pub enum OutputValue {
     Json(HashMap<String, Value>),
     #[serde(rename = "text/html")]
     Html(
-        #[serde(
-            deserialize_with = "concatenate_deserialize",
-            serialize_with = "concatenate_serialize"
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
         )]
-        String,
+        Vec<String>,
     ),
     #[serde(rename = "application/javascript")]
     Javascript(String),
@@ -271,7 +271,7 @@ impl CellOutput {
                     }
                     OutputValue::Html(v) => {
                         vec![(
-                            Event::Html(CowStr::Boxed(v.to_string().into_boxed_str())),
+                            Event::Html(CowStr::Boxed(v.join("\n").into_boxed_str())),
                             (0..0),
                         )]
                     }

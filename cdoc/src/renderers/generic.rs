@@ -187,7 +187,7 @@ impl RenderElement<OutputValue> for GenericRenderer {
                 render_value_template("output_svg", TemplateType::Builtin, s, ctx, buf)
             }
             OutputValue::Json(s) => write_bytes(&serde_json::to_string(s)?, buf),
-            OutputValue::Html(s) => write_bytes(s, buf),
+            OutputValue::Html(s) => write_bytes(&s.join(""), buf),
             OutputValue::Javascript(_) => Ok(()),
         }
     }
