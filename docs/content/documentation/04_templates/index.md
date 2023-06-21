@@ -5,56 +5,112 @@ title: Templates
 # Templates
 
 In courses, the layout and style of the output is fully customizable. Everything from the page and menus to individual 
-markdown elements are rendered using [Tera](https://tera.netlify.app/) templates.  
+markdown elements are rendered using [Tera](https://tera.netlify.app/) templates.
+
+The templates are defined in *YAML* files with the template source for each output format being provided either directly 
+as strings or as file links. This makes organisation a lot easier, especially since there are a lot of templates. 
+
+Courses contains three kinds of templates: *builtins*, *shortcodes*, and *layouts*. The type determines in what 
+situations the template may be used and what kind of metadata it might contain. Shortcodes are by far the most complex 
+and are covered in detail in its own section. Builtins specifies templates for individual document elements such as 
+code cells or headings. Layouts are currently only used to define a single parent layout used for all pages as the base 
+template (only for formats where it is relevant).
 
 ## Template folder structure
 
-The template folder has to contain at least the following files:
+The template folder should have the following structure and base files:
 
 ```text
 - templates/
     - builtins/
-        - <format>/
-            - cell.tera.<format> (code cell)
-            - image.tera.<format> (markdown image)
-            - link.tera.<format> (markdown link)
-            - list_item.tera.<format> (markdown list item)
-            - list_ordered.tera.<format> (markdown unordered list)
-            - list_unordered.tera.<format> (markdown ordered list)
-            - output_error.tera.<format> (notebook output)
-            - output_text.tera.<format> (notebook output)
-            - output_img.tera.<format> (notebook output - base64 image data)
-            - output_svg.tera.<format> (notebook output - svg data)
+        - cell.yml (code cell)
+        - emphasis.yml 
+        - hard_break.yml
+        - header.yml
+        - horizontal_rule.yml
+        - image.yml
+        - inline_code.yml
+        - image.yml (markdown image)
+        - link.yml (markdown link)
+        - list_item.yml (markdown list item)
+        - list_ordered.yml (markdown unordered list)
+        - list_unordered.yml (markdown ordered list)
+        - math.yml
+        - output_error.yml (notebook output)
+        - output_text.yml (notebook output)
+        - output_img.yml (notebook output - base64 image data)
+        - output_svg.yml (notebook output - svg data)
+        - paragraph.yml
+        - soft_break.yml
+        - strong.yml
     - shortcodes/
         ...
-    - section.tera.<format>
-    ...
+    - sections/
+        - section.yml
+    - sources
+        - <linked template files>
     
 ```
 
-where `<format>` is a placeholder for a given output format (e.g. html). The templates in the `builtins` folder need to 
-be present for courses to be able to render the corresponding document elements. The `section.tera.<format>` file is 
-used to render each document. 
+Check the [code for the default template](https://github.com/coursesproject/courses-template-default/tree/main/templates) 
+for an example implementation of the builtin templates and layouts. 
 
-## Template layouts
-The `section` template is responsible for constructing the output for a single document and exists for all output 
-formats. This includes navigation and references. Therefore, the template receives a comprehensive set of values 
-containing information on the project's structure and content.
+## Template structure
+The `yml` file for each template follows a common structure as shown below:
+
+```yaml
+name: <name>
+description: <description>
+
+type: <builtin/shortcode/layout>
+
+examples:
+  - title: <title>
+    body: <markdown body>
+
+
+templates:
+  html: !String |
+    <body>
+  markdown: !String |
+    <body>
+  latex: !File <path>
+```
+
+The following elements must always be present for the template to be valid:
+- **Name:** A descriptive name for the template. This is mostly useful for generating documentation.
+- **Description:** A description of what the template does.
+- **Type:** This field must be one of: *builtin*, *layout*, or *shortcode*. 
+- **Examples:** Contains a list of examples, each with a title, body, and an optional description. Used for 
+  documentation.
+- **Templates:** Contains a map consisting of a template for each output format. The format names must match the 
+    definition in the `config.yml` file.
+
+### Template sources
+Templates can be provided as either a string literal or as a file reference. String literals must be preceded by 
+`!String` and references by `!File`. This notation is derived from how rust deserializes the files.
+
+## Builtins
+Builtins are the simplest templates and usually only have access to a few values determined by the element it 
+represents. 
+
+## Layouts
+The `section.yml` template is responsible for constructing the output for a single document and is used for *html* and 
+*LaTeX* outputs. For web pages, the template should include any menu's, navigation, and general page setup necessary. 
+For LaTeX output, the template should contain the document preamble and any custom commands. Again, the 
+[default template](https://github.com/coursesproject/courses-template-default/tree/main/templates) is an excellent 
+source for learning more about how these can be set up.
+
+### Variables and metadata
+Layouts have access to information on the project structure as well as the individual document that is being processed.
 
 The top-level values are:
 ```text
-- project
 - config
-- current_part
-- current_chapter
-- current_doc
-- doc
+- ids
+- id_map
+- doc_meta
 ```
-
-{% message(title="Tip", color="warning") %}
-The default project template includes a section template with navigation. It is likely much easier to use it as a starting
-point for custom layouts instead of starting from scratch.
-{% end %}
 
 ### Project object
 The project object (simply named `project`) contains the following elements:
@@ -116,10 +172,6 @@ the current document is highlighted.
 ### Current document
 The `doc` value contains the page object for the current document. To render the page, simply do `{{ doc.content | safe}}`.
 
-
-## Builtins
-The builtin templates are used by the rendering process to render specific document elements. The default template 
-provides a neutral starting point for `html` and `md` outputs.
 
 
 

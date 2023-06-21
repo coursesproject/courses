@@ -58,12 +58,25 @@ how many linebreaks there is between arguments.
 ## Custom shortcodes
 
 Each shortcode is defined by a single template file by the same name in a project's `templates/shortcodes` folder. The
-default codes described above are included when using the default `courses init` command to create a project.
+default codes described above are included when using the default `courses init` command to create a project. See the 
+templates page for details on the format.
 
 The templates use the Tera templating engine which is easy to use and has
 excellent [documentation](https://tera.netlify.app/).
 
+### Extra configuration
+Shortcode templates contain extra fields in its `.yml` file for specifying its parameters. Since shortcodes 
+are an integral part of courses, it is critical that they can be documented in a manner that is easy to present to 
+developers. The metadata is available when rendering templates and can thus be used to create documentation as 
+exemplified by the default template's [`docpage.yml` template](https://github.com/coursesproject/courses-template-default/blob/main/templates/shortcodes/docpage.yml).
+
+The parameter definition also provides improved checks for arguments. The compiler ensures that all non-optional 
+arguments are present and that only defined parameter names are used. Finally, the definition specifies the argument 
+order when using the positional calling convention.
+
 ### Parameters
+
+Parameters 
 
 Parameters are defined implicitly by using them in the template. Courses automatically inserts the values provided at
 the shortcode call-site into the template - the names map one-to-one. For block shortcodes, the body is inserted as the
