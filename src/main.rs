@@ -2,7 +2,7 @@
 
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime};
 use std::{env, fs};
 
@@ -126,8 +126,12 @@ async fn cli_run() -> anyhow::Result<()> {
         Commands::Run { path, mode, script } => {
             let (pipeline, _) = init_and_build(path, mode)?;
             let s = pipeline.project_config.scripts.get(&script).unwrap();
-            let mut child = Command::new("bash").arg("-c").arg(s).spawn()?;
-            child.wait()?;
+            Command::new("bash")
+                .arg("-c")
+                .arg(s)
+                .stdin(Stdio::piped())
+                .status()?;
+
             // assert!(output.status.success());
             Ok(())
         }
