@@ -1,34 +1,31 @@
 url_prefix: /courses
-katex_output: true
 
 custom:
   crates:
     cdoc: https://crates.io/crates/cdoc
     courses: https://crates.io/crates/courses
 
+preprocessors:
+  - name: exercises
+
+settings:
+  solutions: false
+
 repository:
-  url: https://github.com/antonmeskildsen/courses/tree/main/docs
+  url: "https://github.com/antonmeskildsen/courses/"
 
 outputs:
-  - html
-  - latex
+  - html: {}
 
-parsers:
-  html:
-    settings:
-      solutions: false
-      notebook_outputs: true
-    md_processors:
-      - type: shortcodes
-      - type: katex
-    ast_processors:
-      - type: exercises
-  latex:
-    settings:
-      solutions: false
-      notebook_outputs: true
-    md_processors:
-      - type: shortcodes
-      - type: katex
-    ast_processors:
-      - type: exercises
+notebook_meta:
+  kernelspec:
+    display_name: Python
+    language: python3
+    name: python3
+  language_info:
+    codemirror_mode:
+      name: ipython
+      version: 3
+    file_extension: py
+    mimetype: text/x-python
+    name: python

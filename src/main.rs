@@ -2,6 +2,7 @@
 
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{Duration, SystemTime};
 use std::{env, fs};
 
@@ -51,6 +52,13 @@ enum Commands {
     },
     Create {},
     Test {},
+    Run {
+        script: String,
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+        #[arg(short, long, default_value = "release")]
+        mode: Mode,
+    },
     Publish {},
 }
 
@@ -113,6 +121,14 @@ async fn cli_run() -> anyhow::Result<()> {
             pipeline.build_all(true)?;
 
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
+            Ok(())
+        }
+        Commands::Run { path, mode, script } => {
+            let (pipeline, _) = init_and_build(path, mode)?;
+            let s = pipeline.project_config.scripts.get(&script).unwrap();
+            let mut child = Command::new("bash").arg("-c").arg(s).spawn()?;
+            child.wait()?;
+            // assert!(output.status.success());
             Ok(())
         }
         Commands::Serve { path, mode } => {

@@ -26,6 +26,8 @@ pub struct TemplateDefinition {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Example {
     pub title: String,
+    #[serde(default)]
+    pub description: String,
     pub body: String,
 }
 
