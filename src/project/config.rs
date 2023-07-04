@@ -21,6 +21,9 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,
     pub notebook_meta: Option<NotebookMeta>,
+
+    #[serde(default)]
+    pub scripts: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
