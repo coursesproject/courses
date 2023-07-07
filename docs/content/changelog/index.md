@@ -8,6 +8,23 @@ layout:
 
 ## 0.6.x
 
+### 0.6.5
+- Added profiles to configuration files.
+
+### 0.6.4
+- Added scripts to the configuration and added a run command to `courses`.
+
+### 0.6.3
+- Documentation updated to reflect many 0.6.x changes.
+- Unused KaTeX dependency removed for now to enable Windows compatibility.
+
+### 0.6.2
+- Output formats can now have a `dynamic` type. This allows the user to specify the renderer and template prefix used. 
+  A use case is having multiple notebook output formats using different templates.
+- Parser settings are now available for preprocessors.
+- Template definitions can now be copied from others in the same file using the `Derived` type.
+- Syntect types have been changed to references where applicable due to the large cloning overhead.
+
 ### 0.6.1
 - Properly implemented enumerated and nested lists for markdown output.
 - Improved error messages for the pulldown_cmark to internal Ast conversion.
