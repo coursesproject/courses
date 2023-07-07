@@ -5,11 +5,17 @@ use cdoc::parser::ParserSettings;
 use cdoc::parsers::split::parse_code_string;
 use cdoc::parsers::split_types::Output;
 
+/// Type that implements copying resource files from within a project's content folder to
+/// the build output folder.
 pub struct Mover;
 
+/// [Mover] information.
 pub struct MoveContext {
+    /// Project root path.
     pub project_path: PathBuf,
+    /// Build directory (relative to [project_path]).
     pub build_dir: PathBuf,
+    /// Used to determine whether to include solutions in python script files.
     pub settings: ParserSettings,
 }
 
@@ -23,6 +29,7 @@ impl Mover {
         Ok(build_path.join(base_path))
     }
 
+    /// Does the actual copying and calls itself recursively for subdirectories.
     pub fn traverse_dir(path: PathBuf, ctx: &MoveContext) -> anyhow::Result<()> {
         let content_path = ctx.project_path.join("content");
 

@@ -8,7 +8,6 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context as AContext};
 
-use clap::ValueEnum;
 use console::style;
 use image::ImageOutputFormat;
 use indicatif::{MultiProgress, ParallelProgressIterator, ProgressBar, ProgressStyle};
@@ -26,13 +25,12 @@ use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
 use cdoc::templates::TemplateManager;
 use image::io::Reader as ImageReader;
 use mover::{MoveContext, Mover};
-use serde::{Deserialize, Serialize};
 
 use cdoc::renderers::generic::GenericRenderer;
 use rayon::prelude::*;
 
 use crate::generators::Generator;
-use crate::project::config::ProjectConfig;
+use crate::project::config::{Profile, ProjectConfig};
 use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec};
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
@@ -90,23 +88,21 @@ fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
     )
 }
 
+/// Orchestrates the build process for a project (either everything or single files).
 #[derive(Clone)]
 pub struct Pipeline {
-    #[allow(unused)]
-    pub mode: Mode,
+    /// Build profile used for output generation
+    pub profile: Profile,
+    pub profile_name: String,
+    /// Project root path
     pub project_path: PathBuf,
+    /// Project structure
     pub project: Project<()>,
+    /// Configuration for project loaded from config.yml
     pub project_config: ProjectConfig,
+
     templates: TemplateManager,
-
     cached_contexts: Arc<Mutex<HashMap<String, ProjectItemVec>>>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Copy, ValueEnum, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum Mode {
-    Release,
-    Draft,
 }
 
 pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
@@ -128,9 +124,10 @@ lazy_static! {
 }
 
 impl Pipeline {
+    /// Create a new pipeline. Initializes templates.
     pub fn new<P: AsRef<Path>>(
         project_path: P,
-        mode: Mode,
+        profile: String,
         config: ProjectConfig,
         project: Project<()>,
     ) -> anyhow::Result<Self> {
@@ -149,8 +146,15 @@ impl Pipeline {
             create_embed_fn(project_path.as_ref().join("resources"), cache_path),
         );
 
+        let p = config
+            .profiles
+            .get(&profile)
+            .ok_or(anyhow!("Profile doesn't exist"))?
+            .clone();
+
         let mut pipeline = Pipeline {
-            mode,
+            profile: p,
+            profile_name: profile,
             project_path: project_path.as_ref().to_path_buf(),
             project,
             project_config: config,
@@ -224,13 +228,17 @@ impl Pipeline {
     }
 
     fn get_build_path(&self, format: &dyn Format) -> PathBuf {
-        self.project_path.join("build").join(format.name())
+        self.project_path
+            .join("build")
+            .join(&self.profile_name)
+            .join(format.name())
     }
 
     pub fn reload_templates(&mut self) -> anyhow::Result<()> {
         self.templates.reload()
     }
 
+    /// Build a single content file.
     pub fn build_single(&mut self, path: PathBuf) -> anyhow::Result<()> {
         let relpath = path.strip_prefix(self.project_path.join("content"))?;
         println!("{} {}", style("Building file").bold(), relpath.display());
@@ -275,7 +283,7 @@ impl Pipeline {
                             project: project_vec.iter().collect(),
                             templates: &self.templates,
                             config: self.project_config.clone(),
-                            mode: self.mode,
+                            mode: self.profile.mode,
                             build_dir: self.get_build_path(format.as_ref()),
                             format: format.as_ref(),
                         };
@@ -334,16 +342,7 @@ impl Pipeline {
                     .chapter_idx
                     .and_then(|i| i3.chapter_idx.map(|j| i == j));
                 let doc = item.doc_idx.and_then(|i| i3.doc_idx.map(|j| i == j));
-                // let combined = chapter.and_then(part);
-                // println!(
-                //     "{:?} {:?} {:?}, {:?} {:?} {:?}",
-                //     item.part_idx,
-                //     item.chapter_idx,
-                //     item.doc_idx,
-                //     i3.part_idx,
-                //     i3.chapter_idx,
-                //     i3.doc_idx
-                // );
+
                 match part {
                     Some(is_part) => {
                         is_part
@@ -450,6 +449,7 @@ impl Pipeline {
         Ok(item)
     }
 
+    /// Build the whole project (optionally removes existing build)
     pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
         let build_path = self.project_path.join("build");
 
@@ -502,7 +502,7 @@ impl Pipeline {
                     root: self.project_path.to_path_buf(),
                     project_vec: &output,
                     project: output.iter().collect(),
-                    mode: self.mode,
+                    mode: self.profile.mode,
                     templates: &self.templates,
                     config: self.project_config.clone(),
                     format: format.as_ref(),
@@ -532,7 +532,7 @@ impl Pipeline {
                 let move_ctx = MoveContext {
                     project_path: self.project_path.to_path_buf(),
                     build_dir: self.get_build_path(format.as_ref()),
-                    settings: self.project_config.parser.settings.clone(),
+                    settings: self.profile.parser.settings.clone(),
                 };
 
                 let res = Mover::traverse_dir(self.project_path.join("content"), &move_ctx);
@@ -686,7 +686,7 @@ impl Pipeline {
                 output_format: format,
             };
 
-            let res = self.project_config.parser.parse(&doc, &processor_ctx)?;
+            let res = self.profile.parser.parse(&doc, &processor_ctx)?;
 
             // let res = print_err(res)?;
 

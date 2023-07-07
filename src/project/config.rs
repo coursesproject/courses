@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use cdoc::config::Format;
 use cdoc::notebook::NotebookMeta;
-use cdoc::parser::Parser;
+use cdoc::parser::{Parser, ParserSettings};
+use cdoc::processors::exercises::ExercisesConfig;
+use cdoc::processors::AstPreprocessorConfig;
+use clap::ValueEnum;
 
 /// Refers to a configuration.yml file in the project that specifies a variety
 /// of options for the project.
@@ -15,15 +18,23 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub repository: RepositoryConfig,
     pub outputs: Vec<Box<dyn Format>>,
-    // pub profiles: HashMap<String, Parser>,
-    #[serde(flatten)]
-    pub parser: Parser,
+    #[serde(default = "default_profiles")]
+    pub profiles: HashMap<String, Profile>,
+
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,
     pub notebook_meta: Option<NotebookMeta>,
 
     #[serde(default)]
     pub scripts: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Profile {
+    #[serde(default)]
+    pub mode: Mode,
+    #[serde(default)]
+    pub parser: Parser,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -40,4 +51,53 @@ pub struct BuildConfigSet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildConfig {
     pub katex_output: bool,
+}
+
+fn default_profiles() -> HashMap<String, Profile> {
+    let mut p = HashMap::new();
+    p.insert(
+        "draft".to_string(),
+        Profile {
+            mode: Mode::Draft,
+            parser: Parser {
+                preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
+                settings: ParserSettings {
+                    solutions: true,
+                    notebook_outputs: false,
+                },
+            },
+        },
+    );
+
+    p.insert(
+        "release".to_string(),
+        Profile {
+            mode: Mode::Release,
+            parser: Parser {
+                preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
+                settings: ParserSettings {
+                    solutions: false,
+                    notebook_outputs: false,
+                },
+            },
+        },
+    );
+
+    p
+}
+
+/// Build mode. This is used internally for generation but is also available in templates.
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, ValueEnum, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    /// Don't include drafts
+    Release,
+    /// Include drafts.
+    Draft,
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Self::Draft
+    }
 }

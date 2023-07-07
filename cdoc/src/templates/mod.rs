@@ -64,6 +64,7 @@ fn err_format(e: anyhow::Error, mut f: impl Write) -> io::Result<()> {
     Ok(())
 }
 
+/// Provides a common Api for the three layout types and output formats.
 #[derive(Clone)]
 pub struct TemplateManager {
     path: PathBuf,
@@ -72,6 +73,7 @@ pub struct TemplateManager {
 }
 
 impl TemplateManager {
+    /// Create new template manager from template path. Reads the template files.
     pub fn from_path(template_path: PathBuf, filter_path: PathBuf) -> anyhow::Result<Self> {
         TemplateManager::new(
             load_template_definitions(template_path.clone())?,
@@ -128,6 +130,7 @@ impl TemplateManager {
         Ok(self)
     }
 
+    /// Reload all files and definitions
     pub fn reload(&mut self) -> anyhow::Result<()> {
         let defs = load_template_definitions(self.path.clone())?;
         let tps = get_templates_from_definitions(&defs, self.path.clone());
@@ -137,10 +140,12 @@ impl TemplateManager {
         Ok(())
     }
 
+    /// Register Tera filter
     pub fn register_filter<F: Filter + 'static>(&mut self, name: &str, filter: F) {
         self.tera.register_filter(name, filter)
     }
 
+    /// Fetch a [TemplateDefinition] by specifying its id and type.
     pub fn get_template(
         &self,
         id: &str,
@@ -157,6 +162,16 @@ impl TemplateManager {
         Ok(tp.clone())
     }
 
+    /// Render a template to a specified format
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The template identifier (the name of the definition file)
+    /// * `template_prefix` - The template format key (which output format to use)
+    /// * `type_` - The kind of template to render (builtin/layout/shortcode). Ensures that
+    ///     different types can have templates with the same id.
+    /// * `args` - Template arguments contained in a Tera context.
+    /// * `buf` - Buffer to write the output to.
     pub fn render(
         &self,
         id: &str,
@@ -178,6 +193,7 @@ impl TemplateManager {
         Ok(())
     }
 
+    /// Performs argument validation for shortcodes.
     pub fn validate_args_for_template(
         &self,
         id: &str,

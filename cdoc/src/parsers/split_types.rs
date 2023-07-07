@@ -1,3 +1,5 @@
+//! Types for exercise definitions.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -5,6 +7,8 @@ pub trait Output {
     fn write_string(&self, solution: bool) -> String;
 }
 
+/// Represents a line of source code. Can either be markup (descriptions of the exercise) or
+/// code (regular source code).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "content", untagged)]
 pub enum Content {
@@ -14,22 +18,25 @@ pub enum Content {
     Code { code: String },
 }
 
+/// An exercise element with a placeholder and a solution
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "code_block")]
-pub struct SolutionBlock {
+pub struct ExerciseBlock {
     pub placeholder: Vec<Content>,
     pub solution: Vec<Content>,
 }
 
+/// A task consists of exercise definitions or regular source code.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "inner", untagged)]
 pub enum Inner {
     #[serde(rename = "code_block")]
-    SolutionBlock(SolutionBlock),
+    ExerciseBlock(ExerciseBlock),
     #[serde(rename = "src")]
     SrcBlock(Content),
 }
 
+/// Describes a block. Currently, only Code blocks are available.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "block")]
 pub struct Block {
@@ -38,6 +45,7 @@ pub struct Block {
     pub inner: Vec<Inner>,
 }
 
+/// Top-level structure. A code file is split into these types.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "value", untagged)]
 pub enum Value {
@@ -46,7 +54,7 @@ pub enum Value {
     #[serde(rename = "src")]
     SrcBlock { content: Content },
     #[serde(rename = "code_block")]
-    SolutionBlock(SolutionBlock),
+    SolutionBlock(ExerciseBlock),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -90,7 +98,7 @@ impl Output for Content {
 impl Output for Inner {
     fn write_string(&self, solution: bool) -> String {
         match self {
-            Inner::SolutionBlock(SolutionBlock {
+            Inner::ExerciseBlock(ExerciseBlock {
                 placeholder,
                 solution: solution_block,
             }) => {
@@ -116,7 +124,7 @@ impl Output for Value {
         match self {
             Value::Block { block } => block.write_string(solution),
             Value::SrcBlock { content } => content.write_string(solution),
-            Value::SolutionBlock(SolutionBlock {
+            Value::SolutionBlock(ExerciseBlock {
                 placeholder,
                 solution: solution_block,
             }) => {

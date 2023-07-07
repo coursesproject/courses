@@ -10,6 +10,7 @@ use rust_embed::RustEmbed;
 #[folder = "resources/bundle/"]
 struct Asset;
 
+// Setup new project
 pub(crate) fn setup(dir: PathBuf, repository: String) -> anyhow::Result<()> {
     let mut temp_file = tempfile::tempfile()?;
     let temp_dir = tempfile::tempdir()?;

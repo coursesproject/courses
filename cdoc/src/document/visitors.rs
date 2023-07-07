@@ -1,7 +1,7 @@
 use crate::ast::{AstVisitor, CodeAttributes, Inline, Shortcode};
 use crate::document::split_shortcodes;
 use crate::notebook::CellOutput;
-use crate::parsers::shortcodes::{parse_shortcode, ShortCodeDef};
+use crate::parsers::shortcodes::{parse_shortcode, ShortCodeCall};
 use regex::Regex;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -32,13 +32,13 @@ impl AstVisitor for MathInserter {
 
 pub struct ShortcodeInserter<'a> {
     shortcodes: Vec<(&'a str, &'a str)>,
-    counters: &'a mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    counters: &'a mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 }
 
 impl<'a> ShortcodeInserter<'a> {
     pub fn new(
         shortcodes: Vec<(&'a str, &'a str)>,
-        counters: &'a mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+        counters: &'a mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Self {
         ShortcodeInserter {
             shortcodes,

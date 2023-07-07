@@ -10,42 +10,58 @@ use crate::parsers::shortcodes::{Argument, ArgumentValue};
 use thiserror::Error;
 use walkdir::WalkDir;
 
+/// Type that reflects the template definitions specified in yml files.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TemplateDefinition {
+    /// The given name is only used if using the template in another template (e.g. for documentation purposes)
     pub name: String,
+    /// A private template is only meant to be used in project configuration.
     #[serde(default)]
     pub private: bool,
     pub description: String,
     #[serde(rename = "type")]
     pub type_: TemplateType,
+    /// Only present for shortcodes
     pub shortcode: Option<ShortcodeDefinition>,
-    pub templates: HashMap<String, Template>,
+    /// A map of the templates for each defined output format
+    pub templates: HashMap<String, TemplateSource>,
+    /// Optional examples (useful for generating documentation)
     pub examples: Option<Vec<Example>>,
 }
 
+/// Specification of a template example.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Example {
     pub title: String,
     #[serde(default)]
     pub description: String,
+    /// The markdown source for the example (should generally contain a call to the shortcode)
     pub body: String,
 }
 
+/// The three template types.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TemplateType {
+    /// Usable in the content files
     Shortcode,
+    /// Used for rendering documents into a template defining a layout
     Layout,
+    /// Any template that corresponds to a markdown element or any of the notebook-specific elements.
     Builtin,
 }
 
+/// Describes a shortcode
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShortcodeDefinition {
     pub kind: ShortcodeType,
+    /// The ordering of the parameters determine their expected position if positional arguments
+    /// are used.
     #[serde(default)]
     pub parameters: Vec<ShortcodeParameter>,
 }
 
+/// Whether a shortcode has a body or not
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum ShortcodeType {
@@ -53,16 +69,20 @@ pub enum ShortcodeType {
     Block,
 }
 
+/// Describes a parameter for a shortcode
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShortcodeParameter {
     pub name: String,
     pub description: String,
+    /// Whether the argument can be omitted
     #[serde(default)]
     pub optional: bool,
     #[serde(rename = "type")]
     pub type_: ParameterType,
 }
 
+/// Parameter types. This must currently be either an arbitrary string or a predefined set of valid
+/// values.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ParameterType {
@@ -79,13 +99,14 @@ impl Display for ParameterType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Template(TemplateSource);
-
+/// Template sources can be defined in various ways.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TemplateSource {
+    /// Raw source specified in yml file.
     String(String),
+    /// Path to a file that contains the source (useful for large templates).
     File(PathBuf),
+    /// Really just uses the exact template of another format
     Derive(String),
 }
 
@@ -100,6 +121,7 @@ impl Display for TemplateType {
     }
 }
 
+/// Load script filters from file
 pub fn get_filters_from_files(dir: PathBuf) -> anyhow::Result<HashMap<String, String>> {
     WalkDir::new(dir)
         .into_iter()
@@ -121,6 +143,7 @@ pub fn get_filters_from_files(dir: PathBuf) -> anyhow::Result<HashMap<String, St
         .collect()
 }
 
+/// Maps the template definition files to a map of Tera templates that is used by the [TemplateManager]
 pub fn get_templates_from_definitions(
     definitions: &HashMap<String, TemplateDefinition>,
     dir: PathBuf,
@@ -139,6 +162,7 @@ pub fn get_templates_from_definitions(
         .collect()
 }
 
+/// Load template definitions from file
 pub fn load_template_definitions(
     path: PathBuf,
 ) -> anyhow::Result<HashMap<String, TemplateDefinition>> {
@@ -175,14 +199,19 @@ pub fn load_template_definitions(
         .collect()
 }
 
+/// Template parameter validation errors.
 #[derive(Error, Debug)]
 pub enum ValidationError {
+    /// Parameter is in the wrong position
     #[error("Invalid parameter position '{0}'")]
     InvalidPosition(usize),
+    /// A named parameter doesn't exist
     #[error("Invalid parameter key '{0}'")]
     InvalidName(String),
+    /// The value is invalid (only for choice types)
     #[error("Invalid parameter value: {0}")]
     InvalidValue(String),
+    /// A required parameter is missing
     #[error("Required parameter {0} missing")]
     RequiredParameter(String),
 }
@@ -210,7 +239,7 @@ impl TemplateDefinition {
             .templates
             .get(format)
             .ok_or(anyhow!("Format not available"))?;
-        match &tp.0 {
+        match &tp {
             TemplateSource::String(s) => Ok(s.clone()),
             TemplateSource::File(p) => Ok(fs::read_to_string(base_path.join(p))?),
             TemplateSource::Derive(parent) => self.template_for_format(base_path, parent),

@@ -1,4 +1,4 @@
-use crate::pipeline::Mode;
+use crate::project::config::Mode;
 use anyhow::{anyhow, Context as AContext};
 use cdoc::config::Format;
 use cdoc::document::Document;
@@ -16,15 +16,26 @@ use tera::Context;
 use crate::project::config::ProjectConfig;
 use crate::project::{ItemDescriptor, ProjectItemVec, ProjectResult};
 
+/// This type is responsible for writing the final output for a given format.
+/// For formats that use layouts, this is where the document content is rendered into the layout
+/// template.
 #[derive(Clone)]
 pub struct Generator<'a> {
+    /// Project root
     pub root: PathBuf,
+    /// Rendered content as a vector. This format is used to enable parallelization.
     pub project_vec: &'a ProjectItemVec,
+    /// Structured project for inclusion in layout templates.
     pub project: ProjectResult<'a>,
+    /// Template manager is used to render the layout.
     pub templates: &'a TemplateManager,
+    /// The project configuration is included in template contexts.
     pub config: ProjectConfig,
+    /// Mode toggle to enable/disable draft inclusion.
     pub mode: Mode,
+    /// Build dir (relative to project root).
     pub build_dir: PathBuf,
+    /// Output format (used to determine whether to use layout and for the template manager).
     pub format: &'a dyn Format,
 }
 
@@ -43,6 +54,7 @@ impl Generator<'_> {
         Ok(writer)
     }
 
+    /// Run the generator.
     pub fn generate(&self, bar: ProgressBar) -> anyhow::Result<()> {
         if self.format.include_resources() {
             let resource_path_src = self.root.join("resources");
@@ -71,6 +83,7 @@ impl Generator<'_> {
         Ok(())
     }
 
+    /// This method writes (and renders into template if applicable) a single document.
     pub fn process<T>(
         &self,
         doc: &Document<RenderResult>,
@@ -106,6 +119,7 @@ impl Generator<'_> {
         Ok(())
     }
 
+    /// Function that writes only a single file.
     pub fn generate_single(
         &self,
         doc: &Document<RenderResult>,

@@ -4,14 +4,17 @@ use pest_derive::Parser;
 use std::collections::HashMap;
 
 use crate::parsers::split_types::{
-    Block, CodeTaskDefinition, Content, Inner, SolutionBlock, Value,
+    Block, CodeTaskDefinition, Content, ExerciseBlock, Inner, Value,
 };
 
+/// The parser for exercise placeholders/solutions.
 #[derive(Parser)]
 #[grammar = "parsers/split.pest"]
 pub struct TaskParser;
 
-pub fn parse_markup_block(pair: Pair<Rule>) -> Result<String, Box<pest::error::Error<Rule>>> {
+pub(crate) fn parse_markup_block(
+    pair: Pair<Rule>,
+) -> Result<String, Box<pest::error::Error<Rule>>> {
     Ok(pair
         .into_inner()
         .map(|p| Ok(p.as_str().parse().expect("String parse error")))
@@ -19,7 +22,7 @@ pub fn parse_markup_block(pair: Pair<Rule>) -> Result<String, Box<pest::error::E
         .join("\n"))
 }
 
-pub fn parse_src_block(pair: Pair<Rule>) -> Result<Content, Box<pest::error::Error<Rule>>> {
+pub(crate) fn parse_src_block(pair: Pair<Rule>) -> Result<Content, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
         Rule::source_code_block => Content::Code {
             code: pair.as_str().parse().expect("String parse error"),
@@ -46,7 +49,7 @@ fn parse_source_comment(pair: Pair<Rule>) -> Result<String, Box<pest::error::Err
     })
 }
 
-pub fn parse_code_placeholder_block(
+pub(crate) fn parse_code_placeholder_block(
     pair: Pair<Rule>,
 ) -> Result<Content, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
@@ -64,7 +67,7 @@ pub fn parse_code_placeholder_block(
     })
 }
 
-pub fn parse_inner_block(pair: Pair<Rule>) -> Result<Inner, Box<pest::error::Error<Rule>>> {
+pub(crate) fn parse_inner_block(pair: Pair<Rule>) -> Result<Inner, Box<pest::error::Error<Rule>>> {
     let r = pair.as_rule();
     Ok(match r {
         Rule::code_block => {
@@ -83,7 +86,7 @@ pub fn parse_inner_block(pair: Pair<Rule>) -> Result<Inner, Box<pest::error::Err
                     .map(parse_src_block)
                     .collect::<anyhow::Result<Vec<Content>, Box<pest::error::Error<Rule>>>>()?;
 
-            Inner::SolutionBlock(SolutionBlock {
+            Inner::ExerciseBlock(ExerciseBlock {
                 placeholder,
                 solution,
             })
@@ -93,7 +96,7 @@ pub fn parse_inner_block(pair: Pair<Rule>) -> Result<Inner, Box<pest::error::Err
     })
 }
 
-pub fn parse_attribute(
+pub(crate) fn parse_attribute(
     pair: Pair<Rule>,
 ) -> Result<(String, String), Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
@@ -118,7 +121,7 @@ pub fn parse_attribute(
     })
 }
 
-pub fn parse_value(pair: Pair<Rule>) -> Result<Value, Box<pest::error::Error<Rule>>> {
+pub(crate) fn parse_value(pair: Pair<Rule>) -> Result<Value, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
         Rule::block => {
             let mut block_segments = pair.into_inner();
@@ -173,7 +176,7 @@ pub fn parse_value(pair: Pair<Rule>) -> Result<Value, Box<pest::error::Error<Rul
                     .map(parse_src_block)
                     .collect::<anyhow::Result<Vec<Content>, Box<pest::error::Error<Rule>>>>()?;
 
-            Value::SolutionBlock(SolutionBlock {
+            Value::SolutionBlock(ExerciseBlock {
                 placeholder,
                 solution,
             })
@@ -196,7 +199,7 @@ pub fn parse_code_string(
     Ok(CodeTaskDefinition { blocks: vals })
 }
 
-pub fn human_errors(error: pest::error::Error<Rule>) -> Box<pest::error::Error<Rule>> {
+pub(crate) fn human_errors(error: pest::error::Error<Rule>) -> Box<pest::error::Error<Rule>> {
     Box::new(error.renamed_rules(|rule| match *rule {
         Rule::source_code_block => "code".to_owned(),
         Rule::code_block => "placeholder/solution block".to_owned(),

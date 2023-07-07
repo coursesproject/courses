@@ -12,7 +12,7 @@ use crate::ast::{
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
-use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeDef};
+use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeCall};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -51,8 +51,8 @@ pub struct Document<C> {
     pub content: C,
     pub metadata: DocumentMetadata,
     pub variables: DocumentVariables,
-    pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
-    pub id_map: HashMap<String, (usize, ShortCodeDef)>,
+    pub ids: HashMap<String, (usize, Vec<ShortCodeCall>)>,
+    pub id_map: HashMap<String, (usize, ShortCodeCall)>,
 }
 
 pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
@@ -96,7 +96,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
 
 pub fn split_shortcodes(
     src: &str,
-    counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 ) -> Result<Vec<Block>> {
     let mut rest = src;
     let mut md_str = String::new();
@@ -137,13 +137,13 @@ pub fn split_shortcodes(
     Ok(md_blocks.0)
 }
 
-impl ShortCodeDef {
+impl ShortCodeCall {
     fn into_base(
         self,
-        counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+        counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Result<ShortcodeBase> {
         let parameters: Result<Vec<Argument<Vec<Block>>>> = self
-            .parameters
+            .arguments
             .into_iter()
             .map(|param| {
                 param.try_map(|v| {
@@ -220,8 +220,8 @@ impl DocPos {
 }
 
 fn id_map_from_ids(
-    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
-) -> HashMap<String, (usize, ShortCodeDef)> {
+    ids: &HashMap<String, (usize, Vec<ShortCodeCall>)>,
+) -> HashMap<String, (usize, ShortCodeCall)> {
     let mut out = HashMap::new();
 
     for (_, s) in ids.values() {
@@ -240,7 +240,7 @@ impl<C> Document<C> {
     pub fn new(
         content: C,
         metadata: DocumentMetadata,
-        ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+        ids: HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Self {
         let id_map = id_map_from_ids(&ids);
         Document {

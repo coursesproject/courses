@@ -7,15 +7,16 @@ use serde::{Deserialize, Serialize};
 #[grammar = "parsers/shortcodes.pest"]
 pub struct ShortCodeParser;
 
+/// Represents a shortcode markup element (a call).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShortCodeDef {
+pub struct ShortCodeCall {
     pub name: String,
     pub id: Option<String>,
-    // pub parameters: HashMap<String, String>,
-    pub parameters: Vec<Argument<String>>,
+    /// The passed arguments
+    pub arguments: Vec<Argument<String>>,
 }
 
-// Value of a shortcode argument.
+/// Value of a shortcode argument.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
 pub enum ArgumentValue<T> {
@@ -96,20 +97,27 @@ impl<T> Argument<T> {
     }
 }
 
+// Fetch parameter value. There are several types to allow for different kinds of escapes.
 fn get_value(val: &Pair<Rule>) -> ArgumentValue<String> {
     let v = val.clone().into_inner().next().unwrap();
     match v.as_rule() {
+        // Literal string (using quotes `" "` as delimiters)
         Rule::string_val => ArgumentValue::Literal(v.as_str().to_string()),
+        // A more restricted literal passed without quotes.
         Rule::basic_val => ArgumentValue::Literal(v.as_str().to_string()),
+        // A markdown literal (can include shortcode calls). Delimited by quotes as literals but prepended by a |.
         Rule::md_val => ArgumentValue::Markdown(v.as_str().to_string()),
         _ => unreachable!(),
     }
 }
 
-pub fn parse_shortcode(content: &str) -> Result<ShortCodeDef, Box<pest::error::Error<Rule>>> {
+pub(crate) fn parse_shortcode(
+    content: &str,
+) -> Result<ShortCodeCall, Box<pest::error::Error<Rule>>> {
     let padded = content.to_string();
     let p = ShortCodeParser::parse(Rule::p, &padded)?;
 
+    // Fetch the name of the shortcode
     let mut iter = p;
     let name = iter.next().expect("Missing name").as_str().to_string();
     let mut id = None;
@@ -118,42 +126,34 @@ pub fn parse_shortcode(content: &str) -> Result<ShortCodeDef, Box<pest::error::E
 
     for params in iter {
         match params.as_rule() {
-            Rule::id => id = Some(params.as_str().to_string()),
+            Rule::id => id = Some(params.as_str().to_string()), // If the id is present, save it
             Rule::parameters => {
+                // Then go through each parameter
                 for p in params.into_inner() {
                     match p.as_rule() {
                         Rule::param => {
+                            // Fetch parameter inner
                             let mut inner = p.into_inner();
                             let v = inner.next().unwrap();
                             match v.as_rule() {
+                                // Parameter format
                                 Rule::key => {
+                                    // Named argument
+                                    // Get key
                                     let k = v.as_str().to_string();
+                                    // Get value
                                     let value_pair = inner.next().unwrap();
                                     let value = get_value(&value_pair);
                                     parameters.push(Argument::Keyword { name: k, value })
                                 }
                                 Rule::value => {
+                                    // Positional argument
                                     parameters.push(Argument::Positional {
                                         value: get_value(&v),
                                     });
                                 }
                                 _ => unreachable!(),
                             }
-                            // let key = inner.next().expect("Missing key").as_str().to_string();
-                            //
-                            // let value = inner
-                            //     .next()
-                            //     .and_then(|v| {
-                            //         v.into_inner().next().map(|v| match v.as_rule() {
-                            //             Rule::string_val => v.as_str(),
-                            //             Rule::basic_val => v.as_str(),
-                            //             Rule::markdown_val => v.as_str(),
-                            //             _ => unreachable!(),
-                            //         })
-                            //     })
-                            //     .unwrap_or("-");
-                            //
-                            // parameters.insert(key, value.to_string());
                         }
                         _ => unreachable!(),
                     }
@@ -164,9 +164,9 @@ pub fn parse_shortcode(content: &str) -> Result<ShortCodeDef, Box<pest::error::E
         };
     }
 
-    Ok(ShortCodeDef {
+    Ok(ShortCodeCall {
         name,
         id,
-        parameters,
+        arguments: parameters,
     })
 }
