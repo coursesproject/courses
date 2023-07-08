@@ -36,14 +36,14 @@ enum Commands {
     Serve {
         #[arg(short, long)]
         path: Option<PathBuf>,
-        #[arg(short, long, default_value = "draft")]
+        #[arg(short = 'o', long, default_value = "draft")]
         profile: String,
         // mode: Mode,
     },
     Build {
         #[arg(short, long)]
         path: Option<PathBuf>,
-        #[arg(short, long, default_value = "release")]
+        #[arg(short = 'o', long, default_value = "release")]
         profile: String,
         // mode: Mode,
     },

@@ -34,6 +34,7 @@ impl DocumentDescriptor<()> {
             format: InputFormat::from_extension(
                 section_path.as_ref().extension().unwrap().to_str().unwrap(),
             )?,
+            path: section_path.as_ref().to_path_buf(),
             content: Arc::new(()),
         })
     }
@@ -42,12 +43,14 @@ impl DocumentDescriptor<()> {
 #[derive(Debug)]
 pub enum ContentItem<C> {
     Document(DocumentDescriptor<C>),
-    Group {
+    Section {
         id: String,
         index: DocumentDescriptor<C>,
         children: Vec<ContentItem<C>>,
     },
 }
+
+impl<C> ContentItem<C> {}
 
 pub fn generate_from_directory(
     path: PathBuf,
@@ -63,7 +66,7 @@ pub fn generate_from_directory(
             let p = d.path();
             if p.is_dir() {
                 println!("dir: {}", p.display());
-                Ok(ContentItem::Group {
+                Ok(ContentItem::Section {
                     id: chapter_id(&p).ok_or(anyhow!("no id"))?,
                     index: index_helper2(&p, &content_path)?,
                     children: generate_from_directory(p.clone(), content_path.clone())?,
