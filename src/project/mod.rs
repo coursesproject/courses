@@ -18,6 +18,65 @@ pub mod config;
 mod iterator;
 mod transform;
 
+#[derive(Debug)]
+pub struct DocumentDescriptor<C> {
+    id: String,
+    format: InputFormat,
+    path: PathBuf,
+    content: Arc<C>,
+}
+
+impl DocumentDescriptor<()> {
+    fn new<P: AsRef<Path>>(section_path: P) -> anyhow::Result<Self> {
+        Ok(DocumentDescriptor {
+            id: section_id(section_path.as_ref())
+                .ok_or_else(|| anyhow!("Could not get raw file name"))?,
+            format: InputFormat::from_extension(
+                section_path.as_ref().extension().unwrap().to_str().unwrap(),
+            )?,
+            content: Arc::new(()),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub enum ContentItem<C> {
+    Document(DocumentDescriptor<C>),
+    Group {
+        id: String,
+        index: DocumentDescriptor<C>,
+        children: Vec<ContentItem<C>>,
+    },
+}
+
+pub fn generate_from_directory(
+    path: PathBuf,
+    content_path: PathBuf,
+) -> anyhow::Result<Vec<ContentItem<()>>> {
+    let content: anyhow::Result<Vec<ContentItem<()>>> = get_sorted_paths(path)?
+        .into_iter()
+        .filter(|d| {
+            let p = d.path();
+            p.is_dir() || extension_in(p.extension().unwrap().to_str().unwrap())
+        })
+        .map(|d| {
+            let p = d.path();
+            if p.is_dir() {
+                println!("dir: {}", p.display());
+                Ok(ContentItem::Group {
+                    id: chapter_id(&p).ok_or(anyhow!("no id"))?,
+                    index: index_helper2(&p, &content_path)?,
+                    children: generate_from_directory(p.clone(), content_path.clone())?,
+                })
+            } else {
+                Ok(ContentItem::Document(DocumentDescriptor::new(&p)?))
+            }
+        })
+        .collect();
+
+    content
+}
+
 /// The top-level configuration of a project's content.TTT
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project<C> {
@@ -165,11 +224,11 @@ impl Project<()> {
 }
 
 impl Part<()> {
-    fn new<P: AsRef<Path>, PC: AsRef<Path>>(dir: P, content_path: PC) -> anyhow::Result<Self> {
-        let part_folder = chapter_id(&dir).ok_or_else(|| anyhow!("Can't get part id"))?;
+    fn new<P: AsRef<Path>, PC: AsRef<Path>>(path: P, content_path: PC) -> anyhow::Result<Self> {
+        let part_folder = chapter_id(&path).ok_or_else(|| anyhow!("Can't get part id"))?;
         // let part_dir = dir.as_ref().join(&part_folder);
 
-        let chapters = get_sorted_paths(&dir)?
+        let chapters = get_sorted_paths(&path)?
             .into_iter()
             .filter(|entry| entry.metadata().map(|meta| meta.is_dir()).unwrap())
             .map(|entry| Chapter::new(entry.path(), content_path.as_ref()))
@@ -177,7 +236,7 @@ impl Part<()> {
 
         Ok(Part {
             id: part_folder,
-            index: index_helper(&dir, &content_path)?,
+            index: index_helper(&path, &content_path)?,
             chapters,
         })
     }
@@ -321,6 +380,26 @@ fn index_helper<P: AsRef<Path>, PC: AsRef<Path>>(
     ProjectItem::new(chapter_index.strip_prefix(content_path.as_ref())?)
 }
 
+fn index_helper2<P: AsRef<Path>, PC: AsRef<Path>>(
+    chapter_dir: &P,
+    content_path: &PC,
+) -> anyhow::Result<DocumentDescriptor<()>> {
+    let chapter_index_md = chapter_dir.as_ref().join("index.md");
+    let chapter_index_ipynb = chapter_dir.as_ref().join("index.ipynb");
+    let chapter_index = if chapter_index_md.is_file() {
+        Ok(chapter_index_md)
+    } else if chapter_index_ipynb.is_file() {
+        Ok(chapter_index_ipynb)
+    } else {
+        Err(anyhow!(
+            "index.md/index.ipynb file not found in path: {}",
+            chapter_dir.as_ref().display()
+        ))
+    }?;
+
+    DocumentDescriptor::new(chapter_index.strip_prefix(content_path.as_ref())?)
+}
+
 fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
     // println!("{}", path.as_ref().display());
     let mut paths: Vec<_> = fs::read_dir(&path)?.filter_map(|r| r.ok()).collect();
@@ -333,6 +412,17 @@ mod tests {
     use std::iter::zip;
 
     use super::*;
+
+    #[test]
+    fn gen_new_config() {
+        let cfg = generate_from_directory(
+            Path::new("docs/content").to_path_buf(),
+            Path::new("docs/content").to_path_buf(),
+        )
+        .expect("Could not read config");
+        assert_eq!(cfg.len(), 4);
+        println!("{:?}", cfg);
+    }
 
     #[test]
     fn gen_config_from_dir() {
