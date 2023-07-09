@@ -31,7 +31,10 @@ use rayon::prelude::*;
 
 use crate::generators::Generator;
 use crate::project::config::{Profile, ProjectConfig};
-use crate::project::{section_id, ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec};
+use crate::project::{
+    section_id, ContentItem, ContentItemDescriptor, DocumentDescriptor, ItemDescriptor, Part,
+    Project, ProjectItem, ProjectItemVec,
+};
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
 
@@ -98,6 +101,7 @@ pub struct Pipeline {
     pub project_path: PathBuf,
     /// Project structure
     pub project: Project<()>,
+    pub project_structure: ContentItem<()>,
     /// Configuration for project loaded from config.yml
     pub project_config: ProjectConfig,
 
@@ -130,6 +134,7 @@ impl Pipeline {
         profile: String,
         config: ProjectConfig,
         project: Project<()>,
+        project_structure: ContentItem<()>,
     ) -> anyhow::Result<Self> {
         print!("Parsing templates... ");
         let mut template_manager = TemplateManager::from_path(
@@ -157,6 +162,7 @@ impl Pipeline {
             profile_name: profile,
             project_path: project_path.as_ref().to_path_buf(),
             project,
+            project_structure,
             project_config: config,
             templates: template_manager,
             cached_contexts: Arc::new(Mutex::new(HashMap::new())),
@@ -280,7 +286,7 @@ impl Pipeline {
                         let ctx = Generator {
                             root: self.project_path.clone(),
                             project_vec: &project_vec,
-                            project: project_vec.iter().collect(),
+                            project: &self.project_structure,
                             templates: &self.templates,
                             config: self.project_config.clone(),
                             mode: self.profile.mode,
@@ -327,7 +333,7 @@ impl Pipeline {
 
     fn update_cache(
         &mut self,
-        item2: &ItemDescriptor<()>,
+        item2: &ContentItemDescriptor<()>,
         format: &dyn Format,
         output: &Document<RenderResult>,
         mut project: ProjectItemVec,
@@ -336,24 +342,7 @@ impl Pipeline {
 
         let item = project
             .iter_mut()
-            .find(|item| {
-                let part = item.part_idx.and_then(|i| i3.part_idx.map(|j| i == j));
-                let chapter = item
-                    .chapter_idx
-                    .and_then(|i| i3.chapter_idx.map(|j| i == j));
-                let doc = item.doc_idx.and_then(|i| i3.doc_idx.map(|j| i == j));
-
-                match part {
-                    Some(is_part) => {
-                        is_part
-                            && match chapter {
-                                None => true,
-                                Some(is_chapter) => is_chapter && doc.unwrap_or(true),
-                            }
-                    }
-                    None => true,
-                }
-            })
+            .find(|item| item.path == item2.path)
             .unwrap();
         item.doc.content = Arc::new(Some(output.clone()));
 
@@ -364,89 +353,106 @@ impl Pipeline {
         project
     }
 
-    fn doc_from_path(&self, path: PathBuf) -> anyhow::Result<ItemDescriptor<()>> {
-        let mut part_id = None;
-        let mut chapter_id = None;
-        let mut part_idx = None;
-        let mut chapter_idx = None;
-        let mut doc_idx = None;
-
+    fn doc_from_path(&self, path: PathBuf) -> anyhow::Result<ContentItemDescriptor<()>> {
         let doc_path = path
             .as_path()
             .strip_prefix(self.project_path.as_path().join("content"))?; // TODO: Error handling;
-        let mut doc_iter = doc_path.iter();
-        let el = doc_iter.next().unwrap().to_str().unwrap();
 
-        let doc = if el.contains('.') {
-            &self.project.index
-        } else {
-            let first_elem = doc_iter
-                .next()
-                .ok_or(anyhow!(
-                    "Empty part. Parts must contain index.ms or index.ipynb"
-                ))?
-                .to_str()
-                .unwrap();
+        let path: Vec<String> = doc_path
+            .into_iter()
+            .map(|d| d.to_str().unwrap().split(".").next().unwrap().to_string())
+            .collect();
 
-            // let file_name = doc_iter.next().unwrap().to_str().unwrap();
-            let file_id = section_id(path.as_path()).unwrap();
+        let path_idx = self
+            .project_structure
+            .get_path_idx(&path[..])
+            .ok_or(anyhow!("Path is invalid"))?;
 
-            let part: &Part<()> = self
-                .project
-                .content
-                .iter()
-                .find(|e| e.id == el)
-                .expect("Part not found for single document");
-            let elem = part.chapters.iter().find(|c| c.id == first_elem);
-            part_id = Some(part.id.clone());
+        Ok(ContentItemDescriptor {
+            path,
+            path_idx: path_idx.clone(),
+            doc: self.project_structure.doc_at_idx(&path_idx[..])?.clone(),
+        })
 
-            let pid = self
-                .project
-                .content
-                .iter()
-                .position(|e| e.id == el)
-                .expect("Part index not found");
-            part_idx = Some(pid + 1);
-
-            match elem {
-                None => &part.index,
-                Some(c) => {
-                    chapter_id = Some(c.id.clone());
-                    let cid = part
-                        .chapters
-                        .iter()
-                        .position(|c| c.id == first_elem)
-                        .expect("Part index not found");
-                    chapter_idx = Some(cid + 1);
-                    let doc = c.documents.iter().find(|d| d.id == file_id);
-                    match doc {
-                        None => &c.index,
-                        Some(d) => {
-                            let did = c
-                                .documents
-                                .iter()
-                                .position(|d| d.id == file_id)
-                                .expect("Part index not found");
-                            doc_idx = Some(did + 1);
-
-                            d
-                        }
-                    }
-                }
-            }
-        };
-
-        let item = ItemDescriptor {
-            part_id,
-            chapter_id,
-            part_idx,
-            chapter_idx,
-            doc: doc.clone(),
-            doc_idx,
-            files: None,
-        };
-
-        Ok(item)
+        // let mut part_id = None;
+        // let mut chapter_id = None;
+        // let mut part_idx = None;
+        // let mut chapter_idx = None;
+        // let mut doc_idx = None;
+        //
+        // let mut doc_iter = doc_path.iter();
+        // let el = doc_iter.next().unwrap().to_str().unwrap();
+        //
+        // let doc = if el.contains('.') {
+        //     &self.project.index
+        // } else {
+        //     let first_elem = doc_iter
+        //         .next()
+        //         .ok_or(anyhow!(
+        //             "Empty part. Parts must contain index.ms or index.ipynb"
+        //         ))?
+        //         .to_str()
+        //         .unwrap();
+        //
+        //     // let file_name = doc_iter.next().unwrap().to_str().unwrap();
+        //     let file_id = section_id(path.as_path()).unwrap();
+        //
+        //     let part: &Part<()> = self
+        //         .project
+        //         .content
+        //         .iter()
+        //         .find(|e| e.id == el)
+        //         .expect("Part not found for single document");
+        //     let elem = part.chapters.iter().find(|c| c.id == first_elem);
+        //     part_id = Some(part.id.clone());
+        //
+        //     let pid = self
+        //         .project
+        //         .content
+        //         .iter()
+        //         .position(|e| e.id == el)
+        //         .expect("Part index not found");
+        //     part_idx = Some(pid + 1);
+        //
+        //     match elem {
+        //         None => &part.index,
+        //         Some(c) => {
+        //             chapter_id = Some(c.id.clone());
+        //             let cid = part
+        //                 .chapters
+        //                 .iter()
+        //                 .position(|c| c.id == first_elem)
+        //                 .expect("Part index not found");
+        //             chapter_idx = Some(cid + 1);
+        //             let doc = c.documents.iter().find(|d| d.id == file_id);
+        //             match doc {
+        //                 None => &c.index,
+        //                 Some(d) => {
+        //                     let did = c
+        //                         .documents
+        //                         .iter()
+        //                         .position(|d| d.id == file_id)
+        //                         .expect("Part index not found");
+        //                     doc_idx = Some(did + 1);
+        //
+        //                     d
+        //                 }
+        //             }
+        //         }
+        //     }
+        // };
+        //
+        // let item = ItemDescriptor {
+        //     part_id,
+        //     chapter_id,
+        //     part_idx,
+        //     chapter_idx,
+        //     doc: doc.clone(),
+        //     doc_idx,
+        //     files: None,
+        // };
+        //
+        // Ok(item)
     }
 
     /// Build the whole project (optionally removes existing build)
@@ -501,7 +507,7 @@ impl Pipeline {
                 let context = Generator {
                     root: self.project_path.to_path_buf(),
                     project_vec: &output,
-                    project: output.iter().collect(),
+                    project: &self.project_structure,
                     mode: self.profile.mode,
                     templates: &self.templates,
                     config: self.project_config.clone(),
@@ -589,9 +595,10 @@ impl Pipeline {
         Ok(())
     }
 
-    fn load_files(&self) -> Result<Project<String>, anyhow::Error> {
-        self.project
+    fn load_files(&self) -> anyhow::Result<Vec<ContentItemDescriptor<String>>> {
+        self.project_structure
             .clone()
+            .to_vector()
             .into_iter()
             .map(|item| {
                 item.map_doc(|doc| {
@@ -602,20 +609,21 @@ impl Pipeline {
                     Ok(val)
                 })
             })
-            .collect::<Result<Project<String>, anyhow::Error>>()
+            .collect::<anyhow::Result<Vec<ContentItemDescriptor<String>>>>()
     }
 
     fn process_all(
         &self,
-        project: Project<String>,
+        project: Vec<ContentItemDescriptor<String>>,
         format: &dyn Format,
         bar: ProgressBar,
     ) -> (ProjectItemVec, Arc<Mutex<Vec<anyhow::Error>>>) {
         let errs = Arc::new(Mutex::new(Vec::new()));
 
-        let project_vec: Vec<ItemDescriptor<String>> = project.into_iter().collect();
+        // let project_vec: Vec<ItemDescriptor<String>> = project.into_iter().collect();
+        // let project_structure_vec
 
-        let res = project_vec
+        let res = project
             .into_par_iter()
             .progress_with(bar)
             .map(|i| {
@@ -636,23 +644,18 @@ impl Pipeline {
                 };
 
                 // let res = print_err(res);
-
-                ItemDescriptor {
-                    part_id: i.part_id,
-                    chapter_id: i.chapter_id,
-                    part_idx: i.part_idx,
-                    chapter_idx: i.chapter_idx,
-                    doc_idx: i.doc_idx,
-                    doc: ProjectItem {
+                ContentItemDescriptor {
+                    path: i.path,
+                    path_idx: i.path_idx,
+                    doc: DocumentDescriptor {
                         id: i.doc.id,
                         format: i.doc.format,
                         path: i.doc.path,
                         content: Arc::new(res),
                     },
-                    files: i.files,
                 }
             })
-            .collect::<Vec<ItemDescriptor<Option<Document<RenderResult>>>>>();
+            .collect::<Vec<ContentItemDescriptor<Option<Document<RenderResult>>>>>();
 
         // pb.finish_with_message(format!("Done"));
 
@@ -661,7 +664,7 @@ impl Pipeline {
 
     fn process_document(
         &self,
-        item: &ProjectItem<String>,
+        item: &DocumentDescriptor<String>,
         format: &dyn Format,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         let doc = item.format.loader().load(&item.content)?;

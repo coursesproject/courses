@@ -14,7 +14,9 @@ use std::path::PathBuf;
 use tera::Context;
 
 use crate::project::config::ProjectConfig;
-use crate::project::{ItemDescriptor, ProjectItemVec, ProjectResult};
+use crate::project::{
+    ContentItem, ContentItemDescriptor, ItemDescriptor, ProjectItemVec, ProjectResult,
+};
 
 /// This type is responsible for writing the final output for a given format.
 /// For formats that use layouts, this is where the document content is rendered into the layout
@@ -26,7 +28,7 @@ pub struct Generator<'a> {
     /// Rendered content as a vector. This format is used to enable parallelization.
     pub project_vec: &'a ProjectItemVec,
     /// Structured project for inclusion in layout templates.
-    pub project: ProjectResult<'a>,
+    pub project: &'a ContentItem<()>,
     /// Template manager is used to render the layout.
     pub templates: &'a TemplateManager,
     /// The project configuration is included in template contexts.
@@ -87,7 +89,7 @@ impl Generator<'_> {
     pub fn process<T>(
         &self,
         doc: &Document<RenderResult>,
-        item: &ItemDescriptor<T>,
+        item: &ContentItemDescriptor<T>,
     ) -> anyhow::Result<()> {
         if !(self.mode == Mode::Release && doc.metadata.draft) {
             let mut writer = self.get_writer(&item.doc.id, &item.doc.path)?;
@@ -95,9 +97,10 @@ impl Generator<'_> {
                 let mut context = Context::default();
                 context.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
                 context.insert("config", &self.config);
-                context.insert("current_part", &item.part_id);
-                context.insert("current_chapter", &item.chapter_id);
-                context.insert("current_doc", &item.doc.id);
+                context.insert("current_path", &item.path);
+                // context.insert("current_part", &item.part_id);
+                // context.insert("current_chapter", &item.chapter_id);
+                // context.insert("current_doc", &item.doc.id);
                 context.insert("doc", &doc);
                 context.insert("mode", &self.mode);
 
@@ -123,7 +126,7 @@ impl Generator<'_> {
     pub fn generate_single(
         &self,
         doc: &Document<RenderResult>,
-        doc_info: &ItemDescriptor<()>,
+        doc_info: &ContentItemDescriptor<()>,
     ) -> anyhow::Result<()> {
         self.process(doc, doc_info)
     }

@@ -1,10 +1,12 @@
+use std::ffi::OsStr;
 use std::fs::DirEntry;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Error};
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::InputFormat;
@@ -18,12 +20,23 @@ pub mod config;
 mod iterator;
 mod transform;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentDescriptor<C> {
-    id: String,
-    format: InputFormat,
-    path: PathBuf,
-    content: Arc<C>,
+    pub(crate) id: String,
+    pub(crate) format: InputFormat,
+    pub(crate) path: PathBuf,
+    pub(crate) content: Arc<C>,
+}
+
+impl<C> Clone for DocumentDescriptor<C> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            format: self.format.clone(),
+            path: self.path.clone(),
+            content: self.content.clone(),
+        }
+    }
 }
 
 impl DocumentDescriptor<()> {
@@ -40,19 +53,209 @@ impl DocumentDescriptor<()> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum ContentItem<C> {
-    Document(DocumentDescriptor<C>),
+    Document {
+        doc: DocumentDescriptor<C>,
+    },
     Section {
         id: String,
-        index: DocumentDescriptor<C>,
+        doc: DocumentDescriptor<C>,
         children: Vec<ContentItem<C>>,
     },
 }
 
-impl<C> ContentItem<C> {}
+#[derive(Debug, Clone)]
+pub struct ContentItemDescriptor<C> {
+    pub(crate) path: Vec<String>,
+    pub(crate) path_idx: Vec<usize>,
+    pub(crate) doc: DocumentDescriptor<C>,
+}
 
-pub fn generate_from_directory(
+impl<C> ContentItemDescriptor<C> {
+    /// Perform operation on the inner document, then return the result wrapped in a ConfigItem.
+    pub fn map<O, F>(self, f: F) -> anyhow::Result<ContentItemDescriptor<O>>
+    where
+        F: Fn(&C) -> anyhow::Result<O>,
+    {
+        Ok(ContentItemDescriptor {
+            path: self.path,
+            path_idx: self.path_idx,
+            doc: DocumentDescriptor {
+                id: self.doc.id,
+                format: self.doc.format,
+                path: self.doc.path,
+                content: Arc::new(f(self.doc.content.as_ref())?),
+            },
+        })
+    }
+
+    /// Perform operation on the whole DocumentSpec.
+    pub fn map_doc<O, F, E>(self, f: F) -> Result<ContentItemDescriptor<O>, E>
+    where
+        F: Fn(DocumentDescriptor<C>) -> Result<O, E>,
+    {
+        Ok(ContentItemDescriptor {
+            path: self.path,
+            path_idx: self.path_idx,
+            doc: DocumentDescriptor {
+                id: self.doc.id.clone(),
+                format: self.doc.format.clone(),
+                path: self.doc.path.clone(),
+                content: Arc::new(f(self.doc)?),
+            },
+        })
+    }
+}
+
+impl<C> Hash for ContentItemDescriptor<C>
+where
+    C: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.path.hash(state)
+    }
+}
+
+impl<C> ContentItem<C> {
+    pub fn doc_at_idx(&self, path_idx: &[usize]) -> anyhow::Result<&DocumentDescriptor<C>> {
+        match self {
+            ContentItem::Document { doc } => Ok(doc),
+            ContentItem::Section { children, .. } => {
+                let child = children
+                    .get(*path_idx.get(0).ok_or(anyhow!("invalid path"))?)
+                    .ok_or(anyhow!("invalid path"))?;
+                if path_idx.len() > 1 {
+                    Ok(child.doc_at_idx(&path_idx[1..])?)
+                } else {
+                    Ok(child.get_doc())
+                }
+            }
+        }
+    }
+
+    pub fn get_doc(&self) -> &DocumentDescriptor<C> {
+        match self {
+            ContentItem::Document { doc } => doc,
+            ContentItem::Section { doc: index, .. } => index,
+        }
+    }
+
+    fn get_path_idx_inner(&self, path: &[String], path_idx: &mut Vec<usize>) -> Option<Vec<usize>> {
+        match self {
+            ContentItem::Document { doc } => {
+                if &doc.id == path.last()? {
+                    Some(path_idx.clone())
+                } else {
+                    None
+                }
+            }
+            ContentItem::Section {
+                id,
+                doc: index,
+                children,
+            } => {
+                path_idx.push(0);
+                children
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(i, child)| {
+                        path_idx.last_mut().map(|mut idx| *idx = i);
+                        self.get_path_idx_inner(path, path_idx)
+                    })
+                    .next()
+            }
+        }
+    }
+
+    pub fn get_path_idx(&self, path: &[String]) -> Option<Vec<usize>> {
+        let mut path_idx = vec![0];
+        self.get_path_idx_inner(path, &mut path_idx)
+    }
+
+    fn add_doc(
+        doc: DocumentDescriptor<C>,
+        current_path: &mut Vec<String>,
+        current_path_idx: &mut Vec<usize>,
+    ) -> ContentItemDescriptor<C> {
+        let content = ContentItemDescriptor {
+            path: current_path.clone(),
+            path_idx: current_path_idx.clone(),
+            doc: doc.clone(),
+        };
+
+        if let Some(mut last) = current_path.last_mut() {
+            *last = doc.id.clone();
+        }
+
+        if let Some(mut last) = current_path_idx.last_mut() {
+            *last += 1;
+        }
+
+        content
+    }
+    fn add_to_vector(
+        self,
+        current_path: &mut Vec<String>,
+        current_path_idx: &mut Vec<usize>,
+        vec: &mut Vec<ContentItemDescriptor<C>>,
+    ) {
+        match self {
+            ContentItem::Document { doc } => vec.push(ContentItem::add_doc(
+                doc.clone(),
+                current_path,
+                current_path_idx,
+            )),
+            ContentItem::Section {
+                id,
+                doc: index,
+                children,
+            } => {
+                if let Some(mut last) = current_path.last_mut() {
+                    *last = id.clone();
+                }
+
+                if let Some(mut last) = current_path_idx.last_mut() {
+                    *last += 1;
+                }
+
+                let mut current_path = current_path.clone();
+                let mut current_path_idx = current_path_idx.clone();
+
+                current_path.push("index".to_string());
+                current_path_idx.push(0);
+
+                vec.push(ContentItem::add_doc(
+                    index,
+                    &mut current_path,
+                    &mut current_path_idx,
+                ));
+
+                for child in children {
+                    child.add_to_vector(&mut current_path, &mut current_path_idx, vec);
+                }
+            }
+        }
+    }
+    pub fn to_vector(self) -> Vec<ContentItemDescriptor<C>> {
+        let mut output = Vec::new();
+        let mut c_path = vec!["".to_string()];
+        let mut c_path_idx = vec![0];
+        self.add_to_vector(&mut c_path, &mut c_path_idx, &mut output);
+        output
+    }
+}
+
+pub fn configure_project(path: PathBuf) -> anyhow::Result<ContentItem<()>> {
+    Ok(ContentItem::Section {
+        id: "root".to_string(),
+        doc: index_helper2(&path, &path)?,
+        children: content_from_dir(path.clone(), path)?,
+    })
+}
+
+pub fn content_from_dir(
     path: PathBuf,
     content_path: PathBuf,
 ) -> anyhow::Result<Vec<ContentItem<()>>> {
@@ -60,24 +263,43 @@ pub fn generate_from_directory(
         .into_iter()
         .filter(|d| {
             let p = d.path();
-            p.is_dir() || extension_in(p.extension().unwrap().to_str().unwrap())
+            p.is_dir()
+                || match p.extension() {
+                    None => false,
+                    Some(e) => extension_in(e.to_str().unwrap()),
+                }
         })
-        .map(|d| {
+        .filter(|entry| !entry.file_name().to_str().unwrap().contains("index"))
+        .filter_map(|d| {
             let p = d.path();
             if p.is_dir() {
                 println!("dir: {}", p.display());
-                Ok(ContentItem::Section {
-                    id: chapter_id(&p).ok_or(anyhow!("no id"))?,
-                    index: index_helper2(&p, &content_path)?,
-                    children: generate_from_directory(p.clone(), content_path.clone())?,
-                })
+                match index_helper2(&p, &content_path) {
+                    Ok(ix) => Some(create_section(content_path.clone(), &p, ix)),
+                    Err(_) => None,
+                }
             } else {
-                Ok(ContentItem::Document(DocumentDescriptor::new(&p)?))
+                match DocumentDescriptor::new(&p) {
+                    Ok(doc) => Some(Ok(ContentItem::Document { doc })),
+                    Err(e) => Some(Err(e)),
+                }
             }
         })
         .collect();
 
     content
+}
+
+fn create_section(
+    content_path: PathBuf,
+    p: &PathBuf,
+    ix: DocumentDescriptor<()>,
+) -> anyhow::Result<ContentItem<()>> {
+    Ok(ContentItem::Section {
+        id: chapter_id(&p).ok_or(anyhow!("no id"))?,
+        doc: ix,
+        children: content_from_dir(p.clone(), content_path.clone())?,
+    })
 }
 
 /// The top-level configuration of a project's content.TTT
@@ -146,7 +368,7 @@ pub struct ProjectIterator<D> {
 }
 
 pub type ProjectResult<'a> = Project<&'a Option<Document<RenderResult>>>;
-pub type ProjectItemVec = Vec<ItemDescriptor<Option<Document<RenderResult>>>>;
+pub type ProjectItemVec = Vec<ContentItemDescriptor<Option<Document<RenderResult>>>>;
 
 /// Contains necessary information for reconstructing a Config from an iterator.
 #[derive(Clone, Debug)]
@@ -418,13 +640,20 @@ mod tests {
 
     #[test]
     fn gen_new_config() {
-        let cfg = generate_from_directory(
-            Path::new("docs/content").to_path_buf(),
-            Path::new("docs/content").to_path_buf(),
+        let cfg = configure_project(Path::new("docs/content").to_path_buf())
+            .expect("Could not read config");
+        // assert_eq!(cfg.len(), 4);
+        println!("{:?}", cfg);
+    }
+
+    #[test]
+    fn config_to_vector() {
+        let cfg = configure_project(
+            Path::new("/Users/anton/git/iaml/exercises/coursematerial/content").to_path_buf(),
         )
         .expect("Could not read config");
-        assert_eq!(cfg.len(), 4);
-        println!("{:?}", cfg);
+        let v = cfg.to_vector();
+        println!("{:#?}", v);
     }
 
     #[test]

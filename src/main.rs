@@ -20,7 +20,7 @@ use penguin::Server;
 
 use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;
-use courses::project::Project;
+use courses::project::{configure_project, ContentItem, Project};
 
 mod setup;
 
@@ -92,24 +92,33 @@ fn init_project(path: &Path) -> anyhow::Result<Project<()>> {
     Ok(proj)
 }
 
+fn init_project_structure(path: &Path) -> anyhow::Result<ContentItem<()>> {
+    print!("Configuring project structure...");
+    let proj = configure_project(path.join("content"));
+    println!(" {}", style("done").green());
+    proj
+}
+
 fn init_pipeline(
     absolute_path: &Path,
     profile: String,
     config: ProjectConfig,
     project: Project<()>,
+    structure: ContentItem<()>,
 ) -> anyhow::Result<Pipeline> {
-    Pipeline::new(absolute_path, profile, config, project)
+    Pipeline::new(absolute_path, profile, config, project, structure)
 }
 
 fn init_and_build(path: Option<PathBuf>, profile: String) -> anyhow::Result<(Pipeline, PathBuf)> {
     let path = path_with_default(path)?;
     let config = init_config(&path)?;
     let project = init_project(&path)?;
+    let structure = init_project_structure(&path)?;
 
     let mut absolute_path = env::current_dir()?;
     absolute_path.push(path.as_path());
 
-    let pipeline = init_pipeline(&absolute_path, profile, config, project)?;
+    let pipeline = init_pipeline(&absolute_path, profile, config, project, structure)?;
 
     Ok((pipeline, absolute_path))
 }
