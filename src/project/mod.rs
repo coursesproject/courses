@@ -66,11 +66,22 @@ pub enum ContentItem<C> {
     },
 }
 
+impl<C> DocumentDescriptor<C> {
+    pub fn as_ref(&self) -> DocumentDescriptor<&C> {
+        DocumentDescriptor {
+            id: self.id.clone(),
+            format: self.format,
+            path: self.path.clone(),
+            content: Arc::new(self.content.as_ref()),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ContentItemDescriptor<C> {
-    pub(crate) path: Vec<String>,
-    pub(crate) path_idx: Vec<usize>,
-    pub(crate) doc: DocumentDescriptor<C>,
+    pub path: Vec<String>,
+    pub path_idx: Vec<usize>,
+    pub doc: DocumentDescriptor<C>,
 }
 
 impl<C> ContentItemDescriptor<C> {
@@ -107,6 +118,61 @@ impl<C> ContentItemDescriptor<C> {
             },
         })
     }
+}
+
+pub fn from_vec<C: Clone>(vec: &Vec<ContentItemDescriptor<C>>) -> ContentItem<C> {
+    let mut current_idx = 0;
+    let mut current_lvl = 0;
+    let res = from_vec_helper(&vec, &mut current_idx, &mut current_lvl, 1)
+        .unwrap()
+        .remove(0);
+    res.clone()
+}
+
+fn from_vec_helper<C>(
+    vec: &Vec<ContentItemDescriptor<C>>,
+    mut current_idx: &mut usize,
+    mut current_lvl: &mut usize,
+    current_path_len: usize,
+) -> Option<Vec<ContentItem<C>>> {
+    // let section_item = iter.next().unwrap();
+
+    let mut children = Vec::new();
+    while *current_idx < vec.len() {
+        let next = &vec[*current_idx];
+
+        if next.path.last().unwrap() == "index" {
+            if current_path_len < next.path.len() {
+                *current_lvl += 1;
+                *current_idx += 1;
+            } else if current_path_len >= next.path.len() {
+                *current_lvl -= 1;
+                return Some(children);
+            }
+            println!("{:?}, {}, {}", next.path, current_idx, current_lvl);
+
+            // if next_level == current_lvl {
+            //     println!("same");
+            //     return None;
+            // } else {
+
+            let inner =
+                from_vec_helper(vec, current_idx, current_lvl, next.path.len()).unwrap_or_default();
+            println!("new section");
+            children.push(ContentItem::Section {
+                id: next.path.get(next.path.len() - 2).unwrap().clone(),
+                doc: next.doc.clone(),
+                children: inner,
+            });
+        } else {
+            children.push(ContentItem::Document {
+                doc: next.doc.clone(),
+            });
+            *current_idx += 1;
+        }
+    }
+
+    Some(children)
 }
 
 impl<C> Hash for ContentItemDescriptor<C>
@@ -179,15 +245,15 @@ impl<C> ContentItem<C> {
         current_path: &mut Vec<String>,
         current_path_idx: &mut Vec<usize>,
     ) -> ContentItemDescriptor<C> {
+        if let Some(mut last) = current_path.last_mut() {
+            *last = doc.id.clone();
+        }
+
         let content = ContentItemDescriptor {
             path: current_path.clone(),
             path_idx: current_path_idx.clone(),
             doc: doc.clone(),
         };
-
-        if let Some(mut last) = current_path.last_mut() {
-            *last = doc.id.clone();
-        }
 
         if let Some(mut last) = current_path_idx.last_mut() {
             *last += 1;
@@ -197,10 +263,11 @@ impl<C> ContentItem<C> {
     }
     fn add_to_vector(
         self,
-        current_path: &mut Vec<String>,
-        current_path_idx: &mut Vec<usize>,
+        mut current_path: &mut Vec<String>,
+        mut current_path_idx: &mut Vec<usize>,
         vec: &mut Vec<ContentItemDescriptor<C>>,
     ) {
+        // println!("{:?}, {:?}", current_path, current_path_idx);
         match self {
             ContentItem::Document { doc } => vec.push(ContentItem::add_doc(
                 doc.clone(),
@@ -216,12 +283,8 @@ impl<C> ContentItem<C> {
                     *last = id.clone();
                 }
 
-                if let Some(mut last) = current_path_idx.last_mut() {
-                    *last += 1;
-                }
-
-                let mut current_path = current_path.clone();
-                let mut current_path_idx = current_path_idx.clone();
+                let path_idx_index = current_path_idx.len() - 1;
+                // println!("{}", path_idx_index);
 
                 current_path.push("index".to_string());
                 current_path_idx.push(0);
@@ -235,6 +298,12 @@ impl<C> ContentItem<C> {
                 for child in children {
                     child.add_to_vector(&mut current_path, &mut current_path_idx, vec);
                 }
+
+                let mut idx = current_path_idx.get_mut(path_idx_index).unwrap();
+                *idx += 1;
+
+                current_path.pop();
+                current_path_idx.pop();
             }
         }
     }
@@ -273,7 +342,6 @@ pub fn content_from_dir(
         .filter_map(|d| {
             let p = d.path();
             if p.is_dir() {
-                println!("dir: {}", p.display());
                 match index_helper2(&p, &content_path) {
                     Ok(ix) => Some(create_section(content_path.clone(), &p, ix)),
                     Err(_) => None,
@@ -367,7 +435,8 @@ pub struct ProjectIterator<D> {
     config: Project<D>,
 }
 
-pub type ProjectResult<'a> = Project<&'a Option<Document<RenderResult>>>;
+pub type ContentResult<'a> = ContentItem<&'a Option<Document<RenderResult>>>;
+pub type ContentResultS = ContentItem<Option<Document<RenderResult>>>;
 pub type ProjectItemVec = Vec<ContentItemDescriptor<Option<Document<RenderResult>>>>;
 
 /// Contains necessary information for reconstructing a Config from an iterator.

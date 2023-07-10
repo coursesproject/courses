@@ -20,7 +20,7 @@ use penguin::Server;
 
 use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;
-use courses::project::{configure_project, ContentItem, Project};
+use courses::project::{configure_project, from_vec, ContentItem, Project};
 
 mod setup;
 
@@ -158,6 +158,10 @@ async fn cli_run() -> anyhow::Result<()> {
 
             // Initialize pipeline and build the project
             let (mut pipeline, absolute_path) = init_and_build(path.clone(), profile.clone())?;
+            let stuff: ContentItem<()> = from_vec(&pipeline.project_structure.clone().to_vector());
+            let config_out = serde_json::to_string(&stuff)?;
+
+            fs::write(absolute_path.join("project.json"), config_out).unwrap();
             let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());

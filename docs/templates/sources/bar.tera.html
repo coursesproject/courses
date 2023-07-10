@@ -23,9 +23,9 @@
             </a>
 
             {% for part in project.children %}
-                {% if mode == "draft" or not part.index.doc.metadata.draft %}
+                {% if mode == "draft" or not part.doc.content.metadata.draft %}
                     <a href="{{ config.url_prefix }}/{{ part.id }}/index.html" class="navbar-item">
-                        {{ part.index.content.metadata.title }}
+                        {{ part.doc.content.metadata.title }}
                     </a>
                 {% endif %}
             {% endfor %}

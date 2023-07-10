@@ -15,7 +15,8 @@ use tera::Context;
 
 use crate::project::config::ProjectConfig;
 use crate::project::{
-    ContentItem, ContentItemDescriptor, ItemDescriptor, ProjectItemVec, ProjectResult,
+    ContentItem, ContentItemDescriptor, ContentResult, ContentResultS, ItemDescriptor,
+    ProjectItemVec,
 };
 
 /// This type is responsible for writing the final output for a given format.
@@ -28,7 +29,7 @@ pub struct Generator<'a> {
     /// Rendered content as a vector. This format is used to enable parallelization.
     pub project_vec: &'a ProjectItemVec,
     /// Structured project for inclusion in layout templates.
-    pub project: &'a ContentItem<()>,
+    pub project: ContentResultS,
     /// Template manager is used to render the layout.
     pub templates: &'a TemplateManager,
     /// The project configuration is included in template contexts.

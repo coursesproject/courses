@@ -32,8 +32,8 @@ use rayon::prelude::*;
 use crate::generators::Generator;
 use crate::project::config::{Profile, ProjectConfig};
 use crate::project::{
-    section_id, ContentItem, ContentItemDescriptor, DocumentDescriptor, ItemDescriptor, Part,
-    Project, ProjectItem, ProjectItemVec,
+    from_vec, section_id, ContentItem, ContentItemDescriptor, ContentResult, DocumentDescriptor,
+    ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec,
 };
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
@@ -286,7 +286,7 @@ impl Pipeline {
                         let ctx = Generator {
                             root: self.project_path.clone(),
                             project_vec: &project_vec,
-                            project: &self.project_structure,
+                            project: from_vec(&project_vec),
                             templates: &self.templates,
                             config: self.project_config.clone(),
                             mode: self.profile.mode,
@@ -502,12 +502,20 @@ impl Pipeline {
                     style("parsing").blue()
                 ));
                 let (output, errs) = self.process_all(loaded.clone(), format.as_ref(), bar.clone());
-
+                // println!(
+                //     "{:#?}",
+                //     output
+                //         .clone()
+                //         .into_iter()
+                //         .map(|i| (i.path, i.path_idx))
+                //         .collect::<Vec<(Vec<String>, Vec<usize>)>>()
+                // );
+                // println!("{:#?}", output.iter().collect::<ContentResult>());
                 format_errs.append(&mut errs.lock().unwrap());
                 let context = Generator {
                     root: self.project_path.to_path_buf(),
                     project_vec: &output,
-                    project: &self.project_structure,
+                    project: from_vec(&output),
                     mode: self.profile.mode,
                     templates: &self.templates,
                     config: self.project_config.clone(),

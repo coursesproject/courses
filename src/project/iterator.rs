@@ -1,7 +1,61 @@
-use crate::project::{Chapter, ItemDescriptor, Part, Project, ProjectItem, ProjectIterator};
+use crate::project::{
+    Chapter, ContentItem, ContentItemDescriptor, ItemDescriptor, Part, Project, ProjectItem,
+    ProjectIterator,
+};
 use cdoc::config::InputFormat;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+// impl<C: Clone + Default> FromIterator<ContentItemDescriptor<C>> for ContentItem<C> {
+//     fn from_iter<T: IntoIterator<Item = ContentItemDescriptor<C>>>(iter: T) -> Self {
+//         from_vec_helper(&mut iter.into_iter()).unwrap()
+//     }
+// }
+//
+// impl<'a, C: Clone + Default> FromIterator<&'a ContentItemDescriptor<C>> for ContentItem<&'a C> {
+//     fn from_iter<T: IntoIterator<Item = &'a ContentItemDescriptor<C>>>(iter: T) -> Self {
+//         from_iter_helper_ref(&mut iter.into_iter())
+//     }
+// }
+
+// fn from_iter_helper2<C, I: Iterator<Item = ContentItemDescriptor<C>>>(
+//     iter: &mut I,
+//     current_path: &mut Vec<String>,
+// ) -> ContentItem<C> {
+//     let index_item = iter.next().unwrap();
+//
+//     if item.path.len() == current_path.len() + 1 {
+//         // same level
+//     } else {
+//         // new section
+//     }
+// }
+
+fn from_iter_helper_ref<'a, C, I: Iterator<Item = &'a ContentItemDescriptor<C>>>(
+    iter: &mut I,
+) -> ContentItem<&'a C> {
+    let section_item = iter.next().unwrap();
+
+    let mut children = Vec::new();
+    while let Some(item) = iter.next() {
+        if item.doc.id != "index" {
+            children.push(ContentItem::Document {
+                doc: item.doc.as_ref(),
+            });
+        } else {
+            children.push(from_iter_helper_ref(iter));
+        }
+    }
+    ContentItem::Section {
+        id: section_item
+            .path
+            .get(section_item.path.len() - 2)
+            .unwrap()
+            .clone(),
+        doc: section_item.doc.as_ref(),
+        children,
+    }
+}
 
 impl<D> IntoIterator for Project<D>
 where
