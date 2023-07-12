@@ -7,7 +7,12 @@ layout:
 # Project changelog
 
 ## 0.7.0
-- Content structure overhaul
+- Improved project structuring. Now only sections and documents exist and can be nested indefinitely.
+- Documents can be the same level as sections, instead of only being able to exist inside chapters.
+- Draft system now also determines whether additional files in each section are copied to the output.
+- Draft documents are no longer rendered when not in draft mode.
+- Documentation has been updated to take advantage of the new structure.
+- Doc templates have also been updated.
 
 ## 0.6.x
 

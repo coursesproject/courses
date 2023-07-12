@@ -45,34 +45,32 @@ impl Mover<'_> {
     }
 
     pub fn traverse_content(&self, item: &ContentResultS) -> anyhow::Result<()> {
-        match item {
-            ContentItem::Section {
-                section_id,
-                section_path,
-                children,
-                doc,
-                ..
-            } => {
-                if self.profile.mode == Mode::Draft
-                    || doc
-                        .content
-                        .as_ref()
-                        .as_ref()
-                        .is_some_and(|c| !c.metadata.draft)
-                {
-                    let dir_path = self.content_path().join(section_path);
-                    // println!("dir {}", dir_path.display());
-                    for child in children {
-                        self.traverse_content(child)?
-                    }
-                    let exclusions = self.get_children_dirs(children);
-                    if section_id != "root" {
-                        self.traverse_dir(dir_path, exclusions)
-                            .context("traverse failed")?;
-                    }
+        if let ContentItem::Section {
+            section_id,
+            section_path,
+            children,
+            doc,
+            ..
+        } = item
+        {
+            if self.profile.mode == Mode::Draft
+                || doc
+                    .content
+                    .as_ref()
+                    .as_ref()
+                    .is_some_and(|c| !c.metadata.draft)
+            {
+                let dir_path = self.content_path().join(section_path);
+                // println!("dir {}", dir_path.display());
+                for child in children {
+                    self.traverse_content(child)?
+                }
+                let exclusions = self.get_children_dirs(children);
+                if section_id != "root" {
+                    self.traverse_dir(dir_path, exclusions)
+                        .context("traverse failed")?;
                 }
             }
-            _ => {}
         }
         Ok(())
     }
@@ -118,10 +116,8 @@ impl Mover<'_> {
                         }
                     }
                 }
-            } else {
-                if !exclude.contains(&entry_path) {
-                    self.traverse_dir(entry_path, vec![])?;
-                }
+            } else if !exclude.contains(&entry_path) {
+                self.traverse_dir(entry_path, vec![])?;
             }
         }
 

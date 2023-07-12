@@ -355,8 +355,8 @@ impl Pipeline {
             .into_iter()
             .chain(
                 doc_path
-                    .into_iter()
-                    .map(|d| d.to_str().unwrap().split(".").next().unwrap().to_string()),
+                    .iter()
+                    .map(|d| d.to_str().unwrap().split('.').next().unwrap().to_string()),
             )
             .collect();
 
@@ -373,7 +373,7 @@ impl Pipeline {
             is_section: path.last().unwrap() == "index",
             path,
             path_idx: path_idx.clone(),
-            doc: self.project_structure.doc_at_idx(&path_idx[..])?.clone(),
+            doc: self.project_structure.doc_at_idx(&path_idx[..])?,
         })
     }
 

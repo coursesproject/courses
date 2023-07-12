@@ -26,7 +26,7 @@ impl<C> Clone for DocumentDescriptor<C> {
     fn clone(&self) -> Self {
         Self {
             id: self.id.clone(),
-            format: self.format.clone(),
+            format: self.format,
             path: self.path.clone(),
             content: self.content.clone(),
         }
@@ -123,7 +123,7 @@ impl<C> ContentItemDescriptor<C> {
             path_idx: self.path_idx,
             doc: DocumentDescriptor {
                 id: self.doc.id.clone(),
-                format: self.doc.format.clone(),
+                format: self.doc.format,
                 path: self.doc.path.clone(),
                 content: Arc::new(f(self.doc)?),
             },
@@ -134,10 +134,9 @@ impl<C> ContentItemDescriptor<C> {
 pub fn from_vec<C: Clone>(vec: &Vec<ContentItemDescriptor<C>>) -> ContentItem<C> {
     let mut current_idx = 0;
     let mut current_lvl = 0;
-    let res = from_vec_helper(&vec, &mut current_idx, &mut current_lvl, 1)
+    from_vec_helper(vec, &mut current_idx, &mut current_lvl, 1)
         .unwrap()
-        .remove(0);
-    res.clone()
+        .remove(0)
 }
 
 fn from_vec_helper<C>(
@@ -169,16 +168,14 @@ fn from_vec_helper<C>(
                 doc: next.doc.clone(),
                 children: inner,
             });
+        } else if current_path_len > next.path.len() {
+            *current_lvl -= 1;
+            return Some(children);
         } else {
-            if current_path_len > next.path.len() {
-                *current_lvl -= 1;
-                return Some(children);
-            } else {
-                children.push(ContentItem::Document {
-                    doc: next.doc.clone(),
-                });
-                *current_idx += 1;
-            }
+            children.push(ContentItem::Document {
+                doc: next.doc.clone(),
+            });
+            *current_idx += 1;
         }
     }
 
@@ -204,8 +201,12 @@ impl<C: Debug> ContentItem<C> {
         }
     }
 
-    fn doc_at_idx_inner<'a>(
-        items: &'a [&ContentItem<C>],
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn doc_at_idx_inner(
+        items: &[&ContentItem<C>],
         path_idx: &[usize],
     ) -> anyhow::Result<DocumentDescriptor<C>> {
         // println!("pp {:?}, it {:?}", path_idx, items);
@@ -296,8 +297,8 @@ impl<C: Debug> ContentItem<C> {
 
     fn add_doc(
         doc: DocumentDescriptor<C>,
-        current_path: &mut Vec<String>,
-        current_path_idx: &mut Vec<usize>,
+        current_path: &mut [String],
+        current_path_idx: &mut [usize],
         is_section: bool,
     ) -> ContentItemDescriptor<C> {
         if let Some(last) = current_path.last_mut() {
@@ -306,9 +307,9 @@ impl<C: Debug> ContentItem<C> {
 
         let content = ContentItemDescriptor {
             is_section,
-            path: current_path.clone(),
-            path_idx: current_path_idx.clone(),
-            doc: doc.clone(),
+            path: current_path.to_vec(),
+            path_idx: current_path_idx.to_vec(),
+            doc,
         };
 
         if let Some(last) = current_path_idx.last_mut() {
@@ -319,14 +320,14 @@ impl<C: Debug> ContentItem<C> {
     }
     fn add_to_vector(
         self,
-        mut current_path: &mut Vec<String>,
-        mut current_path_idx: &mut Vec<usize>,
+        current_path: &mut Vec<String>,
+        current_path_idx: &mut Vec<usize>,
         vec: &mut Vec<ContentItemDescriptor<C>>,
     ) {
         // println!("{:?}, {:?}", current_path, current_path_idx);
         match self {
             ContentItem::Document { doc } => vec.push(ContentItem::add_doc(
-                doc.clone(),
+                doc,
                 current_path,
                 current_path_idx,
                 false,
@@ -338,7 +339,7 @@ impl<C: Debug> ContentItem<C> {
                 ..
             } => {
                 if let Some(last) = current_path.last_mut() {
-                    *last = id.clone();
+                    *last = id;
                 }
 
                 let path_idx_index = current_path_idx.len() - 1;
@@ -349,13 +350,13 @@ impl<C: Debug> ContentItem<C> {
 
                 vec.push(ContentItem::add_doc(
                     index,
-                    &mut current_path,
-                    &mut current_path_idx,
+                    current_path,
+                    current_path_idx,
                     true,
                 ));
 
                 for child in children {
-                    child.add_to_vector(&mut current_path, &mut current_path_idx, vec);
+                    child.add_to_vector(current_path, current_path_idx, vec);
                 }
 
                 let idx = current_path_idx.get_mut(path_idx_index).unwrap();
@@ -424,10 +425,10 @@ fn create_section(
     ix: DocumentDescriptor<()>,
 ) -> anyhow::Result<ContentItem<()>> {
     Ok(ContentItem::Section {
-        section_id: chapter_id(&p).ok_or(anyhow!("no id"))?,
+        section_id: chapter_id(p).ok_or(anyhow!("no id"))?,
         section_path: p.to_str().unwrap().to_string(),
         doc: ix,
-        children: content_from_dir(p.clone(), content_path.clone())?,
+        children: content_from_dir(p.clone(), content_path)?,
     })
 }
 
@@ -495,7 +496,7 @@ fn index_helper2<P: AsRef<Path>, PC: AsRef<Path>>(
         ))
     }?;
 
-    let id = chapter_id(&chapter_dir).ok_or(anyhow!("no id"))?;
+    let id = chapter_id(chapter_dir).ok_or(anyhow!("no id"))?;
     DocumentDescriptor::new_with_id(chapter_index.strip_prefix(content_path.as_ref())?, id)
 }
 
@@ -508,7 +509,6 @@ fn get_sorted_paths<P: AsRef<Path>>(path: P) -> io::Result<Vec<DirEntry>> {
 
 #[cfg(test)]
 mod tests {
-    use std::iter::zip;
 
     use super::*;
 
