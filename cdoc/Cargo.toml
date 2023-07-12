@@ -16,19 +16,6 @@ readme = "README.md"
 keywords = ["generator", "markdown", "notebooks"]
 categories = ["command-line-utilities"]
 
-[profile.dev]
-opt-level = 0
-debug = true
-split-debuginfo = '...'  # Platform-specific.
-debug-assertions = true
-overflow-checks = true
-lto = false
-panic = 'unwind'
-incremental = true
-codegen-units = 256
-rpath = false
-
-
 [lib]
 name = "cdoc"
 path = "src/lib.rs"

@@ -14,10 +14,7 @@ use std::path::PathBuf;
 use tera::Context;
 
 use crate::project::config::ProjectConfig;
-use crate::project::{
-    ContentItem, ContentItemDescriptor, ContentResult, ContentResultS, ItemDescriptor,
-    ProjectItemVec,
-};
+use crate::project::{ContentItemDescriptor, ContentResultS, ProjectItemVec};
 
 /// This type is responsible for writing the final output for a given format.
 /// For formats that use layouts, this is where the document content is rendered into the layout
@@ -43,12 +40,22 @@ pub struct Generator<'a> {
 }
 
 impl Generator<'_> {
-    fn get_writer(&self, doc_id: &str, doc_path: &PathBuf) -> anyhow::Result<impl Write> {
-        let mut html_build_dir = self.build_dir.join(doc_path);
+    fn get_writer(
+        &self,
+        doc_id: &str,
+        doc_path: &PathBuf,
+        is_section: bool,
+    ) -> anyhow::Result<impl Write> {
+        let relative_doc_path = doc_path
+            .strip_prefix(self.root.join("content").as_path())
+            .unwrap_or(doc_path);
+        let mut html_build_dir = self.build_dir.join(relative_doc_path);
         html_build_dir.pop(); // Pop filename
 
-        let section_build_path =
-            html_build_dir.join(format!("{}.{}", doc_id, self.format.extension()));
+        let id = if is_section { "index" } else { doc_id };
+        let section_build_path = html_build_dir.join(format!("{}.{}", id, self.format.extension()));
+
+        // println!("sec path: {}", section_build_path.display());
 
         fs::create_dir_all(html_build_dir).context("Could not create directory")?;
 
@@ -93,7 +100,7 @@ impl Generator<'_> {
         item: &ContentItemDescriptor<T>,
     ) -> anyhow::Result<()> {
         if !(self.mode == Mode::Release && doc.metadata.draft) {
-            let mut writer = self.get_writer(&item.doc.id, &item.doc.path)?;
+            let mut writer = self.get_writer(&item.doc.id, &item.doc.path, item.is_section)?;
             if self.format.use_layout() {
                 let mut context = Context::default();
                 context.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.

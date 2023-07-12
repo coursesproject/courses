@@ -24,16 +24,15 @@ use cdoc::processors::PreprocessorContext;
 use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
 use cdoc::templates::TemplateManager;
 use image::io::Reader as ImageReader;
-use mover::{MoveContext, Mover};
+use mover::Mover;
 
 use cdoc::renderers::generic::GenericRenderer;
 use rayon::prelude::*;
 
 use crate::generators::Generator;
-use crate::project::config::{Profile, ProjectConfig};
+use crate::project::config::{Mode, Profile, ProjectConfig};
 use crate::project::{
-    from_vec, section_id, ContentItem, ContentItemDescriptor, ContentResult, DocumentDescriptor,
-    ItemDescriptor, Part, Project, ProjectItem, ProjectItemVec,
+    from_vec, ContentItem, ContentItemDescriptor, DocumentDescriptor, ProjectItemVec,
 };
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
@@ -99,8 +98,6 @@ pub struct Pipeline {
     pub profile_name: String,
     /// Project root path
     pub project_path: PathBuf,
-    /// Project structure
-    pub project: Project<()>,
     pub project_structure: ContentItem<()>,
     /// Configuration for project loaded from config.yml
     pub project_config: ProjectConfig,
@@ -133,7 +130,6 @@ impl Pipeline {
         project_path: P,
         profile: String,
         config: ProjectConfig,
-        project: Project<()>,
         project_structure: ContentItem<()>,
     ) -> anyhow::Result<Self> {
         print!("Parsing templates... ");
@@ -161,7 +157,6 @@ impl Pipeline {
             profile: p,
             profile_name: profile,
             project_path: project_path.as_ref().to_path_buf(),
-            project,
             project_structure,
             project_config: config,
             templates: template_manager,
@@ -338,8 +333,6 @@ impl Pipeline {
         output: &Document<RenderResult>,
         mut project: ProjectItemVec,
     ) -> ProjectItemVec {
-        let i3 = item2.clone();
-
         let item = project
             .iter_mut()
             .find(|item| item.path == item2.path)
@@ -358,109 +351,40 @@ impl Pipeline {
             .as_path()
             .strip_prefix(self.project_path.as_path().join("content"))?; // TODO: Error handling;
 
-        let path: Vec<String> = doc_path
+        let path: Vec<String> = vec!["root".to_string()]
             .into_iter()
-            .map(|d| d.to_str().unwrap().split(".").next().unwrap().to_string())
+            .chain(
+                doc_path
+                    .into_iter()
+                    .map(|d| d.to_str().unwrap().split(".").next().unwrap().to_string()),
+            )
             .collect();
+
+        // println!("pp: {:?}", path);
 
         let path_idx = self
             .project_structure
             .get_path_idx(&path[..])
             .ok_or(anyhow!("Path is invalid"))?;
 
+        // println!("ppi: {:?}", path_idx);
+
         Ok(ContentItemDescriptor {
+            is_section: path.last().unwrap() == "index",
             path,
             path_idx: path_idx.clone(),
             doc: self.project_structure.doc_at_idx(&path_idx[..])?.clone(),
         })
-
-        // let mut part_id = None;
-        // let mut chapter_id = None;
-        // let mut part_idx = None;
-        // let mut chapter_idx = None;
-        // let mut doc_idx = None;
-        //
-        // let mut doc_iter = doc_path.iter();
-        // let el = doc_iter.next().unwrap().to_str().unwrap();
-        //
-        // let doc = if el.contains('.') {
-        //     &self.project.index
-        // } else {
-        //     let first_elem = doc_iter
-        //         .next()
-        //         .ok_or(anyhow!(
-        //             "Empty part. Parts must contain index.ms or index.ipynb"
-        //         ))?
-        //         .to_str()
-        //         .unwrap();
-        //
-        //     // let file_name = doc_iter.next().unwrap().to_str().unwrap();
-        //     let file_id = section_id(path.as_path()).unwrap();
-        //
-        //     let part: &Part<()> = self
-        //         .project
-        //         .content
-        //         .iter()
-        //         .find(|e| e.id == el)
-        //         .expect("Part not found for single document");
-        //     let elem = part.chapters.iter().find(|c| c.id == first_elem);
-        //     part_id = Some(part.id.clone());
-        //
-        //     let pid = self
-        //         .project
-        //         .content
-        //         .iter()
-        //         .position(|e| e.id == el)
-        //         .expect("Part index not found");
-        //     part_idx = Some(pid + 1);
-        //
-        //     match elem {
-        //         None => &part.index,
-        //         Some(c) => {
-        //             chapter_id = Some(c.id.clone());
-        //             let cid = part
-        //                 .chapters
-        //                 .iter()
-        //                 .position(|c| c.id == first_elem)
-        //                 .expect("Part index not found");
-        //             chapter_idx = Some(cid + 1);
-        //             let doc = c.documents.iter().find(|d| d.id == file_id);
-        //             match doc {
-        //                 None => &c.index,
-        //                 Some(d) => {
-        //                     let did = c
-        //                         .documents
-        //                         .iter()
-        //                         .position(|d| d.id == file_id)
-        //                         .expect("Part index not found");
-        //                     doc_idx = Some(did + 1);
-        //
-        //                     d
-        //                 }
-        //             }
-        //         }
-        //     }
-        // };
-        //
-        // let item = ItemDescriptor {
-        //     part_id,
-        //     chapter_id,
-        //     part_idx,
-        //     chapter_idx,
-        //     doc: doc.clone(),
-        //     doc_idx,
-        //     files: None,
-        // };
-        //
-        // Ok(item)
     }
 
     /// Build the whole project (optionally removes existing build)
     pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
-        let build_path = self.project_path.join("build");
+        let build_path = self.project_path.join("build").join(&self.profile_name);
 
         if remove_existing && build_path.exists() {
-            fs::remove_dir_all(build_path)?;
+            for dir in fs::read_dir(build_path)? {
+                fs::remove_dir_all(dir?.path())?;
+            }
         }
 
         let loaded = self.load_files()?;
@@ -478,7 +402,7 @@ impl Pipeline {
         let multi = MultiProgress::new();
         let mut bars = Vec::new();
 
-        let bar_len = self.project.len() * 2;
+        let bar_len = self.project_structure.len() * 2;
         let sty = ProgressStyle::with_template("{msg:<20} {pos}/{len} {bar:20.cyan/blue}")?;
 
         for _f in &self.project_config.outputs {
@@ -502,20 +426,14 @@ impl Pipeline {
                     style("parsing").blue()
                 ));
                 let (output, errs) = self.process_all(loaded.clone(), format.as_ref(), bar.clone());
-                // println!(
-                //     "{:#?}",
-                //     output
-                //         .clone()
-                //         .into_iter()
-                //         .map(|i| (i.path, i.path_idx))
-                //         .collect::<Vec<(Vec<String>, Vec<usize>)>>()
-                // );
-                // println!("{:#?}", output.iter().collect::<ContentResult>());
+
                 format_errs.append(&mut errs.lock().unwrap());
+
+                let project_full = from_vec(&output);
                 let context = Generator {
                     root: self.project_path.to_path_buf(),
                     project_vec: &output,
-                    project: from_vec(&output),
+                    project: project_full.clone(),
                     mode: self.profile.mode,
                     templates: &self.templates,
                     config: self.project_config.clone(),
@@ -541,15 +459,14 @@ impl Pipeline {
                 }
 
                 // Move extra files
-
-                // print!(", copying additional files");
-                let move_ctx = MoveContext {
+                let mover = Mover {
                     project_path: self.project_path.to_path_buf(),
                     build_dir: self.get_build_path(format.as_ref()),
                     settings: self.profile.parser.settings.clone(),
+                    profile: &self.profile,
                 };
 
-                let res = Mover::traverse_dir(self.project_path.join("content"), &move_ctx);
+                let res = mover.traverse_content(&project_full);
                 if let Err(e) = res {
                     format_errs.push(e);
                 }
@@ -561,7 +478,6 @@ impl Pipeline {
                         style(format.name()).bold(),
                         style("success").green()
                     ));
-                    // println!("{}", style("success").green());
                 } else {
                     bar.finish_with_message(format!(
                         "{} {}",
@@ -653,6 +569,7 @@ impl Pipeline {
 
                 // let res = print_err(res);
                 ContentItemDescriptor {
+                    is_section: i.is_section,
                     path: i.path,
                     path_idx: i.path_idx,
                     doc: DocumentDescriptor {
@@ -685,6 +602,8 @@ impl Pipeline {
                 ids: doc.ids,
                 id_map: doc.id_map,
             }))
+        } else if self.profile.mode != Mode::Draft && doc.metadata.draft {
+            Ok(Some(doc.map(|_| String::new())))
         } else if !doc
             .metadata
             .exclude_outputs

@@ -20,7 +20,7 @@ use penguin::Server;
 
 use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;
-use courses::project::{configure_project, from_vec, ContentItem, Project};
+use courses::project::{configure_project, from_vec, ContentItem};
 
 mod setup;
 
@@ -85,13 +85,6 @@ fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
     Ok(config)
 }
 
-fn init_project(path: &Path) -> anyhow::Result<Project<()>> {
-    print!("Configuring project...");
-    let proj = Project::generate_from_directory(path)?;
-    println!(" {}", style("done").green());
-    Ok(proj)
-}
-
 fn init_project_structure(path: &Path) -> anyhow::Result<ContentItem<()>> {
     print!("Configuring project structure...");
     let proj = configure_project(path.join("content"));
@@ -103,22 +96,20 @@ fn init_pipeline(
     absolute_path: &Path,
     profile: String,
     config: ProjectConfig,
-    project: Project<()>,
     structure: ContentItem<()>,
 ) -> anyhow::Result<Pipeline> {
-    Pipeline::new(absolute_path, profile, config, project, structure)
+    Pipeline::new(absolute_path, profile, config, structure)
 }
 
 fn init_and_build(path: Option<PathBuf>, profile: String) -> anyhow::Result<(Pipeline, PathBuf)> {
     let path = path_with_default(path)?;
     let config = init_config(&path)?;
-    let project = init_project(&path)?;
     let structure = init_project_structure(&path)?;
 
     let mut absolute_path = env::current_dir()?;
     absolute_path.push(path.as_path());
 
-    let pipeline = init_pipeline(&absolute_path, profile, config, project, structure)?;
+    let pipeline = init_pipeline(&absolute_path, profile, config, structure)?;
 
     Ok((pipeline, absolute_path))
 }
@@ -195,36 +186,38 @@ async fn cli_run() -> anyhow::Result<()> {
                             let p = full_path.strip_prefix(absolute_path.as_path()).unwrap();
 
                             // Ensure that temporary files (that include ~) created by some editors are skipped
-                            if !p.extension().unwrap().to_str().unwrap().contains('~') {
-                                let current_time = SystemTime::now();
-                                // Determine whether change was in content or template
-                                if p.starts_with(Path::new("content")) {
-                                    // Content change only results in rebuilding the changed file itself.
-                                    let res = pipeline.build_single(full_path.to_path_buf());
-                                    err_print(res);
-                                } else if p.starts_with(Path::new("templates")) {
-                                    // Template change requires reloading templates and rebuilding the whole
-                                    // project.
-                                    let res = pipeline.reload_templates();
-                                    err_print(res);
-                                    println!("{}", style("reloaded templates").green());
-                                    let res = pipeline.build_all(false);
-                                    err_print(res);
+                            if let Some(ext) = p.extension() {
+                                if !ext.to_str().unwrap().contains('~') {
+                                    let current_time = SystemTime::now();
+                                    // Determine whether change was in content or template
+                                    if p.starts_with(Path::new("content")) {
+                                        // Content change only results in rebuilding the changed file itself.
+                                        let res = pipeline.build_single(full_path.to_path_buf());
+                                        err_print(res);
+                                    } else if p.starts_with(Path::new("templates")) {
+                                        // Template change requires reloading templates and rebuilding the whole
+                                        // project.
+                                        let res = pipeline.reload_templates();
+                                        err_print(res);
+                                        println!("{}", style("reloaded templates").green());
+                                        let res = pipeline.build_all(false);
+                                        err_print(res);
+                                    }
+
+                                    // Reload the webpage to show the updated content.
+                                    controller.reload();
+                                    println!();
+                                    println!(
+                                        "🌟 Done ({} ms)",
+                                        current_time.elapsed().unwrap().as_millis()
+                                    );
+
+                                    println!(
+                                        "{}http://localhost:8000{}",
+                                        style("Server open at: ").italic(),
+                                        pipeline.project_config.url_prefix
+                                    );
                                 }
-
-                                // Reload the webpage to show the updated content.
-                                controller.reload();
-                                println!();
-                                println!(
-                                    "🌟 Done ({} ms)",
-                                    current_time.elapsed().unwrap().as_millis()
-                                );
-
-                                println!(
-                                    "{}http://localhost:8000{}",
-                                    style("Server open at: ").italic(),
-                                    pipeline.project_config.url_prefix
-                                );
                             }
                         }
                     }),
@@ -420,6 +413,7 @@ fn err_print(res: anyhow::Result<()>) {
 }
 
 #[tokio::main]
+// #[pollster::main]
 async fn main() {
     err_print(cli_run().await)
 }

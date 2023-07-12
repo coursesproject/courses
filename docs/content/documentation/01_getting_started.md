@@ -5,9 +5,9 @@ title: Getting started
 # Getting started
 This page explains the basics of how `courses` is used. It covers installation, creating a new project, serving the project locally, and building the project.
 
+
 ## Installation
 For now, you have to compile Courses yourself. However, it only requires a few steps and should work without any tweaks on most setups.
-
 
 
 1. You need to install rust and cargo to compile the application. Doing so is most easily accomplished by installing *rustup*. Simply follow the instructions on the [installation page](https://rustup.rs/).

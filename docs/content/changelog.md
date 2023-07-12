@@ -6,6 +6,9 @@ layout:
 
 # Project changelog
 
+## 0.7.0
+- Content structure overhaul
+
 ## 0.6.x
 
 ### 0.6.5
