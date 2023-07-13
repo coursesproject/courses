@@ -381,9 +381,22 @@ impl Pipeline {
     pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
         let build_path = self.project_path.join("build").join(&self.profile_name);
 
+        let format_folder_names: Vec<&str> = self
+            .project_config
+            .outputs
+            .iter()
+            .map(|f| f.name())
+            .collect();
         if remove_existing && build_path.exists() {
-            for dir in fs::read_dir(build_path)? {
-                fs::remove_dir_all(dir?.path())?;
+            for entry in fs::read_dir(build_path)? {
+                let entry = entry?;
+                if entry.path().is_dir()
+                    && format_folder_names
+                        .iter()
+                        .any(|f| entry.path().ends_with(f))
+                {
+                    fs::remove_dir_all(entry.path())?;
+                }
             }
         }
 

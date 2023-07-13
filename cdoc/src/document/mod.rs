@@ -63,8 +63,10 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
     let mut res = String::new();
     let mut eq_idx = 0;
     while let Some(idx) = rest.find('$') {
-        let is_block = rest.len() > 2 && &rest[idx + 1..idx + 2] == "$";
-        let trailing_space = rest.len() > 2 && &rest[idx + 1..idx + 2] == " ";
+        let is_block =
+            rest.len() > 2 && rest.chars().nth(idx + 1).map(|c| c == '$').unwrap_or(false);
+        let trailing_space =
+            rest.len() > 2 && rest.chars().nth(idx + 1).map(|c| c == ' ').unwrap_or(false);
 
         if is_eq {
             res.push_str(&format!("__{eq_idx}__"));
