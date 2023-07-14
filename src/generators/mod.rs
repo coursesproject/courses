@@ -57,7 +57,12 @@ impl Generator<'_> {
 
         // println!("sec path: {}", section_build_path.display());
 
-        fs::create_dir_all(html_build_dir).context("Could not create directory")?;
+        fs::create_dir_all(&html_build_dir).with_context(|| {
+            format!(
+                "Could not create directory at: {}",
+                html_build_dir.display()
+            )
+        })?;
 
         let file = File::create(section_build_path)?;
         let writer = BufWriter::new(file);
@@ -100,7 +105,14 @@ impl Generator<'_> {
         item: &ContentItemDescriptor<T>,
     ) -> anyhow::Result<()> {
         if !(self.mode == Mode::Release && doc.metadata.draft) {
-            let mut writer = self.get_writer(&item.doc.id, &item.doc.path, item.is_section)?;
+            let mut writer = self
+                .get_writer(&item.doc.id, &item.doc.path, item.is_section)
+                .with_context(|| {
+                    format!(
+                        "Could not create writer for document at path: {}",
+                        item.doc.path.display()
+                    )
+                })?;
             if self.format.use_layout() {
                 let mut context = Context::default();
                 context.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.

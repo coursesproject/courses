@@ -16,6 +16,42 @@ impl MathInserter {
     }
 }
 
+impl MathInserter {
+    fn replace_with_original(&mut self, source: &mut String) -> anyhow::Result<()> {
+        let r = Regex::new(r"\*\*([0-9]+)\*\*")?;
+
+        let mut out = String::new();
+        let mut start_idx = 0;
+
+        r.captures_iter(source).try_for_each(|m| {
+            if let Some(ms) = m.get(1) {
+                let idx = usize::from_str(ms.as_str())?;
+                out.push_str(&source[start_idx..ms.range().start - 2]);
+
+                if let Some(Inline::Math {
+                    source,
+                    display_block,
+                    trailing_space,
+                }) = self.math_blocks.get(idx)
+                {
+                    let trail = if *trailing_space { " " } else { "" };
+                    if *display_block {
+                        out.push_str(&format!("$${}$${}", source, trail));
+                    } else {
+                        out.push_str(&format!("${}${}", source, trail));
+                    }
+                }
+                start_idx = ms.range().end + 2;
+            }
+
+            Ok::<(), anyhow::Error>(())
+        })?;
+        out.push_str(&source[start_idx..]);
+        *source = out;
+        Ok(())
+    }
+}
+
 impl AstVisitor for MathInserter {
     fn visit_inline(&mut self, inline: &mut Inline) -> anyhow::Result<()> {
         if let Inline::Strong(inner) = inline {
@@ -27,6 +63,17 @@ impl AstVisitor for MathInserter {
         }
 
         self.walk_inline(inline)
+    }
+
+    fn visit_code_block(
+        &mut self,
+        source: &mut String,
+        _reference: &mut Option<String>,
+        _attr: &mut CodeAttributes,
+        _tags: &mut Option<Vec<String>>,
+        _outputs: &mut Vec<CellOutput>,
+    ) -> anyhow::Result<()> {
+        self.replace_with_original(source)
     }
 }
 
@@ -109,15 +156,15 @@ impl ShortcodeInserter<'_> {
                 let idx = usize::from_str(ms.as_str())?;
                 out.push_str(&source[start_idx..ms.range().start - 1]);
 
-                let (def, body) = self.shortcodes[idx];
-
-                if body.is_empty() {
-                    out.push_str(&format!("{{{{ {} }}}}", def));
-                } else {
-                    out.push_str(&format!("{{% {} %}}", def));
-                    let code = parse_shortcode(def)?;
-                    out.push_str(body);
-                    out.push_str(&format!("{{% end_{} %}}", code.name))
+                if let Some((def, body)) = self.shortcodes.get(idx) {
+                    if body.is_empty() {
+                        out.push_str(&format!("{{{{ {} }}}}", def));
+                    } else {
+                        out.push_str(&format!("{{% {} %}}", def));
+                        let code = parse_shortcode(def)?;
+                        out.push_str(body);
+                        out.push_str(&format!("{{% end_{} %}}", code.name))
+                    }
                 }
                 start_idx = ms.range().end + 1;
             }

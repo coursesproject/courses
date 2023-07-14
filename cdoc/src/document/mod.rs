@@ -6,6 +6,7 @@ use std::ops::Range;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::ast::{
     find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, ShortcodeBase, ShortcodeIdx,
@@ -32,9 +33,11 @@ pub struct DocumentMetadata {
     pub editable: bool,
     #[serde(default)]
     pub layout: LayoutSettings,
-
     #[serde(default)]
     pub exclude_outputs: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub user_defined: HashMap<String, Value>,
 }
 
 const fn default_true() -> bool {
@@ -69,7 +72,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
             rest.len() > 2 && rest.chars().nth(idx + 1).map(|c| c == ' ').unwrap_or(false);
 
         if is_eq {
-            res.push_str(&format!("__{eq_idx}__"));
+            res.push_str(&format!("**{}**", eq_idx));
             math_blocks.push(Inline::Math {
                 source: rest[..idx].to_string(),
                 display_block: is_block,
@@ -221,7 +224,7 @@ impl DocPos {
     }
 }
 
-fn id_map_from_ids(
+pub fn id_map_from_ids(
     ids: &HashMap<String, (usize, Vec<ShortCodeCall>)>,
 ) -> HashMap<String, (usize, ShortCodeCall)> {
     let mut out = HashMap::new();

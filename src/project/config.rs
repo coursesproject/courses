@@ -35,6 +35,8 @@ pub struct Profile {
     pub mode: Mode,
     #[serde(default)]
     pub parser: Parser,
+    #[serde(default)]
+    pub formats: Vec<Box<dyn Format>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -66,6 +68,7 @@ fn default_profiles() -> HashMap<String, Profile> {
                     notebook_outputs: false,
                 },
             },
+            formats: vec![],
         },
     );
 
@@ -80,6 +83,7 @@ fn default_profiles() -> HashMap<String, Profile> {
                     notebook_outputs: false,
                 },
             },
+            formats: vec![],
         },
     );
 

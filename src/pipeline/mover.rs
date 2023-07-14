@@ -67,8 +67,10 @@ impl Mover<'_> {
                 }
                 let exclusions = self.get_children_dirs(children);
                 if section_id != "root" {
-                    self.traverse_dir(dir_path, exclusions)
-                        .context("traverse failed")?;
+                    self.traverse_dir(dir_path.clone(), exclusions)
+                        .with_context(|| {
+                            format!("Resource copy from directory {} failed", dir_path.display())
+                        })?;
                 }
             }
         }
@@ -80,7 +82,9 @@ impl Mover<'_> {
         let content_path = self.project_path.join("content");
         let exclude: Vec<PathBuf> = exclude.iter().map(|p| path.join(p)).collect();
 
-        for entry in fs::read_dir(path.as_path()).context("dir not found")? {
+        for entry in fs::read_dir(path.as_path())
+            .with_context(|| format!("directory not found at {}", path.display()))?
+        {
             let entry = entry?;
             let entry_path = entry.path();
 
@@ -98,7 +102,13 @@ impl Mover<'_> {
                     match ext {
                         "md" | "ipynb" => {}
                         "py" => {
-                            let input = fs::read_to_string(entry_path.as_path())?;
+                            let input =
+                                fs::read_to_string(entry_path.as_path()).with_context(|| {
+                                    format!(
+                                        "failed to read python file at {}",
+                                        entry_path.as_path().display()
+                                    )
+                                })?;
                             let parsed = parse_code_string(&input)?;
                             let output = parsed.write_string(self.settings.solutions);
 
@@ -106,12 +116,22 @@ impl Mover<'_> {
                             // file.write_all(output.as_bytes())?;
                             fs::create_dir_all(dest.as_path())?;
 
-                            fs::write(dest, output)?;
+                            fs::write(dest, output).with_context(|| {
+                                format!(
+                                    "failed to write python file at {}",
+                                    entry_path.as_path().display()
+                                )
+                            })?;
                         }
                         _ => {
                             if !entry_path.is_dir() {
                                 fs::create_dir_all(dest.as_path().parent().unwrap())?;
-                                fs::copy(entry_path, dest)?;
+                                fs::copy(&entry_path, dest).with_context(|| {
+                                    format!(
+                                        "failed to copy file to build folder at {}",
+                                        entry_path.as_path().display()
+                                    )
+                                })?;
                             }
                         }
                     }

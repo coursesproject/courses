@@ -11,7 +11,7 @@ use tera::{Context, Filter, Function, Tera};
 
 mod definition;
 
-use crate::parsers::shortcodes::Argument;
+use crate::parsers::shortcodes::{Argument, ShortCodeCall};
 pub use definition::*;
 
 fn create_rhai_filter(source: String) -> impl Filter {
@@ -203,5 +203,30 @@ impl TemplateManager {
             .get_template(id, TemplateType::Shortcode)
             .context(format!("Invalid shortcode identifier '{}'", id))?;
         tp.validate_args(args)
+    }
+
+    pub fn shortcode_call_resolve_positionals(
+        &self,
+        call: ShortCodeCall,
+    ) -> anyhow::Result<ShortCodeCall> {
+        let tp = self.get_template(&call.name, TemplateType::Shortcode)?;
+        let params = tp.shortcode.unwrap().parameters;
+        let args = call
+            .arguments
+            .into_iter()
+            .enumerate()
+            .map(|(i, a)| match a {
+                Argument::Keyword { name, value } => Argument::Keyword { name, value },
+                Argument::Positional { value } => Argument::Keyword {
+                    name: params.get(i).unwrap().name.clone(),
+                    value,
+                },
+            })
+            .collect();
+        Ok(ShortCodeCall {
+            name: call.name,
+            id: call.id,
+            arguments: args,
+        })
     }
 }

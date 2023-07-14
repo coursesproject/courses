@@ -18,7 +18,7 @@ use tera::{Context, Filter, Function};
 
 use cdoc::ast::Ast;
 use cdoc::config::Format;
-use cdoc::document::{split_shortcodes, Document, DocumentMetadata};
+use cdoc::document::{id_map_from_ids, split_shortcodes, Document, DocumentMetadata};
 use cdoc::processors::PreprocessorContext;
 
 use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
@@ -34,6 +34,7 @@ use crate::project::config::{Mode, Profile, ProjectConfig};
 use crate::project::{
     from_vec, ContentItem, ContentItemDescriptor, DocumentDescriptor, ProjectItemVec,
 };
+use cdoc::parsers::shortcodes::ShortCodeCall;
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
 
@@ -256,7 +257,7 @@ impl Pipeline {
 
         let mut all_errors = Vec::new();
 
-        for format in self.project_config.outputs.clone() {
+        for format in self.get_formats_or_default().clone() {
             print!("format: {}", style(&format).bold());
             let output = self.process_document(&loaded.doc, format.as_ref());
 
@@ -377,13 +378,22 @@ impl Pipeline {
         })
     }
 
+    fn get_formats_or_default(&self) -> &Vec<Box<dyn Format>> {
+        if self.profile.formats.is_empty() {
+            &self.project_config.outputs
+        } else {
+            &self.profile.formats
+        }
+    }
+
     /// Build the whole project (optionally removes existing build)
     pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
         let build_path = self.project_path.join("build").join(&self.profile_name);
 
+        fs::create_dir_all(&build_path)?;
+
         let format_folder_names: Vec<&str> = self
-            .project_config
-            .outputs
+            .get_formats_or_default()
             .iter()
             .map(|f| f.name())
             .collect();
@@ -418,7 +428,7 @@ impl Pipeline {
         let bar_len = self.project_structure.len() * 2;
         let sty = ProgressStyle::with_template("{msg:<20} {pos}/{len} {bar:20.cyan/blue}")?;
 
-        for _f in &self.project_config.outputs {
+        for _f in self.get_formats_or_default() {
             let p = ProgressBar::new(bar_len as u64);
             let bar = multi.add(p);
             bar.set_style(sty.clone());
@@ -426,8 +436,7 @@ impl Pipeline {
             bars.push(bar);
         }
 
-        self.project_config
-            .outputs
+        self.get_formats_or_default()
             .par_iter()
             .zip(bars.clone())
             .for_each(|(format, bar)| {
@@ -606,6 +615,33 @@ impl Pipeline {
         format: &dyn Format,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         let doc = item.format.loader().load(&item.content)?;
+
+        let ids: HashMap<String, (usize, Vec<ShortCodeCall>)> = doc
+            .ids
+            .clone()
+            .into_iter()
+            .map(|(s, (i, c))| {
+                Ok((
+                    s,
+                    (
+                        i,
+                        c.into_iter()
+                            .map(|c| self.templates.shortcode_call_resolve_positionals(c))
+                            .collect::<anyhow::Result<Vec<ShortCodeCall>>>()?,
+                    ),
+                ))
+            })
+            .collect::<anyhow::Result<HashMap<String, (usize, Vec<ShortCodeCall>)>>>()?;
+
+        let id_map = id_map_from_ids(&ids);
+
+        let doc = Document {
+            content: doc.content,
+            metadata: doc.metadata,
+            variables: doc.variables,
+            ids,
+            id_map,
+        };
 
         if format.no_parse() {
             Ok(Some(Document {
