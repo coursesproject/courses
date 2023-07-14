@@ -3,20 +3,25 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::document::Document;
+use crate::processors::exercises::ExercisesConfig;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Parser {
-    #[serde(default)]
+    #[serde(default = "default_preprocessors")]
     pub preprocessors: Vec<Box<dyn AstPreprocessorConfig>>,
     #[serde(default)]
     pub settings: ParserSettings,
 }
 
+fn default_preprocessors() -> Vec<Box<dyn AstPreprocessorConfig>> {
+    vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>]
+}
+
 /// Additional parser configuration.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ParserSettings {
-    /// Include solutions for the [Exercises] preprocessor.
+    /// Include solutions for the [crate::processors::exercises::Exercises] preprocessor.
     #[serde(default)]
     pub solutions: bool,
     /// Include notebook outputs (from cells) in the loaded output.

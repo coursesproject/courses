@@ -2,7 +2,7 @@
 
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime};
 use std::{env, fs};
 
@@ -18,9 +18,9 @@ use notify_debouncer_mini::{
 };
 use penguin::Server;
 
-use courses::pipeline::{Mode, Pipeline};
+use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;
-use courses::project::Project;
+use courses::project::{configure_project, from_vec, ContentItem};
 
 mod setup;
 
@@ -36,14 +36,16 @@ enum Commands {
     Serve {
         #[arg(short, long)]
         path: Option<PathBuf>,
-        #[arg(short, long, default_value = "draft")]
-        mode: Mode,
+        #[arg(short = 'o', long, default_value = "draft")]
+        profile: String,
+        // mode: Mode,
     },
     Build {
         #[arg(short, long)]
         path: Option<PathBuf>,
-        #[arg(short, long, default_value = "release")]
-        mode: Mode,
+        #[arg(short = 'o', long, default_value = "release")]
+        profile: String,
+        // mode: Mode,
     },
     Init {
         name: Option<String>,
@@ -57,7 +59,8 @@ enum Commands {
         #[arg(short, long)]
         path: Option<PathBuf>,
         #[arg(short, long, default_value = "release")]
-        mode: Mode,
+        profile: String,
+        // mode: Mode,
     },
     Publish {},
 }
@@ -82,31 +85,31 @@ fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
     Ok(config)
 }
 
-fn init_project(path: &Path) -> anyhow::Result<Project<()>> {
-    print!("Configuring project...");
-    let proj = Project::generate_from_directory(path)?;
+fn init_project_structure(path: &Path) -> anyhow::Result<ContentItem<()>> {
+    print!("Configuring project structure...");
+    let proj = configure_project(path.join("content"));
     println!(" {}", style("done").green());
-    Ok(proj)
+    proj
 }
 
 fn init_pipeline(
     absolute_path: &Path,
-    mode: Mode,
+    profile: String,
     config: ProjectConfig,
-    project: Project<()>,
+    structure: ContentItem<()>,
 ) -> anyhow::Result<Pipeline> {
-    Pipeline::new(absolute_path, mode, config, project)
+    Pipeline::new(absolute_path, profile, config, structure)
 }
 
-fn init_and_build(path: Option<PathBuf>, mode: Mode) -> anyhow::Result<(Pipeline, PathBuf)> {
+fn init_and_build(path: Option<PathBuf>, profile: String) -> anyhow::Result<(Pipeline, PathBuf)> {
     let path = path_with_default(path)?;
     let config = init_config(&path)?;
-    let project = init_project(&path)?;
+    let structure = init_project_structure(&path)?;
 
     let mut absolute_path = env::current_dir()?;
     absolute_path.push(path.as_path());
 
-    let pipeline = init_pipeline(&absolute_path, mode, config, project)?;
+    let pipeline = init_pipeline(&absolute_path, profile, config, structure)?;
 
     Ok((pipeline, absolute_path))
 }
@@ -115,34 +118,48 @@ async fn cli_run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build { path, mode } => {
+        Commands::Build { path, profile } => {
             let current_time = SystemTime::now();
-            let (mut pipeline, _) = init_and_build(path, mode)?;
+            let (mut pipeline, _) = init_and_build(path, profile)?;
             pipeline.build_all(true)?;
 
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
             Ok(())
         }
-        Commands::Run { path, mode, script } => {
-            let (pipeline, _) = init_and_build(path, mode)?;
+        Commands::Run {
+            path,
+            profile,
+            script,
+        } => {
+            let (pipeline, _) = init_and_build(path, profile)?;
             let s = pipeline.project_config.scripts.get(&script).unwrap();
-            let mut child = Command::new("bash").arg("-c").arg(s).spawn()?;
-            child.wait()?;
+
+            Command::new("bash")
+                .arg("-c")
+                .arg(s)
+                .stdin(Stdio::piped())
+                .status()?;
+
             // assert!(output.status.success());
             Ok(())
         }
-        Commands::Serve { path, mode } => {
+        Commands::Serve { path, profile } => {
+            // Used for measuring build time
             let current_time = SystemTime::now();
-            let (mut pipeline, absolute_path) = init_and_build(path.clone(), mode)?;
+
+            // Initialize pipeline and build the project
+            let (mut pipeline, absolute_path) = init_and_build(path.clone(), profile.clone())?;
+            let stuff: ContentItem<()> = from_vec(&pipeline.project_structure.clone().to_vector());
+            let config_out = serde_json::to_string(&stuff)?;
+
+            fs::write(absolute_path.join("project.json"), config_out).unwrap();
             let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
 
+            // Initialize local server
             let path = path_with_default(path)?;
-            let p2 = path.as_path().join("content");
-            let tp = path.as_path().join("templates");
-            let p_build = path.as_path().join("build/html");
-
+            let p_build = path.as_path().join("build").join(&profile).join("html");
             let (server, controller) = Server::bind(([127, 0, 0, 1], 8000).into())
                 .add_mount(pipeline.project_config.url_prefix.clone(), p_build)?
                 .build()?;
@@ -156,42 +173,51 @@ async fn cli_run() -> anyhow::Result<()> {
 
             let notify_config = notify::Config::default();
 
+            // Notifier that watches for file changes.
             let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(
                 Duration::from_millis(100),
                 None,
                 move |res: DebounceEventResult| match res {
                     Ok(events) => events.iter().for_each(|event| {
-                        // println!("{:?}", event);
+                        // Only listen for this specific kind of event that is emitted for
+                        // file changes on any operating system.
                         if let DebouncedEventKind::Any = &event.kind {
                             let full_path = &event.path;
                             let p = full_path.strip_prefix(absolute_path.as_path()).unwrap();
 
-                            if !p.extension().unwrap().to_str().unwrap().contains('~') {
-                                let current_time = SystemTime::now();
-                                if p.starts_with(Path::new("content")) {
-                                    // pipeline.build_file(p, &c2, &cf);
-                                    let res = pipeline.build_single(full_path.to_path_buf());
-                                    err_print(res);
-                                } else if p.starts_with(Path::new("templates")) {
-                                    let res = pipeline.reload_templates();
-                                    err_print(res);
-                                    println!("{}", style("reloaded templates").green());
-                                    let res = pipeline.build_all(false);
-                                    err_print(res);
+                            // Ensure that temporary files (that include ~) created by some editors are skipped
+                            if let Some(ext) = p.extension() {
+                                if !ext.to_str().unwrap().contains('~') {
+                                    let current_time = SystemTime::now();
+                                    // Determine whether change was in content or template
+                                    if p.starts_with(Path::new("content")) {
+                                        // Content change only results in rebuilding the changed file itself.
+                                        let res = pipeline.build_single(full_path.to_path_buf());
+                                        err_print(res);
+                                    } else if p.starts_with(Path::new("templates")) {
+                                        // Template change requires reloading templates and rebuilding the whole
+                                        // project.
+                                        let res = pipeline.reload_templates();
+                                        err_print(res);
+                                        println!("{}", style("reloaded templates").green());
+                                        let res = pipeline.build_all(false);
+                                        err_print(res);
+                                    }
+
+                                    // Reload the webpage to show the updated content.
+                                    controller.reload();
+                                    println!();
+                                    println!(
+                                        "🌟 Done ({} ms)",
+                                        current_time.elapsed().unwrap().as_millis()
+                                    );
+
+                                    println!(
+                                        "{}http://localhost:8000{}",
+                                        style("Server open at: ").italic(),
+                                        pipeline.project_config.url_prefix
+                                    );
                                 }
-
-                                controller.reload();
-                                println!();
-                                println!(
-                                    "🌟 Done ({} ms)",
-                                    current_time.elapsed().unwrap().as_millis()
-                                );
-
-                                println!(
-                                    "{}http://localhost:8000{}",
-                                    style("Server open at: ").italic(),
-                                    pipeline.project_config.url_prefix
-                                );
                             }
                         }
                     }),
@@ -199,6 +225,9 @@ async fn cli_run() -> anyhow::Result<()> {
                 },
                 notify_config,
             )?;
+
+            let p2 = path.as_path().join("content");
+            let tp = path.as_path().join("templates");
 
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
@@ -213,9 +242,11 @@ async fn cli_run() -> anyhow::Result<()> {
 
             Ok(())
         }
+        // Create a new project.
         Commands::Init { name, repository } => {
             println!("{}", style("Project initialisation").bold().blue());
 
+            // Select template repository (currently only supports Default)
             let repository = repository.map(Ok::<String, InquireError>).unwrap_or_else(|| {
                 let options = vec!["Default", "Empty"];
                 let values = vec!["https://github.com/coursesproject/courses-template-default/archive/main.zip", ""];
@@ -226,6 +257,7 @@ async fn cli_run() -> anyhow::Result<()> {
                 Ok(values[s.raw_prompt()?.index].to_string())
             })?;
 
+            // Prepare directory for project
             let dir = name
                 .map(|n| {
                     let dir = env::current_dir()?.join(n);
@@ -236,13 +268,16 @@ async fn cli_run() -> anyhow::Result<()> {
 
             print!("Template downloading ...");
 
+            // Download and unpack the template in the new directory
             setup::setup(dir, repository)?;
 
             println!("{}", style("Success").green().bold());
 
             Ok(())
         }
+        // Wizard for creating a new content file
         Commands::Create {} => {
+            // Ask for path
             let res = inquire::Text::new("Document path: ").prompt()?;
             let doc_path = Path::new(&res);
 
@@ -254,8 +289,10 @@ async fn cli_run() -> anyhow::Result<()> {
                 .to_str()
                 .unwrap();
 
+            // Ask for doc title
             let title = inquire::Text::new("Enter document title: ").prompt()?;
 
+            // Document options (metadata)
             let doc_options = vec![
                 "exercises",
                 "notebook_output",
@@ -270,25 +307,30 @@ async fn cli_run() -> anyhow::Result<()> {
                     .with_default(&[0, 3])
                     .prompt()?;
 
+            // Determine output formats
             let output_formats = vec!["notebook", "html", "info", "latex"];
             let output_ans = inquire::MultiSelect::new("Select output formats:", output_formats)
                 .with_default(&[2])
                 .prompt()?;
 
+            // Construct Map with chosen options
             let mut doc_meta: LinkedHashMap<String, serde_yaml::Value> = LinkedHashMap::new();
             doc_meta.insert("title".to_string(), serde_yaml::Value::from(title));
             doc_option_ans.into_iter().for_each(|o| {
                 doc_meta.insert(o.to_string(), serde_yaml::Value::from(true));
             });
             doc_meta.insert("outputs".to_string(), serde_yaml::Value::from(output_ans));
-
+            // Write options to yaml string
             let doc_meta_string = serde_yaml::to_string(&doc_meta)?;
+
             let content_path = env::current_dir()?.join("content");
             let full_path = content_path.join(doc_path);
 
+            // Determine creation process based on file extension.
             let doc_string = match ext {
-                "md" => Ok(format!("---\n{doc_meta_string}\n---\n")),
+                "md" => Ok(format!("---\n{doc_meta_string}\n---\n")), // markdown inserts options at the top
                 "ipynb" => {
+                    // Notebooks require a template to work properly. Options are inserted in a raw cell.
                     let lines: Vec<String> =
                         doc_meta_string.lines().map(|l| format!("{l}\n")).collect();
 
@@ -351,6 +393,7 @@ async fn cli_run() -> anyhow::Result<()> {
     }
 }
 
+// Print errors in red if present.
 fn err_print(res: anyhow::Result<()>) {
     match res {
         Ok(_) => {}
@@ -370,6 +413,7 @@ fn err_print(res: anyhow::Result<()>) {
 }
 
 #[tokio::main]
+// #[pollster::main]
 async fn main() {
     err_print(cli_run().await)
 }

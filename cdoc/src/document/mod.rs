@@ -6,13 +6,14 @@ use std::ops::Range;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::ast::{
     find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, ShortcodeBase, ShortcodeIdx,
 };
 use crate::document::visitors::{MathInserter, ShortcodeInserter};
 use crate::notebook::{Cell, Notebook};
-use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeDef};
+use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeCall};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,9 +33,11 @@ pub struct DocumentMetadata {
     pub editable: bool,
     #[serde(default)]
     pub layout: LayoutSettings,
-
     #[serde(default)]
     pub exclude_outputs: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub user_defined: HashMap<String, Value>,
 }
 
 const fn default_true() -> bool {
@@ -51,8 +54,8 @@ pub struct Document<C> {
     pub content: C,
     pub metadata: DocumentMetadata,
     pub variables: DocumentVariables,
-    pub ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
-    pub id_map: HashMap<String, (usize, ShortCodeDef)>,
+    pub ids: HashMap<String, (usize, Vec<ShortCodeCall>)>,
+    pub id_map: HashMap<String, (usize, ShortCodeCall)>,
 }
 
 pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
@@ -63,11 +66,13 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
     let mut res = String::new();
     let mut eq_idx = 0;
     while let Some(idx) = rest.find('$') {
-        let is_block = rest.len() > 2 && &rest[idx + 1..idx + 2] == "$";
-        let trailing_space = rest.len() > 2 && &rest[idx + 1..idx + 2] == " ";
+        let is_block =
+            rest.len() > 2 && rest.chars().nth(idx + 1).map(|c| c == '$').unwrap_or(false);
+        let trailing_space =
+            rest.len() > 2 && rest.chars().nth(idx + 1).map(|c| c == ' ').unwrap_or(false);
 
         if is_eq {
-            res.push_str(&format!("__{eq_idx}__"));
+            res.push_str(&format!("**{}**", eq_idx));
             math_blocks.push(Inline::Math {
                 source: rest[..idx].to_string(),
                 display_block: is_block,
@@ -96,7 +101,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
 
 pub fn split_shortcodes(
     src: &str,
-    counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+    counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 ) -> Result<Vec<Block>> {
     let mut rest = src;
     let mut md_str = String::new();
@@ -137,13 +142,13 @@ pub fn split_shortcodes(
     Ok(md_blocks.0)
 }
 
-impl ShortCodeDef {
+impl ShortCodeCall {
     fn into_base(
         self,
-        counters: &mut HashMap<String, (usize, Vec<ShortCodeDef>)>,
+        counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Result<ShortcodeBase> {
         let parameters: Result<Vec<Argument<Vec<Block>>>> = self
-            .parameters
+            .arguments
             .into_iter()
             .map(|param| {
                 param.try_map(|v| {
@@ -219,9 +224,9 @@ impl DocPos {
     }
 }
 
-fn id_map_from_ids(
-    ids: &HashMap<String, (usize, Vec<ShortCodeDef>)>,
-) -> HashMap<String, (usize, ShortCodeDef)> {
+pub fn id_map_from_ids(
+    ids: &HashMap<String, (usize, Vec<ShortCodeCall>)>,
+) -> HashMap<String, (usize, ShortCodeCall)> {
     let mut out = HashMap::new();
 
     for (_, s) in ids.values() {
@@ -240,7 +245,7 @@ impl<C> Document<C> {
     pub fn new(
         content: C,
         metadata: DocumentMetadata,
-        ids: HashMap<String, (usize, Vec<ShortCodeDef>)>,
+        ids: HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Self {
         let id_map = id_map_from_ids(&ids);
         Document {

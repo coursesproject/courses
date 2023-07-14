@@ -1,33 +1,34 @@
 <div class="sidebar p-2" x-show="sidebar_open" x-transition>
     <aside class="menu">
-        {% for part in project.content %}
-            {% if part.chapters and current_part == part.id %}
+        {% for part in project.children %}
+        {% if part.children and current_path[1] == part.id %}
+        <ul class="menu-list">
+            {% for chapter in part.children %}
+            {% if mode == "draft" or not chapter.content.metadata.draft %}
+            <li>
+                <a href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}{% if chapter.type == 'Section' %}/index{% endif %}.html">{{ loop.index }}. {{
+                    chapter.content.metadata.title }}</a>
                 <ul class="menu-list">
-                    {% for chapter in part.chapters %}
-                        {% if mode == "draft" or not chapter.index.content.metadata.draft %}
-                            <li>
-                            <a href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}/index.html">{{ loop.index }}. {{ chapter.index.content.metadata.title }}</a>
-                            <ul class="menu-list">
 
-                            {% if chapter.documents %}
-                                {% for doc in chapter.documents %}
-                                    {% if mode == "draft" or not doc.content.metadata.draft %}
-                                        <li>
-                                            <a
-                                                    href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}/{{ doc.id }}.html"
-                                                    class="{% if doc.id == current_doc %}is-active{% endif %}"
-                                            >{{ loop.index }}. {{ doc.content.metadata.title | safe }}</a
-                                            >
-                                        </li>
-                                    {% endif %}
-                                {% endfor %}
-                            {% endif %}
-                        {% endif %}
-                    </ul>
+                    {% if chapter.children %}
+                    {% for doc in chapter.children %}
+                    {% if mode == "draft" or not doc.content.metadata.draft %}
+                    <li>
+                        <a
+                                href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}/{{ doc.id }}.html"
+                                class="{% if doc.id == current_doc %}is-active{% endif %}"
+                        >{{ loop.index }}. {{ doc.content.metadata.title | safe }}</a
+                        >
                     </li>
-
+                    {% endif %}
                     {% endfor %}
+                    {% endif %}
+                    {% endif %}
                 </ul>
-            {% endif %} {% endfor %}
+            </li>
+
+            {% endfor %}
+        </ul>
+        {% endif %} {% endfor %}
     </aside>
 </div>

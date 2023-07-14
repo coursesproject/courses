@@ -8,12 +8,12 @@ use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
-use crate::parser::{Parser, ParserSettings};
-use crate::processors::exercises::ExercisesConfig;
+
 use crate::renderers::generic::GenericRenderer;
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::DocumentRenderer;
 
+/// Input formats. Currently supports regular markdown files as well as Jupyter Notebooks.
 #[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum InputFormat {
@@ -47,24 +47,6 @@ impl PartialEq for dyn Format {
     }
 }
 
-// impl<'a> Borrow<dyn Format + 'a> for dyn Format {
-//     fn borrow(&self) -> &(dyn Format + 'a) {
-//         self
-//     }
-// }
-
-// impl PartialEq for Box<dyn Format> {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.name() == other.name()
-//     }
-// }
-
-// impl Hash for Box<dyn Format> {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         self.name().hash(state)
-//     }
-// }
-
 impl Hash for dyn Format {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.name().hash(state)
@@ -89,6 +71,8 @@ pub struct NotebookFormat {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HtmlFormat {}
 
+/// Used to produce an output yml file containing all sources and metadata in a single file
+/// structured like the content folder.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InfoFormat {}
 
@@ -98,15 +82,22 @@ pub struct MarkdownFormat {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LaTexFormat {}
 
+/// Custom output format definition. It should be possible to create almost any text-based output.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DynamicFormat {
+    /// Output file extension
     pub extension: String,
+    /// Template prefix (used in template files)
     pub template_prefix: String,
+    /// Format name (used for build folder)
     pub name: String,
+    /// Renderer to use (generic or notebook)
     #[serde(default = "default_renderer")]
     pub renderer: Box<dyn DocumentRenderer>,
+    /// Include resources folder in output
     #[serde(default)]
     pub include_resources: bool,
+    /// Use layout template
     #[serde(default)]
     pub use_layout: bool,
 }
@@ -291,17 +282,8 @@ impl Format for LaTexFormat {
     }
 }
 
-#[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum OutputFormat {
-    Notebook,
-    Html,
-    Info,
-    Markdown,
-    LaTeX,
-}
-
 impl InputFormat {
+    /// Get loader for format (designed to be extensible)
     pub fn loader(&self) -> Box<dyn Loader> {
         match self {
             InputFormat::Markdown => Box::new(MarkdownLoader),
@@ -309,6 +291,7 @@ impl InputFormat {
         }
     }
 
+    /// Format extension
     pub fn extension(&self) -> &str {
         match self {
             InputFormat::Markdown => "md",
@@ -316,6 +299,7 @@ impl InputFormat {
         }
     }
 
+    /// Name can be used by tools like courses to display the current format
     pub fn name(&self) -> &str {
         match self {
             InputFormat::Markdown => "markdown",
@@ -340,84 +324,8 @@ impl InputFormat {
     }
 }
 
-impl OutputFormat {
-    pub fn no_parse(&self) -> bool {
-        match self {
-            OutputFormat::Notebook => false,
-            OutputFormat::Html => false,
-            OutputFormat::Info => true,
-            OutputFormat::LaTeX => false,
-            OutputFormat::Markdown => false,
-        }
-    }
-
-    // pub fn from_extension(ext: &str) -> Result<Self, anyhow::Error> {
-    //     match ext {
-    //         "ipynb" => Ok(OutputFormat::Notebook),
-    //         "html" => Ok(OutputFormat::Html),
-    //         _ => Err(anyhow!("Invalid extension for output")),
-    //     }
-    // }
-
-    // pub fn from_name(name: &str) -> Result<Self, anyhow::Error> {
-    //     match name {
-    //         "notebook" => Ok(OutputFormat::Notebook),
-    //         "html" => Ok(OutputFormat::Html),
-    //         "info" => Ok(OutputFormat::Info),
-    //         _ => Err(anyhow!("Invalid format name for output")),
-    //     }
-    // }
-
-    pub fn extension(&self) -> &str {
-        match self {
-            OutputFormat::Notebook => "ipynb",
-            OutputFormat::Html => "html",
-            OutputFormat::Info => "yml",
-            OutputFormat::LaTeX => "tex",
-            OutputFormat::Markdown => "md",
-        }
-    }
-
-    pub fn template_extension(&self) -> &str {
-        match self {
-            OutputFormat::Notebook => "md",
-            OutputFormat::Html => "html",
-            OutputFormat::Info => "yml",
-            OutputFormat::LaTeX => "tex",
-            OutputFormat::Markdown => "md",
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        match self {
-            OutputFormat::Notebook => "notebook",
-            OutputFormat::Html => "html",
-            OutputFormat::Info => "info",
-            OutputFormat::LaTeX => "latex",
-            OutputFormat::Markdown => "markdown",
-        }
-    }
-}
-
 impl Display for InputFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name())
-    }
-}
-
-impl Display for OutputFormat {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name())
-    }
-}
-
-#[allow(unused)]
-fn get_default_parser(_format: OutputFormat) -> Parser {
-    Parser {
-        preprocessors: vec![Box::new(ExercisesConfig)],
-        settings: ParserSettings {
-            solutions: false,
-            notebook_outputs: false,
-        },
     }
 }
