@@ -6,7 +6,32 @@ layout:
 
 # Project changelog
 
+## 0.7.0
+- Improved project structuring. Now only sections and documents exist and can be nested indefinitely.
+- Documents can be the same level as sections, instead of only being able to exist inside chapters.
+- Draft system now also determines whether additional files in each section are copied to the output.
+- Draft documents are no longer rendered when not in draft mode.
+- Documentation has been updated to take advantage of the new structure.
+- Doc templates have also been updated.
+
 ## 0.6.x
+
+### 0.6.5
+- Added profiles to configuration files.
+
+### 0.6.4
+- Added scripts to the configuration and added a run command to `courses`.
+
+### 0.6.3
+- Documentation updated to reflect many 0.6.x changes.
+- Unused KaTeX dependency removed for now to enable Windows compatibility.
+
+### 0.6.2
+- Output formats can now have a `dynamic` type. This allows the user to specify the renderer and template prefix used. 
+  A use case is having multiple notebook output formats using different templates.
+- Parser settings are now available for preprocessors.
+- Template definitions can now be copied from others in the same file using the `Derived` type.
+- Syntect types have been changed to references where applicable due to the large cloning overhead.
 
 ### 0.6.1
 - Properly implemented enumerated and nested lists for markdown output.

@@ -83,7 +83,7 @@ impl ToString for ShortcodeBase {
     }
 }
 
-/// Wraps Vec<Block> for trait implementations
+/// Document markup syntax tree. This is a thin wrapper of [Vec<Block>].
 #[derive(Clone, Debug)]
 pub struct Ast(pub Vec<Block>);
 
