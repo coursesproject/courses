@@ -522,10 +522,8 @@ mod tests {
 
     #[test]
     fn config_to_vector() {
-        let cfg = configure_project(
-            Path::new("/Users/anton/git/iaml/exercises/coursematerial/content").to_path_buf(),
-        )
-        .expect("Could not read config");
+        let cfg = configure_project(Path::new("docs/content").to_path_buf())
+            .expect("Could not read config");
         let v = cfg.to_vector();
         println!("{:#?}", v);
     }
