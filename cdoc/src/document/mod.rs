@@ -289,6 +289,7 @@ impl TryFrom<Notebook> for Document<Ast> {
                     attr: Default::default(),
                     reference: None,
                     outputs,
+                    display_cell: true,
                 }]),
                 Cell::Raw { .. } => Ok(vec![]),
             })

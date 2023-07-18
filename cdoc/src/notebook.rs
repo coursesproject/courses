@@ -273,6 +273,7 @@ impl TryFrom<Cell> for Vec<Block> {
                     },
                     tags: common.metadata.tags,
                     outputs,
+                    display_cell: true,
                 }]
             }
             Cell::Raw { .. } => {

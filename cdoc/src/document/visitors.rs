@@ -72,6 +72,7 @@ impl AstVisitor for MathInserter {
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
         _outputs: &mut Vec<CellOutput>,
+        _display_cell: &mut bool,
     ) -> anyhow::Result<()> {
         self.replace_with_original(source)
     }
@@ -135,6 +136,7 @@ impl AstVisitor for ShortcodeInserter<'_> {
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
         _outputs: &mut Vec<CellOutput>,
+        _display_cell: &mut bool,
     ) -> anyhow::Result<()> {
         self.replace_with_original(source)
     }

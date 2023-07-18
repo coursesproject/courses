@@ -37,6 +37,8 @@ pub struct Profile {
     pub parser: Parser,
     #[serde(default)]
     pub formats: Vec<Box<dyn Format>>,
+    #[serde(default)]
+    pub create_filters: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -69,6 +71,7 @@ fn default_profiles() -> HashMap<String, Profile> {
                 },
             },
             formats: vec![],
+            create_filters: true,
         },
     );
 
@@ -84,6 +87,7 @@ fn default_profiles() -> HashMap<String, Profile> {
                 },
             },
             formats: vec![],
+            create_filters: false,
         },
     );
 

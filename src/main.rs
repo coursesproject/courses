@@ -17,6 +17,7 @@ use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
 use penguin::Server;
+use thiserror::__private::PathAsDisplay;
 
 use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;
@@ -66,7 +67,14 @@ enum Commands {
 }
 
 fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
-    Ok(path.unwrap_or(env::current_dir()?))
+    let mut p = env::current_dir()?;
+    Ok(match path {
+        None => p,
+        Some(path) => {
+            p.push(path.as_path());
+            p
+        }
+    })
 }
 
 fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
@@ -106,12 +114,12 @@ fn init_and_build(path: Option<PathBuf>, profile: String) -> anyhow::Result<(Pip
     let config = init_config(&path)?;
     let structure = init_project_structure(&path)?;
 
-    let mut absolute_path = env::current_dir()?;
-    absolute_path.push(path.as_path());
+    // let mut absolute_path = env::current_dir()?;
+    // absolute_path.push(path.as_path());
 
-    let pipeline = init_pipeline(&absolute_path, profile, config, structure)?;
+    let pipeline = init_pipeline(&path, profile, config, structure)?;
 
-    Ok((pipeline, absolute_path))
+    Ok((pipeline, path))
 }
 
 async fn cli_run() -> anyhow::Result<()> {

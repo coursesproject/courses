@@ -118,6 +118,7 @@ impl Ast {
                                     attr: CodeAttributes::default(),
                                     tags: None,
                                     outputs: vec![],
+                                    display_cell: false,
                                 });
                         }
                         Tag::List(idx) => inners
