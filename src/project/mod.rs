@@ -231,8 +231,15 @@ impl<C: Debug> ContentItem<C> {
     }
 
     pub fn doc_at_idx(&self, path_idx: &[usize]) -> anyhow::Result<DocumentDescriptor<C>> {
-        if let ContentItem::Section { children, .. } = self {
-            ContentItem::doc_at_idx_inner(&children.iter().collect::<Vec<_>>()[..], &path_idx[1..])
+        if let ContentItem::Section { children, doc, .. } = self {
+            if path_idx[0] == 0 {
+                Ok(doc.clone())
+            } else {
+                ContentItem::doc_at_idx_inner(
+                    &children.iter().collect::<Vec<_>>()[..],
+                    &path_idx[1..],
+                )
+            }
         } else {
             Err(anyhow!("invalid root item"))
         }
