@@ -7,6 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::parsers::shortcodes::{Argument, ArgumentValue};
+use crate::templates::precompiled::{PrecompiledFormat, PrecompiledTemplate};
 use thiserror::Error;
 use walkdir::WalkDir;
 
@@ -18,6 +19,8 @@ pub struct TemplateDefinition {
     /// A private template is only meant to be used in project configuration.
     #[serde(default)]
     pub private: bool,
+    #[serde(default)]
+    pub value_template: bool,
     pub description: String,
     #[serde(rename = "type")]
     pub type_: TemplateType,
@@ -108,6 +111,7 @@ pub enum TemplateSource {
     File(PathBuf),
     /// Really just uses the exact template of another format
     Derive(String),
+    Precompiled(PrecompiledTemplate, PrecompiledFormat),
 }
 
 impl Display for TemplateType {
@@ -150,6 +154,7 @@ pub fn get_templates_from_definitions(
 ) -> Vec<(String, String)> {
     definitions
         .iter()
+        .filter(|(id, def)| !def.value_template)
         .flat_map(|(id, def)| {
             def.template_strings(dir.join("sources"))
                 .iter()
@@ -243,6 +248,7 @@ impl TemplateDefinition {
             TemplateSource::String(s) => Ok(s.clone()),
             TemplateSource::File(p) => Ok(fs::read_to_string(base_path.join(p))?),
             TemplateSource::Derive(parent) => self.template_for_format(base_path, parent),
+            TemplateSource::Precompiled(_, _) => Ok(String::new()),
         }
     }
 
@@ -258,11 +264,10 @@ impl TemplateDefinition {
             .collect()
     }
 
-    pub fn has_format(&self, format: &str) -> anyhow::Result<()> {
+    pub fn get_format(&self, format: &str) -> anyhow::Result<&TemplateSource> {
         self.templates
             .get(format)
-            .ok_or(anyhow!("Format not supported by template"))?;
-        Ok(())
+            .ok_or(anyhow!("Format not supported by template"))
     }
 
     pub fn validate_args(

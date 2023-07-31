@@ -37,6 +37,7 @@ impl AstVisitor for Exercises {
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
         _outputs: &mut Vec<CellOutput>,
+        _display_cell: &mut bool,
     ) -> anyhow::Result<()> {
         let res = parse_code_string(source.clone().as_ref())?;
 

@@ -76,17 +76,26 @@ impl NotebookWriter<'_> {
 
     fn block(&mut self, block: &Block) -> Result<()> {
         match block {
-            Block::CodeBlock { source, .. } => {
-                self.push_markdown_cell();
-                let c = Cell::Code {
-                    common: CellCommon {
-                        metadata: Default::default(),
-                        source: source.clone(),
-                    },
-                    execution_count: None,
-                    outputs: Vec::new(),
-                };
-                self.finished_cells.push(c);
+            Block::CodeBlock {
+                source,
+                display_cell,
+                ..
+            } => {
+                if *display_cell {
+                    self.push_markdown_cell();
+                    let c = Cell::Code {
+                        common: CellCommon {
+                            metadata: Default::default(),
+                            source: source.clone(),
+                        },
+                        execution_count: None,
+                        outputs: Vec::new(),
+                    };
+                    self.finished_cells.push(c);
+                } else {
+                    self.renderer
+                        .render(block, self.ctx, &mut self.cell_source)?;
+                }
             }
             _ => {
                 self.renderer

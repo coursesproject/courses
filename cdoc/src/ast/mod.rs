@@ -140,6 +140,8 @@ pub enum Block {
         tags: Option<Vec<String>>,
         /// Notebook cell outputs.
         outputs: Vec<CellOutput>,
+        /// Display the block as a cell or listing (only used for notebooks)
+        display_cell: bool,
     },
     /// A list - ordered or unordered.
     List(Option<u64>, Vec<Block>),

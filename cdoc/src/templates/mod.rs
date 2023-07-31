@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use tera::{Context, Filter, Function, Tera};
 
 mod definition;
+mod precompiled;
 
 use crate::parsers::shortcodes::{Argument, ShortCodeCall};
 pub use definition::*;
@@ -74,11 +75,16 @@ pub struct TemplateManager {
 
 impl TemplateManager {
     /// Create new template manager from template path. Reads the template files.
-    pub fn from_path(template_path: PathBuf, filter_path: PathBuf) -> anyhow::Result<Self> {
+    pub fn from_path(
+        template_path: PathBuf,
+        filter_path: PathBuf,
+        create_filters: bool,
+    ) -> anyhow::Result<Self> {
         TemplateManager::new(
             load_template_definitions(template_path.clone())?,
             template_path,
             filter_path,
+            create_filters,
         )
     }
 
@@ -86,6 +92,7 @@ impl TemplateManager {
         definitions: HashMap<String, TemplateDefinition>,
         dir: PathBuf,
         filter_path: PathBuf,
+        create_filters: bool,
     ) -> anyhow::Result<Self> {
         let defs = get_templates_from_definitions(&definitions, dir.clone());
         let filters = get_filters_from_files(filter_path)?;
@@ -103,9 +110,11 @@ impl TemplateManager {
             definitions,
         };
 
-        let temp = temp.register_shortcode_fns()?;
-
-        Ok(temp)
+        Ok(if create_filters {
+            temp.register_shortcode_fns()?
+        } else {
+            temp
+        })
     }
 
     fn register_shortcode_fns(mut self) -> anyhow::Result<Self> {
@@ -182,14 +191,36 @@ impl TemplateManager {
     ) -> anyhow::Result<()> {
         let tp = self.get_template(id, type_)?;
         let format_str = template_prefix;
-        tp.has_format(format_str).context(format!(
+        let format = tp.get_format(format_str).context(format!(
             "template with id '{id}' does not support format '{format_str}"
         ))?;
-        let type_ = &tp.type_;
+        match format {
+            TemplateSource::Precompiled(tp, fm) => {
+                tp.render(fm, args, buf)?;
+            }
+            TemplateSource::Derive(from) => {
+                let format = tp.get_format(from).context(format!(
+                    "template with id '{id}' does not support format '{format_str}"
+                ))?;
+                if let TemplateSource::Precompiled(tp, fm) = format {
+                    tp.render(fm, args, buf)?;
+                } else {
+                    let type_ = &tp.type_;
 
-        let template_name = format!("{type_}_{id}.{format_str}");
+                    let template_name = format!("{type_}_{id}.{format_str}");
 
-        self.tera.render_to(&template_name, args, buf)?;
+                    self.tera.render_to(&template_name, args, buf)?;
+                }
+            }
+            _ => {
+                let type_ = &tp.type_;
+
+                let template_name = format!("{type_}_{id}.{format_str}");
+
+                self.tera.render_to(&template_name, args, buf)?;
+            }
+        }
+
         Ok(())
     }
 

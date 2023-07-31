@@ -5,8 +5,7 @@ type: builtin
 
 
 templates:
-  html: !String |
-    <p>{{ value | safe }}</p>
+  html: !Precompiled [paragraph, html]
   markdown: !String |
     {{ value | safe }}\n
   latex: !String |

@@ -4,7 +4,16 @@ layout:
     hide_sidebar: true
 ---
 
-# Project changelog
+# Courses changelog
+
+## 0.7.3
+- Updated cdoc dependency to 0.6.0
+
+## 0.7.2
+- Bug fix release
+
+## 0.7.1
+- Content folders are updated individually which makes it possible to use the build output as git repositories.
 
 ## 0.7.0
 - Improved project structuring. Now only sections and documents exist and can be nested indefinitely.
@@ -13,6 +22,8 @@ layout:
 - Draft documents are no longer rendered when not in draft mode.
 - Documentation has been updated to take advantage of the new structure.
 - Doc templates have also been updated.
+
+
 
 ## 0.6.x
 
@@ -103,3 +114,14 @@ This is the first release on crates.io.
 - Initial shortcode support (cannot be nested, cannot contain certain markdown elements).
 - Initial KaTeX support.
 - Initial exercise spec support.
+
+
+# CDoc changelog
+The *cdoc* project only has a separate changelog from version *0.6.0* an onwards.
+
+## 0.6.0
+- Added support for "precompiled" (really static) templates intended for builtin types. I'm not yet sure how useful this 
+  will turn out to be.
+- Added a "display_cell" property to code elements. For now this is always true for notebooks and always false for md 
+  input files. In future 0.6.x versions, this will be made configurable.
+- Bug fixes

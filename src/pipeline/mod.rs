@@ -133,10 +133,17 @@ impl Pipeline {
         config: ProjectConfig,
         project_structure: ContentItem<()>,
     ) -> anyhow::Result<Self> {
+        let p = config
+            .profiles
+            .get(&profile)
+            .ok_or(anyhow!("Profile doesn't exist"))?
+            .clone();
+
         print!("Parsing templates... ");
         let mut template_manager = TemplateManager::from_path(
             project_path.as_ref().join("templates"),
             project_path.as_ref().join("filters"),
+            p.create_filters,
         )?;
         println!("{}", style("done").green());
 
@@ -147,12 +154,6 @@ impl Pipeline {
             "embed",
             create_embed_fn(project_path.as_ref().join("resources"), cache_path),
         );
-
-        let p = config
-            .profiles
-            .get(&profile)
-            .ok_or(anyhow!("Profile doesn't exist"))?
-            .clone();
 
         let mut pipeline = Pipeline {
             profile: p,
@@ -406,6 +407,7 @@ impl Pipeline {
                         .any(|f| entry.path().ends_with(f))
                 {
                     fs::remove_dir_all(entry.path())?;
+                    fs::create_dir(entry.path())?;
                 }
             }
         }
@@ -570,6 +572,7 @@ impl Pipeline {
         // let project_structure_vec
 
         let res = project
+            // .into_par_iter()
             .into_par_iter()
             .progress_with(bar)
             .map(|i| {
