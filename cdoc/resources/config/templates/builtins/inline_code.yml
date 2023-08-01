@@ -1,0 +1,13 @@
+name: Inline code
+description: Inline code.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <code>{{ value }}</code>
+  markdown: !String |
+    `{{value}}`
+  latex: !String |
+    \mintinline{ {{value}} }

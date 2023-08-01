@@ -1,0 +1,15 @@
+name: Badge
+description: A badge.
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: class
+      description: Badge color.
+      type: !choice [primary, success, warning, info, danger]
+
+
+templates:
+  html: !String |
+    <span class="badge badge-pill {{class}}-bg">{{class}}</span>

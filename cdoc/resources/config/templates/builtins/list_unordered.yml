@@ -1,0 +1,15 @@
+name: Unordered list
+description: Markdown list.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <ul>{{ value | safe }}</ul>
+  markdown: !String |
+    {{ value | safe }}
+  latex: !String |
+    \begin{enumerate}
+    {{ value | safe }}
+    \end{enumerate}

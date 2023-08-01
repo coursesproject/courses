@@ -25,7 +25,7 @@ path = "src/lib.rs"
 serde = "1.0.150"
 serde_json = "1.0.89"
 serde_yaml = "0.9.14"
-serde_with = "2.1.0"
+serde_with = "3.0.0"
 toml = "0.7.2"
 typetag = "0.2.3"
 
@@ -46,6 +46,8 @@ lazy_static = "1.4.0"
 walkdir = "2.3.3"
 image = "0.24.6"
 replace_with = "0.1.7"
+include_dir = "0.7.3"
+dirs = "5.0.1"
 
 rhai = {version="1.13.0", features=["serde"]}
 

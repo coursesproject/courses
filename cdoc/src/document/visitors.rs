@@ -4,6 +4,7 @@ use crate::notebook::CellOutput;
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeCall};
 use regex::Regex;
 use std::collections::HashMap;
+use std::ops::Range;
 use std::str::FromStr;
 
 pub struct MathInserter {
@@ -78,14 +79,50 @@ impl AstVisitor for MathInserter {
     }
 }
 
+pub struct ShortcodeSourceDescriptor<'a> {
+    call_src: &'a str,
+    body_src: Option<&'a str>,
+    call_range: Range<usize>,
+    body_range: Option<Range<usize>>,
+    cell: usize,
+}
+
+impl<'a> ShortcodeSourceDescriptor<'a> {
+    pub fn new_inline(call_src: &'a str, call_range: Range<usize>, cell: usize) -> Self {
+        ShortcodeSourceDescriptor {
+            call_src,
+            call_range,
+            cell,
+            body_src: None,
+            body_range: None,
+        }
+    }
+
+    pub fn new_body(
+        call_src: &'a str,
+        body_src: &'a str,
+        call_range: Range<usize>,
+        body_range: Range<usize>,
+        cell: usize,
+    ) -> Self {
+        ShortcodeSourceDescriptor {
+            call_src,
+            call_range,
+            cell,
+            body_src: Some(body_src),
+            body_range: Some(body_range),
+        }
+    }
+}
+
 pub struct ShortcodeInserter<'a> {
-    shortcodes: Vec<(&'a str, &'a str)>,
+    shortcodes: Vec<ShortcodeSourceDescriptor<'a>>,
     counters: &'a mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 }
 
 impl<'a> ShortcodeInserter<'a> {
     pub fn new(
-        shortcodes: Vec<(&'a str, &'a str)>,
+        shortcodes: Vec<ShortcodeSourceDescriptor<'a>>,
         counters: &'a mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Self {
         ShortcodeInserter {
@@ -101,7 +138,7 @@ impl AstVisitor for ShortcodeInserter<'_> {
             let s: String = inner.iter_mut().map(|i| i.to_string()).collect();
 
             if let Ok(idx) = usize::from_str(&s) {
-                let (def, body) = self.shortcodes[idx];
+                let (def, body, pos) = &self.shortcodes[idx];
                 let code = parse_shortcode(def)?;
 
                 self.counters
@@ -158,7 +195,7 @@ impl ShortcodeInserter<'_> {
                 let idx = usize::from_str(ms.as_str())?;
                 out.push_str(&source[start_idx..ms.range().start - 1]);
 
-                if let Some((def, body)) = self.shortcodes.get(idx) {
+                if let Some((def, body, _)) = self.shortcodes.get(idx) {
                     if body.is_empty() {
                         out.push_str(&format!("{{{{ {} }}}}", def));
                     } else {

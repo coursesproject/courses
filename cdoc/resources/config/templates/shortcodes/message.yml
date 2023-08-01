@@ -1,0 +1,37 @@
+name: Message
+description: A box with a title and message. Useful for drawing attention to something.
+
+examples:
+  - title: Generic
+    body: |
+      {% message(color=info, title="Optional title") %}
+      Message box
+      {% end %}
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: title
+      description: Box header.
+      optional: true
+      type: regular
+    - name: color
+      description: Message color.
+      type: !choice [primary, success, warning, info, danger]
+
+
+templates:
+  html: !String |
+    <article class="message is-{{color}}">
+      <div class="message-header">{{ title | default(value=color) | capitalize }}</div>
+      <div class="message-body">{{ body|safe }}</div>
+    </article>
+  markdown: !String |
+    ```
+    **{{ title | default(value=color) | capitalize }}**
+    {{ body|safe }}
+    ```
+  latex: !String |
+    \paragraph{ {{ title | default(value=color) | capitalize }} }
+    {{ body|safe }}

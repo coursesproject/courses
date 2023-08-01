@@ -1,0 +1,43 @@
+name: Figure
+description: Produces a figure for the webpage and a regular markdown image for the notebook.
+
+examples:
+  - title: Simple
+    body: | 
+      {{ figure(url=cat.jpg, width="80%", caption="This is my image") }}
+
+type: shortcode
+shortcode:
+  kind: inline
+  parameters:
+    - name: caption
+      description: Figure caption.
+      type: regular
+    - name: url
+      description: Path to the image. Relative to the resources/ folder.
+      type: regular
+    - name: width
+      description: Css width property. Any valid css width is valid here.
+      type: regular
+    - name: alignment
+      description: Image alignment (css class).
+      optional: true
+      type: !choice [ left, centered, right ]
+
+
+templates:
+  html: !String |
+    <figure class="figure" {% if id %}id="{{ id }}"{% endif %}>
+    <img src="{{config.url_prefix}}/resources/{{url}}" class="figure-img img-fluid rounded" style="width:{{width | default(value='50%')}}" />
+    {% if caption %}<figcaption class="figure-caption has-text-{{ alignment | default(value='centered') }}">Figure {{ num }}: {{caption | safe}}</figcaption>{% endif %}
+    </figure>
+  markdown: !String |
+    <figure class="figure" {% if id %}id="{{ id }}"{% endif %}>
+    <img src="data:image/png;base64,{{ url | embed }}" class="figure-img img-fluid rounded" style="width:{{width | default(value='50%')}}" />
+    {% if caption %}<figcaption class="figure-caption has-text-{{ alignment | default(value='centered') }}">Figure {{ num }}: {{caption | safe}}</figcaption>{% endif %}
+    </figure>
+  latex: !String |
+    \begin{figure}
+    \includegraphics[width=\textwidth]{ resources/{{ url }} }
+    {% if caption %}\caption{ {{caption}} }{% endif %}
+    \end{figure}

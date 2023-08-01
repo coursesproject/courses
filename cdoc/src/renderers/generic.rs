@@ -1,4 +1,4 @@
-use crate::ast::{Block, Inline, Shortcode};
+use crate::ast::{Block, Inline, PositionInfo, Shortcode};
 use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 
@@ -68,6 +68,7 @@ impl GenericRenderer {
         &mut self,
         ctx: &RenderContext,
         shortcode: &Shortcode,
+        pos: &PositionInfo,
         buf: impl Write,
     ) -> Result<()> {
         let mut args = ctx.extra_args.clone();
@@ -76,7 +77,7 @@ impl GenericRenderer {
         let name = match shortcode {
             Shortcode::Inline(def) => {
                 let rendered = self.render_params(def.parameters.clone(), ctx)?;
-                let r: anyhow::Result<Vec<()>> = ctx
+                let r: Result<Vec<()>> = ctx
                     .templates
                     .validate_args_for_template(&def.name, &rendered)?
                     .into_iter()
@@ -90,7 +91,7 @@ impl GenericRenderer {
             }
             Shortcode::Block(def, body) => {
                 let rendered = self.render_params(def.parameters.clone(), ctx)?;
-                let r: anyhow::Result<Vec<()>> = ctx
+                let r: Result<Vec<()>> = ctx
                     .templates
                     .validate_args_for_template(&def.name, &rendered)?
                     .into_iter()
@@ -169,7 +170,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 display_block,
                 trailing_space,
             } => render_math(*display_block, *trailing_space, source, ctx, buf),
-            Inline::Shortcode(s) => Ok(self.render_shortcode_template(ctx, s, buf)?),
+            Inline::Shortcode(s, pos) => Ok(self.render_shortcode_template(ctx, s, pos, buf)?),
         }
     }
 }

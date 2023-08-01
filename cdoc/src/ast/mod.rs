@@ -10,6 +10,7 @@ use anyhow::Context;
 use pulldown_cmark::{HeadingLevel, LinkType, Options, Parser};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::ops::Range;
 
 /// Inline elements.
 #[derive(Clone, Debug)]
@@ -72,7 +73,7 @@ impl ToString for Shortcode {
     fn to_string(&self) -> String {
         match self {
             Shortcode::Inline(base) => base.to_string(),
-            Shortcode::Block(base, _) => base.to_string(),
+            Shortcode::Block(base, _, _) => base.to_string(),
         }
     }
 }
@@ -155,7 +156,7 @@ pub enum Shortcode {
     Inline(ShortcodeBase),
     /// Block code using the {% name(param) %} body {% end_name %} syntax. The body can contain any
     /// valid ast elements.
-    Block(ShortcodeBase, Vec<Block>),
+    Block(ShortcodeBase, Vec<Block>, Range<usize>),
 }
 
 pub(crate) fn str_to_blocks(input: &str) -> anyhow::Result<Ast> {
@@ -175,6 +176,8 @@ pub struct ShortcodeBase {
     pub(crate) num: usize,
     /// List of shortcode parameters.
     pub(crate) parameters: Vec<Argument<Vec<Block>>>,
+    pub pos: Range<usize>,
+    pub cell: usize,
 }
 
 pub(crate) enum ShortcodeIdx {
@@ -183,6 +186,12 @@ pub(crate) enum ShortcodeIdx {
         def: (usize, usize),
         end: (usize, usize),
     },
+}
+
+impl PositionInfo {
+    pub fn new(cell: usize, range: Range<usize>) -> Self {
+        PositionInfo { cell, range }
+    }
 }
 
 fn extract_block(start: usize, input: &str) -> Option<ShortcodeIdx> {

@@ -1,0 +1,13 @@
+name: Output svg image
+description: Code cell svg image output.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <img alt="output"><svg width="640px" height="480px">{{ value }}</svg></img>
+  markdown: !String |
+    *img*
+  latex: !String |
+    \emph{svg:  }

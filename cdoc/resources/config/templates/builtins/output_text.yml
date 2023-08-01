@@ -1,0 +1,13 @@
+name: Output text
+description: Code cell text output.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    <pre>{{ value }}</pre>
+  markdown: !String |
+    `{{value}}`
+  latex: !String |
+    \emph{result: {{value}} }
