@@ -61,7 +61,10 @@ enum Commands {
         path: Option<PathBuf>,
         #[arg(short, long, default_value = "release")]
         profile: String,
-        // mode: Mode,
+
+        /// Command line to start child process
+        #[arg(last = true)]
+        run_args: Vec<String>,
     },
     Publish {},
 }
@@ -138,15 +141,17 @@ async fn cli_run() -> anyhow::Result<()> {
             path,
             profile,
             script,
+            run_args,
         } => {
             let (pipeline, _) = init_and_build(path, profile)?;
             let s = pipeline.project_config.scripts.get(&script).unwrap();
+            let mut cmd = Command::new("bash");
 
-            Command::new("bash")
-                .arg("-c")
-                .arg(s)
-                .stdin(Stdio::piped())
-                .status()?;
+            cmd.arg("-c").arg(format!("{} {}", s, run_args.join(" ")));
+
+            println!("running {:?}", cmd);
+
+            cmd.stdin(Stdio::piped()).status()?;
 
             // assert!(output.status.success());
             Ok(())
