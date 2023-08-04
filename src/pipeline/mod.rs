@@ -183,7 +183,7 @@ impl Pipeline {
                     .get("body")
                     .ok_or(tera::Error::msg("missing argument 'body'"))?;
                 if let Value::String(s) = val {
-                    let ast = split_shortcodes(s, &mut counters).map_err(tera::Error::msg)?;
+                    let ast = split_shortcodes(s, 0, 0, &mut counters).map_err(tera::Error::msg)?;
                     let doc = Document::new(Ast(ast), DocumentMetadata::default(), HashMap::new());
 
                     let fstring = args
@@ -629,8 +629,10 @@ impl Pipeline {
                     (
                         i,
                         c.into_iter()
-                            .map(|c| self.templates.shortcode_call_resolve_positionals(c))
-                            .collect::<anyhow::Result<Vec<ShortCodeCall>>>()?,
+                            .filter_map(|c| {
+                                self.templates.shortcode_call_resolve_positionals(c).ok()
+                            })
+                            .collect::<Vec<ShortCodeCall>>(),
                     ),
                 ))
             })

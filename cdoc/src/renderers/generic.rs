@@ -1,8 +1,8 @@
-use crate::ast::{Block, Inline, PositionInfo, Shortcode};
+use crate::ast::{Block, Inline, Shortcode};
 use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context as AhContext, Result};
 use pulldown_cmark::HeadingLevel;
 
 use crate::parsers::shortcodes::Argument;
@@ -60,7 +60,16 @@ impl GenericRenderer {
     ) -> Result<Vec<Argument<String>>> {
         parameters
             .into_iter()
-            .map(|p| p.try_map(|v| v.try_map(|i| self.render_inner(&i, ctx))))
+            .map(|p| {
+                p.clone()
+                    .try_map(|v| v.try_map(|i| self.render_inner(&i, ctx)))
+                    .with_context(|| match p {
+                        Argument::Positional { .. } => format!("could not render argument"),
+                        Argument::Keyword { name, .. } => {
+                            format!("Could not render argument `{name}`")
+                        }
+                    })
+            })
             .collect()
     }
 
@@ -68,7 +77,6 @@ impl GenericRenderer {
         &mut self,
         ctx: &RenderContext,
         shortcode: &Shortcode,
-        pos: &PositionInfo,
         buf: impl Write,
     ) -> Result<()> {
         let mut args = ctx.extra_args.clone();
@@ -76,30 +84,60 @@ impl GenericRenderer {
 
         let name = match shortcode {
             Shortcode::Inline(def) => {
-                let rendered = self.render_params(def.parameters.clone(), ctx)?;
+                let rendered = self
+                    .render_params(def.parameters.clone(), ctx)
+                    .with_context(|| {
+                        format!(
+                            "error rendering shortcode {} at position {} and cell {}",
+                            def.name, def.pos.start, def.cell
+                        )
+                    })?;
+                let tdef = ctx
+                    .templates
+                    .get_template(&def.name, TemplateType::Shortcode)
+                    .with_context(|| format!("at position {} {}", def.pos.start, def.cell))?;
                 let r: Result<Vec<()>> = ctx
                     .templates
-                    .validate_args_for_template(&def.name, &rendered)?
+                    .validate_args_for_template(&def.name, &rendered)
+                    .with_context(|| {
+                        format!(
+                            "validation error at position {} {}",
+                            def.pos.start, def.cell
+                        )
+                    })?
                     .into_iter()
                     .collect();
                 r?;
-                let tdef = ctx
-                    .templates
-                    .get_template(&def.name, TemplateType::Shortcode)?;
+
                 add_args(&tdef, &mut args, &def.id, def.num, rendered)?;
                 def.name.clone()
             }
-            Shortcode::Block(def, body) => {
-                let rendered = self.render_params(def.parameters.clone(), ctx)?;
+            Shortcode::Block(def, body, _pos) => {
+                let rendered = self
+                    .render_params(def.parameters.clone(), ctx)
+                    .with_context(|| {
+                        format!(
+                            "error rendering shortcode {} at position {} and cell {}",
+                            def.name, def.pos.start, def.cell
+                        )
+                    })?;
+                let tdef = ctx
+                    .templates
+                    .get_template(&def.name, TemplateType::Shortcode)
+                    .with_context(|| format!("at position {} {}", def.pos.start, def.cell))?;
                 let r: Result<Vec<()>> = ctx
                     .templates
-                    .validate_args_for_template(&def.name, &rendered)?
+                    .validate_args_for_template(&def.name, &rendered)
+                    .with_context(|| {
+                        format!(
+                            "validation error at position {} {}",
+                            def.pos.start, def.cell
+                        )
+                    })?
                     .into_iter()
                     .collect();
                 r?;
-                let tdef = ctx
-                    .templates
-                    .get_template(&def.name, TemplateType::Shortcode)?;
+
                 add_args(&tdef, &mut args, &def.id, def.num, rendered)?;
                 let body = self.render_inner(body, ctx)?;
                 args.insert("body", &body);
@@ -170,7 +208,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 display_block,
                 trailing_space,
             } => render_math(*display_block, *trailing_space, source, ctx, buf),
-            Inline::Shortcode(s, pos) => Ok(self.render_shortcode_template(ctx, s, pos, buf)?),
+            Inline::Shortcode(s) => Ok(self.render_shortcode_template(ctx, s, buf)?),
         }
     }
 }

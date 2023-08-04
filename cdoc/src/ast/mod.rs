@@ -188,12 +188,6 @@ pub(crate) enum ShortcodeIdx {
     },
 }
 
-impl PositionInfo {
-    pub fn new(cell: usize, range: Range<usize>) -> Self {
-        PositionInfo { cell, range }
-    }
-}
-
 fn extract_block(start: usize, input: &str) -> Option<ShortcodeIdx> {
     let end = start + input[start..].find("%}")?;
 

@@ -1,6 +1,7 @@
 use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode, ShortcodeBase};
 use crate::notebook::CellOutput;
 use anyhow::Result;
+use std::ops::Range;
 
 /// Implements the visitor pattern for the cdoc Ast type. Blanket implementations are provided so
 /// implementors only have to implement the methods they need to modify.
@@ -117,7 +118,7 @@ pub trait AstVisitor {
     fn visit_shortcode_base(
         &mut self,
         _shortcode_base: &mut ShortcodeBase,
-        _body_pos: Option<&PositionInfo>,
+        _body_pos: Option<&Range<usize>>,
     ) -> Result<()> {
         Ok(())
     }
