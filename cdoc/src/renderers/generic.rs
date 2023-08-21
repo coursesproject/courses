@@ -64,7 +64,7 @@ impl GenericRenderer {
                 p.clone()
                     .try_map(|v| v.try_map(|i| self.render_inner(&i, ctx)))
                     .with_context(|| match p {
-                        Argument::Positional { .. } => format!("could not render argument"),
+                        Argument::Positional { .. } => "could not render argument".to_string(),
                         Argument::Keyword { name, .. } => {
                             format!("Could not render argument `{name}`")
                         }

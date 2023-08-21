@@ -17,7 +17,6 @@ use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
 use penguin::Server;
-use thiserror::__private::PathAsDisplay;
 
 use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;

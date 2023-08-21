@@ -207,7 +207,7 @@ impl ShortcodeInserter<'_> {
                 out.push_str(&source[start_idx..ms.range().start - 1]);
 
                 if let Some(descriptor) = self.shortcodes.get(idx) {
-                    if let (Some(body_src), Some(body_range)) =
+                    if let (Some(body_src), Some(_body_range)) =
                         (descriptor.body_src, &descriptor.body_range)
                     {
                         out.push_str(&format!("{{% {} %}}", descriptor.call_src));

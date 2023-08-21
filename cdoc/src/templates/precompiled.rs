@@ -39,9 +39,9 @@ impl PrecompiledTemplate {
                         .unwrap()
                 )
                 .context("rendering"),
-                PrecompiledFormat::Markdown => write!(
+                PrecompiledFormat::Markdown => writeln!(
                     &mut buf,
-                    "{}\n",
+                    "{}",
                     ctx.get("value")
                         .ok_or(anyhow!("missing value"))?
                         .as_str()
@@ -99,7 +99,7 @@ impl PrecompiledTemplate {
             },
             PrecompiledTemplate::SoftBreak => match format {
                 PrecompiledFormat::Html => write!(&mut buf, "",).context("rendering"),
-                PrecompiledFormat::Markdown => write!(&mut buf, "\n",).context("rendering"),
+                PrecompiledFormat::Markdown => writeln!(&mut buf).context("rendering"),
                 _ => Err(anyhow!(format!("unsupported format {:?}", format))),
             },
         }?;

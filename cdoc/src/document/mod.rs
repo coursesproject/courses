@@ -102,7 +102,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
 pub fn split_shortcodes(
     src: &str,
     mut offset: usize,
-    mut cell_number: usize,
+    _cell_number: usize,
     counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 ) -> Result<Vec<Block>> {
     let mut rest = src;

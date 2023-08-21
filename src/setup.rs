@@ -40,7 +40,6 @@ pub(crate) fn setup(dir: PathBuf, repository: String) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     // #[test]
     // fn create_default() {
