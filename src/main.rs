@@ -150,7 +150,7 @@ async fn cli_run() -> anyhow::Result<()> {
 
             println!("running {:?}", cmd);
 
-            cmd.stdin(Stdio::piped()).status()?;
+            cmd.stdin(Stdio::inherit()).status()?;
 
             // assert!(output.status.success());
             Ok(())
