@@ -1,0 +1,24 @@
+name: Hero
+description: Page hero element.
+private: true
+
+type: shortcode
+shortcode:
+  kind: inline
+  parameters:
+    - name: title
+      description: Hero title.
+      type: regular
+    - name: subtitle
+      description: Subtitle.
+      type: regular
+
+
+templates:
+  html: !String |
+    <section class="hero">
+      <div class="hero-body has-text-centered">
+          <p class="title">{{title}}</p>
+          <p class="subtitle">{{subtitle}}</p>
+      </div>
+    </section>

@@ -154,7 +154,7 @@ pub fn get_templates_from_definitions(
 ) -> Vec<(String, String)> {
     definitions
         .iter()
-        .filter(|(id, def)| !def.value_template)
+        .filter(|(_id, def)| !def.value_template)
         .flat_map(|(id, def)| {
             def.template_strings(dir.join("sources"))
                 .iter()

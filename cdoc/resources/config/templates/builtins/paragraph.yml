@@ -1,0 +1,12 @@
+name: Paragraph
+description: A paragraph.
+
+type: builtin
+
+
+templates:
+  html: !Precompiled [paragraph, html]
+  markdown: !String |
+    {{ value | safe }}\n
+  latex: !String |
+    {{ value | safe }}\n

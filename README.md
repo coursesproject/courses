@@ -105,3 +105,10 @@ general (at least not directly) and they also have no support for automated test
 I heavily considered creating `courses` as an extension to one of these systems but ultimately chose not to because 
 of how much complexity and clutter the extra pre- and post-processing would add. 
 
+
+## Collaborators and development
+
+Courses was originally developed for use in a university course at The IT University of Copenhagen where I am currently employed ([webpage link](https://iml.itu.dk)). 
+The project was developed to address several shortcomings of the Jupyterbook project (see the previous section for details). 
+Development on the tool has been done in my spare time, but the collaboration has provided invaluable feedback and has 
+lead to the development of several critical features. 

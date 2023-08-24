@@ -61,7 +61,7 @@ impl Loader for MarkdownLoader {
         let meta: DocumentMetadata =
             serde_yaml::from_str(&input[start + 3..end]).context("Could not parse frontmatter")?;
         let mut counters = HashMap::new();
-        let elems = split_shortcodes(&input[end + 3..], &mut counters)?;
+        let elems = split_shortcodes(&input[end + 3..], 0, 0, &mut counters)?;
         // let elems: Vec<Element> = split_shortcodes_old(&input[end + 3..], &mut counters)?
         //     .into_iter()
         //     .flat_map(|e| match e {

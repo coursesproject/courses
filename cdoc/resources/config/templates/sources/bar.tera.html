@@ -1,0 +1,44 @@
+<nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="{{ config.url_prefix }}/">
+            <img src="{{ config.url_prefix }}/resources/logo.svg" height="28" width="28">
+        </a>
+
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+
+    <div id="navbarBasicExample" class="navbar-menu">
+        <div class="navbar-start">
+
+            {% if not doc.metadata.layout.hide_sidebar %}
+                <a class="navbar-item" @click="sidebar_open = !sidebar_open"><i class="bi bi-list"></i></a>
+            {% endif %}
+
+            <a href="{{ config.url_prefix }}/" class="navbar-item">
+                Home
+            </a>
+
+            {% for part in project.children %}
+                {% if mode == "draft" or not part.content.metadata.draft %}
+                    <a href="{{ config.url_prefix }}/{{ part.id }}{% if part.type == 'Section' %}/index{% endif %}.html" class="navbar-item">
+                        {{ part.content.metadata.title }}
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="navbar-end">
+            <a class="navbar-item" href="{{ config.repository.url }}">
+                <strong>GitHub</strong>
+                <span class="icon">
+                <i class="bi bi-github"></i>
+              </span>
+
+            </a>
+        </div>
+    </div>
+</nav>

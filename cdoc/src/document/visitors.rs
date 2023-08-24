@@ -4,6 +4,7 @@ use crate::notebook::CellOutput;
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeCall};
 use regex::Regex;
 use std::collections::HashMap;
+use std::ops::Range;
 use std::str::FromStr;
 
 pub struct MathInserter {
@@ -78,14 +79,50 @@ impl AstVisitor for MathInserter {
     }
 }
 
+pub struct ShortcodeSourceDescriptor<'a> {
+    call_src: &'a str,
+    body_src: Option<&'a str>,
+    call_range: Range<usize>,
+    body_range: Option<Range<usize>>,
+    cell: usize,
+}
+
+impl<'a> ShortcodeSourceDescriptor<'a> {
+    pub fn new_inline(call_src: &'a str, call_range: Range<usize>, cell: usize) -> Self {
+        ShortcodeSourceDescriptor {
+            call_src,
+            call_range,
+            cell,
+            body_src: None,
+            body_range: None,
+        }
+    }
+
+    pub fn new_body(
+        call_src: &'a str,
+        body_src: &'a str,
+        call_range: Range<usize>,
+        body_range: Range<usize>,
+        cell: usize,
+    ) -> Self {
+        ShortcodeSourceDescriptor {
+            call_src,
+            call_range,
+            cell,
+            body_src: Some(body_src),
+            body_range: Some(body_range),
+        }
+    }
+}
+
 pub struct ShortcodeInserter<'a> {
-    shortcodes: Vec<(&'a str, &'a str)>,
+    shortcodes: Vec<ShortcodeSourceDescriptor<'a>>,
     counters: &'a mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 }
 
 impl<'a> ShortcodeInserter<'a> {
     pub fn new(
-        shortcodes: Vec<(&'a str, &'a str)>,
+        shortcodes: Vec<ShortcodeSourceDescriptor<'a>>,
         counters: &'a mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Self {
         ShortcodeInserter {
@@ -101,8 +138,8 @@ impl AstVisitor for ShortcodeInserter<'_> {
             let s: String = inner.iter_mut().map(|i| i.to_string()).collect();
 
             if let Ok(idx) = usize::from_str(&s) {
-                let (def, body) = self.shortcodes[idx];
-                let code = parse_shortcode(def)?;
+                let descriptor = &self.shortcodes[idx];
+                let code = parse_shortcode(descriptor.call_src)?;
 
                 self.counters
                     .get_mut(&code.name)
@@ -115,12 +152,23 @@ impl AstVisitor for ShortcodeInserter<'_> {
                             .insert(code.name.clone(), (1, vec![code.clone()]));
                     });
 
-                let base = code.into_base(self.counters)?;
-                let code = if body.is_empty() {
-                    Shortcode::Inline(base)
+                let base = code.into_base(
+                    descriptor.call_range.clone(),
+                    descriptor.cell,
+                    self.counters,
+                )?;
+                let code = if let (Some(body_src), Some(body_range)) =
+                    (descriptor.body_src, &descriptor.body_range)
+                {
+                    let body_blocks = split_shortcodes(
+                        body_src,
+                        body_range.start,
+                        descriptor.cell,
+                        self.counters,
+                    )?;
+                    Shortcode::Block(base, body_blocks, body_range.clone())
                 } else {
-                    let body_blocks = split_shortcodes(body, self.counters)?;
-                    Shortcode::Block(base, body_blocks)
+                    Shortcode::Inline(base)
                 };
                 *inline = Inline::Shortcode(code);
             }
@@ -158,14 +206,16 @@ impl ShortcodeInserter<'_> {
                 let idx = usize::from_str(ms.as_str())?;
                 out.push_str(&source[start_idx..ms.range().start - 1]);
 
-                if let Some((def, body)) = self.shortcodes.get(idx) {
-                    if body.is_empty() {
-                        out.push_str(&format!("{{{{ {} }}}}", def));
-                    } else {
-                        out.push_str(&format!("{{% {} %}}", def));
-                        let code = parse_shortcode(def)?;
-                        out.push_str(body);
+                if let Some(descriptor) = self.shortcodes.get(idx) {
+                    if let (Some(body_src), Some(_body_range)) =
+                        (descriptor.body_src, &descriptor.body_range)
+                    {
+                        out.push_str(&format!("{{% {} %}}", descriptor.call_src));
+                        let code = parse_shortcode(descriptor.call_src)?;
+                        out.push_str(body_src);
                         out.push_str(&format!("{{% end_{} %}}", code.name))
+                    } else {
+                        out.push_str(&format!("{{{{ {} }}}}", descriptor.call_src));
                     }
                 }
                 start_idx = ms.range().end + 1;

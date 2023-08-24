@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::ast::{
     find_shortcode, str_to_blocks, Ast, AstVisitor, Block, Inline, ShortcodeBase, ShortcodeIdx,
 };
-use crate::document::visitors::{MathInserter, ShortcodeInserter};
+use crate::document::visitors::{MathInserter, ShortcodeInserter, ShortcodeSourceDescriptor};
 use crate::notebook::{Cell, Notebook};
 use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeCall};
 
@@ -101,6 +101,8 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
 
 pub fn split_shortcodes(
     src: &str,
+    mut offset: usize,
+    _cell_number: usize,
     counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
 ) -> Result<Vec<Block>> {
     let mut rest = src;
@@ -113,18 +115,30 @@ pub fn split_shortcodes(
                 md_str.push_str(&rest[..start]);
 
                 let c = rest[start + 2..end].trim();
-                shortcodes.push((c, ""));
+                shortcodes.push(ShortcodeSourceDescriptor::new_inline(
+                    c,
+                    (offset + start + 2)..(offset + end),
+                    0,
+                ));
 
                 rest = &rest[end + 2..];
+                offset += end + 2;
             }
             ShortcodeIdx::Block { def, end } => {
                 md_str.push_str(&rest[..def.0]);
 
                 let c = rest[def.0 + 2..def.1].trim();
                 let body = &rest[def.1 + 2..end.0];
-                shortcodes.push((c, body));
+                shortcodes.push(ShortcodeSourceDescriptor::new_body(
+                    c,
+                    body,
+                    (offset + def.0 + 2)..(offset + def.1),
+                    (offset + def.1 + 2)..(offset + end.0),
+                    0,
+                ));
 
                 rest = &rest[end.1 + 2..];
+                offset += end.1 + 2;
             }
         }
         md_str.push_str(&format!("_{shortcode_idx}_"));
@@ -145,6 +159,8 @@ pub fn split_shortcodes(
 impl ShortCodeCall {
     fn into_base(
         self,
+        range: Range<usize>,
+        cell: usize,
         counters: &mut HashMap<String, (usize, Vec<ShortCodeCall>)>,
     ) -> Result<ShortcodeBase> {
         let parameters: Result<Vec<Argument<Vec<Block>>>> = self
@@ -157,7 +173,7 @@ impl ShortCodeCall {
                             ArgumentValue::Literal(vec![Block::Plain(vec![Inline::Text(s)])])
                         }
                         ArgumentValue::Markdown(s) => {
-                            let blocks = split_shortcodes(&s, counters)?;
+                            let blocks = split_shortcodes(&s, range.start, cell, counters)?;
                             let blocks = blocks
                                 .into_iter()
                                 .map(|b| {
@@ -180,6 +196,8 @@ impl ShortCodeCall {
             id: self.id,
             num: counters.get(&self.name).unwrap().0,
             parameters: parameters?,
+            pos: range,
+            cell: 0,
         })
     }
 }
@@ -279,8 +297,11 @@ impl TryFrom<Notebook> for Document<Ast> {
         let content: Vec<Block> = value
             .cells
             .into_iter()
-            .map(|cell| match cell {
-                Cell::Markdown { common } => split_shortcodes(&common.source, &mut counters),
+            .enumerate()
+            .map(|(idx, cell)| match cell {
+                Cell::Markdown { common } => {
+                    split_shortcodes(&common.source, 0, idx, &mut counters)
+                }
                 Cell::Code {
                     common, outputs, ..
                 } => Ok(vec![Block::CodeBlock {

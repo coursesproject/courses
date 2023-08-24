@@ -1,0 +1,19 @@
+name: Math
+description: Math block or inline.
+
+type: builtin
+
+
+templates:
+  html: !String |
+    {% if display_mode %}
+    $$
+    {{ value }}
+    $$
+    {% else %}${{ value }}${% if trailing_space %} {% endif %}{% endif %}
+  markdown: !String |
+    {% if display_mode %}$${{value}}$${% else %}${{value}}${% endif %}
+  latex: !String |
+    {% if display_mode %}
+    \begin{equation}{{ value }}\end{equation}
+    {% else %}${{ value }}${% if trailing_space %} {% endif %}{% endif %}

@@ -1,0 +1,8 @@
+name: Section
+description: Layout for rendering a single document.
+
+type: layout
+
+templates:
+  html: !File section.tera.html
+  latex: !File section.tera.tex
