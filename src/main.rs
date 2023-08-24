@@ -25,7 +25,9 @@ use courses::project::{configure_project, from_vec, ContentItem};
 mod setup;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "Courses")]
+#[command(author = "Anton Mølbjerg Eskildsen <antonmeskildsen@me.com>")]
+#[command(version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -33,39 +35,44 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Build and serve the project locally. Recompiles whenever a file change is detected.
     Serve {
+        /// Optional path to the project root directory (that contains config.yml).
         #[arg(short, long)]
         path: Option<PathBuf>,
+        /// Build profile (defined in config.yml).
         #[arg(short = 'o', long, default_value = "draft")]
         profile: String,
-        // mode: Mode,
     },
+    /// Build the project with the given profile.
     Build {
+        /// Optional path to the project root directory (that contains config.yml).
         #[arg(short, long)]
         path: Option<PathBuf>,
+        /// Build profile (defined in config.yml).
         #[arg(short = 'o', long, default_value = "release")]
         profile: String,
-        // mode: Mode,
     },
+    /// Create a new courses project.
     Init {
         name: Option<String>,
+        /// Template repository to use for the project.
         #[arg(short, long)]
         repository: Option<String>,
     },
     Create {},
     Test {},
+    /// Run a project script (as defined in config.yml)
     Run {
+        /// Script name.
         script: String,
+        /// Optional path to the project root directory (that contains config.yml).
         #[arg(short, long)]
         path: Option<PathBuf>,
-        #[arg(short, long, default_value = "release")]
-        profile: String,
-
-        /// Command line to start child process
+        /// Arguments passed to the script
         #[arg(last = true)]
         run_args: Vec<String>,
     },
-    Publish {},
 }
 
 fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
@@ -138,12 +145,12 @@ async fn cli_run() -> anyhow::Result<()> {
         }
         Commands::Run {
             path,
-            profile,
             script,
             run_args,
         } => {
-            let (pipeline, _) = init_and_build(path, profile)?;
-            let s = pipeline.project_config.scripts.get(&script).unwrap();
+            let path = path_with_default(path)?;
+            let config = init_config(&path)?;
+            let s = config.scripts.get(&script).unwrap();
             let mut cmd = Command::new("bash");
 
             cmd.arg("-c").arg(format!("{} {}", s, run_args.join(" ")));
