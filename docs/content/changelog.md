@@ -6,16 +6,33 @@ layout:
 
 # Courses changelog
 
-## 0.7.3
-- Updated cdoc dependency to 0.6.0
+## 0.8.x
 
-## 0.7.2
+### 0.8.0
+- Updated cdoc dependency to 0.7.0.
+- Working on project testing facilities.
+
+## 0.7.x
+
+### 0.7.5/0.7.6
+- Fixed bug where build directories without documents could not contain other files.
+- - Updated cdoc dependency to 0.6.2.
+
+### 0.7.4
+- Script running now supports additional arguments using `--`.
+- Updated the documentation and templates.
+- - Updated cdoc dependency to 0.6.1.
+
+### 0.7.3
+- Updated cdoc dependency to 0.6.0.
+
+### 0.7.2
 - Bug fix release
 
-## 0.7.1
+### 0.7.1
 - Content folders are updated individually which makes it possible to use the build output as git repositories.
 
-## 0.7.0
+### 0.7.0
 - Improved project structuring. Now only sections and documents exist and can be nested indefinitely.
 - Documents can be the same level as sections, instead of only being able to exist inside chapters.
 - Draft system now also determines whether additional files in each section are copied to the output.
@@ -118,6 +135,15 @@ This is the first release on crates.io.
 
 # CDoc changelog
 The *cdoc* project only has a separate changelog from version *0.6.0* an onwards.
+
+## 0.7.0
+- New syntax for in-code exercise splits.
+
+## 0.6.2/0.6.3
+- Removed clippy warnings by refactoring to `try_fold`.
+
+## 0.6.1
+- Shortcodes now capture positional information for use in error messages.
 
 ## 0.6.0
 - Added support for "precompiled" (really static) templates intended for builtin types. I'm not yet sure how useful this 

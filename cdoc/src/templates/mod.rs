@@ -120,7 +120,7 @@ impl TemplateManager {
     #[allow(unused)]
     fn combine(mut self, other: TemplateManager) -> anyhow::Result<TemplateManager> {
         self.tera.extend(&other.tera)?;
-        self.definitions.extend(other.definitions.into_iter());
+        self.definitions.extend(other.definitions);
 
         Ok(self)
     }
