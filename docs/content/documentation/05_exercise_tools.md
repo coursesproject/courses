@@ -13,9 +13,9 @@ Courses allows you to tag source code blocks using a special syntax hiding in th
 
 hello
 ```
-#| << CODE
-# print("hello")
-#| >> SOLUTION <<
+#| code <<
 print("solution")
-#| >> END_CODE
+#| placeholder
+# print("hello")
+#| >>
 ```

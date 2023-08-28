@@ -22,7 +22,7 @@ pub enum Content {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "code_block")]
 pub struct ExerciseBlock {
-    pub placeholder: Vec<Content>,
+    pub placeholder: Option<Vec<Content>>,
     pub solution: Vec<Content>,
 }
 
@@ -105,7 +105,10 @@ impl Output for Inner {
                 if solution {
                     solution_block.write_string(solution)
                 } else {
-                    placeholder.write_string(solution)
+                    placeholder
+                        .as_ref()
+                        .map(|p| p.write_string(solution))
+                        .unwrap_or_default()
                 }
             }
             Inner::SrcBlock(content) => content.write_string(solution),
@@ -131,7 +134,10 @@ impl Output for Value {
                 if solution {
                     solution_block.write_string(solution)
                 } else {
-                    placeholder.write_string(solution)
+                    placeholder
+                        .as_ref()
+                        .map(|p| p.write_string(solution))
+                        .unwrap_or_default()
                 }
             }
         }
