@@ -439,7 +439,7 @@ impl Pipeline {
         }
 
         self.get_formats_or_default()
-            .par_iter()
+            .iter()
             .zip(bars.clone())
             .for_each(|(format, bar)| {
                 let mut format_errs = Vec::new();
@@ -490,6 +490,15 @@ impl Pipeline {
                     profile: &self.profile,
                 };
 
+                // println!("format {:?}", format);
+                // let project_full2 = from_vec(
+                //     &output
+                //         .clone()
+                //         .into_iter()
+                //         .map(|i| i.map(|d| Ok(())).unwrap())
+                //         .collect::<Vec<ContentItemDescriptor<()>>>(),
+                // );
+                // println!("{:#?}", &project_full2);
                 let res = mover.traverse_content(&project_full);
                 if let Err(e) = res {
                     format_errs.push(e);
@@ -591,6 +600,8 @@ impl Pipeline {
                         None
                     }
                 };
+
+                // println!("doc is {:?}, {}", &i.path, res.is_some());
 
                 // let res = print_err(res);
                 ContentItemDescriptor {

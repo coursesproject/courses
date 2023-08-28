@@ -58,7 +58,8 @@ impl Mover<'_> {
                     .content
                     .as_ref()
                     .as_ref()
-                    .is_some_and(|c| !c.metadata.draft)
+                    .map(|c| !c.metadata.draft)
+                    .unwrap_or(true)
             {
                 let dir_path = self.content_path().join(section_path);
                 // println!("dir {}", dir_path.display());
@@ -124,15 +125,13 @@ impl Mover<'_> {
                             })?;
                         }
                         _ => {
-                            if !entry_path.is_dir() {
-                                fs::create_dir_all(dest.as_path().parent().unwrap())?;
-                                fs::copy(&entry_path, dest).with_context(|| {
-                                    format!(
-                                        "failed to copy file to build folder at {}",
-                                        entry_path.as_path().display()
-                                    )
-                                })?;
-                            }
+                            fs::create_dir_all(dest.as_path().parent().unwrap())?;
+                            fs::copy(&entry_path, dest).with_context(|| {
+                                format!(
+                                    "failed to copy file to build folder at {}",
+                                    entry_path.as_path().display()
+                                )
+                            })?;
                         }
                     }
                 }
