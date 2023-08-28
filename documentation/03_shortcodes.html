@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <link rel="icon" type="image/x-icon" href="&#x2F;courses/resources/favicon.png" />
+
+    <style>
+        @import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+        @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css");
+
+        :root {
+            --primary: hsl(171, 100%, 41%);
+            --link: hsl(217, 71%, 53%);
+            --info: hsl(204, 86%, 53%);
+            --success: hsl(141, 53%, 53%);
+            --warning: hsl(48, 100%, 67%);
+            --danger: hsl(348, 100%, 61%);
+            --light: hsl(0, 0%, 96%);
+            --dark: hsl(0, 0%, 21%);
+            --white: hsl(0, 0%, 100%);
+            --black: hsl(0, 0%, 4%);
+
+            --sidebar-width: 300px;
+        }
+
+        figure {
+            margin-top: 20px;
+        }
+
+        .easy {
+            color: var(--success);
+        }
+
+        .medium {
+            color: var(--warning);
+        }
+        .hard {
+            color: var(--danger);
+        }
+
+
+        .editor {
+            height: 100px;
+            width: 500px;
+        }
+
+        pre {
+            border-radius: 10px;
+            margin-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .important {
+            color: red;
+        }
+
+        .optional {
+            color: blue;
+        }
+
+        .mandatory-bg {
+            background-color: red;
+        }
+
+        .regular-bg {
+            background-color: orange;
+        }
+
+        .optional-bg {
+            background-color: blue;
+        }
+
+        .color-info {
+            color: var(--success);
+        }
+
+        .color-tip {
+            color: var(--warning);
+        }
+
+        .color-important {
+            color: var(--danger);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            height: 100%;
+            top: 56px;
+            overflow-y: auto;
+            bottom: 0;
+        }
+
+        .page-container {
+            transition: 200ms;
+        }
+
+        .sidebar_active {
+            margin-left: var(--sidebar-width);
+        }
+
+        .task {
+            margin-top: 20px;
+        }
+    </style>
+
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.css"
+            integrity="sha384-bYdxxUwYipFNohQlHt0bjN/LCpueqWz13HufFEV1SUatKs1cm4L6fFgCi1jT643X"
+            crossorigin="anonymous"
+    />
+
+    
+
+    <!-- The loading of KaTeX is deferred to speed up page rendering -->
+    <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.js"
+            integrity="sha384-Qsn9KnoKISj6dI8g7p1HBlNpVx0I8p1SvlwOldgi3IorMle61nQy4zEahWYtljaz"
+            crossorigin="anonymous"
+    ></script>
+
+    <!-- To automatically render math in text elements, include the auto-render extension: -->
+    <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/contrib/auto-render.min.js"
+            integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+            crossorigin="anonymous"
+    ></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            renderMathInElement(document.body, {
+                // customised options
+                // • auto-render specific keys, e.g.:
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false},
+                    {left: "\\(", right: "\\)", display: false},
+                    {left: "\\[", right: "\\]", display: true},
+                ],
+                // • rendering keys, e.g.:
+                throwOnError: false,
+            });
+        });
+    </script>
+
+    <link
+            rel="stylesheet"
+            href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css"
+    />
+
+    <title>Shortcodes</title>
+
+    <script
+            defer
+            src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    
+</head>
+<body x-data="{ sidebar_open: true }">
+<nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="&#x2F;courses/">
+            <img src="&#x2F;courses/resources/logo.svg" height="28" width="28">
+        </a>
+
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+
+    <div id="navbarBasicExample" class="navbar-menu">
+        <div class="navbar-start">
+
+            
+                <a class="navbar-item" @click="sidebar_open = !sidebar_open"><i class="bi bi-list"></i></a>
+            
+
+            <a href="&#x2F;courses/" class="navbar-item">
+                Home
+            </a>
+
+            
+                
+                    <a href="&#x2F;courses/changelog.html" class="navbar-item">
+                        Changelog
+                    </a>
+                
+            
+                
+                    <a href="&#x2F;courses/documentation/index.html" class="navbar-item">
+                        Documentation
+                    </a>
+                
+            
+                
+                    <a href="&#x2F;courses/roadmap.html" class="navbar-item">
+                        Roadmap
+                    </a>
+                
+            
+        </div>
+
+        <div class="navbar-end">
+            <a class="navbar-item" href="https:&#x2F;&#x2F;github.com&#x2F;antonmeskildsen&#x2F;courses&#x2F;">
+                <strong>GitHub</strong>
+                <span class="icon">
+                <i class="bi bi-github"></i>
+              </span>
+
+            </a>
+        </div>
+    </div>
+</nav>
+
+    <div class="sidebar p-2" x-show="sidebar_open" x-transition>
+    <aside class="menu">
+        
+         
+        
+        <ul class="menu-list">
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/01_getting_started.html">1. Getting started</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/02_project_organisation.html">2. Project organisation and configuration</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/03_shortcodes.html">3. Shortcodes</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/04_templates.html">4. Templates</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/05_exercise_tools.html">5. Exercise definitions</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+        </ul>
+         
+         
+    </aside>
+</div>
+
+
+
+<div
+        class="page-container sidebar_active"
+         :class="{ 'sidebar_active': sidebar_open }"
+>
+    <section class="section">
+        <div class="container is-max-desktop">
+
+            <div class="columns">
+                <div class="column is-full">
+
+                    <div class="content mt-2">
+
+
+<h1>Shortcodes</h1>
+<p>Markdown is intentionally limiting in its functionality. Therefore, like most other static-site generators,<code>courses</code>
+ supports a special syntax - called <em>shortcodes</em>
+ - for adding components to your markup. A number of built-inshortcodes provide basic features like figures and admonitions. Custom shortcodes can easily be added to any projectto extend the functionality.</p><p>Courses supports multiple output formats for shortcodes depending on context. This makes it easy to make shortcodes compatible with both html-output and the markdown output in notebooks. </p><h2>Syntax</h2>
+<p>Shortcodes support two syntaxes:</p><p><strong>Inline:</strong>
+ <code>{{ name(arg1=value1, arg2=&quot;a string value&quot;) }}</code>
+</p><p><strong>Block:</strong>
+</p>
+
+    <div hidden id="cell_13_in">{% name(arg1=value, arg2=&quot;a string value&quot;) %}
+
+Valid markdown markup
+
+{% end_name %}
+</div><div id="cell_13_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">{% </span><span style="color:#8fa1b3;">name</span><span style="color:#4f5b66;">(</span><span style="color:#bf616a;">arg1</span><span style="color:#4f5b66;">=value, </span><span style="color:#bf616a;">arg2</span><span style="color:#4f5b66;">=&quot;</span><span style="color:#a3be8c;">a string value</span><span style="color:#4f5b66;">&quot;) %}
+</span><span style="color:#4f5b66;">
+</span><span style="color:#4f5b66;">Valid markdown markup
+</span><span style="color:#4f5b66;">
+</span><span style="color:#4f5b66;">{% end_name %}
+</span></pre>
+</div>
+    
+
+
+<div id="cell_13_out"></div>
+
+<p>The inline variant simply renders the shortcode template with the provided argument values and replaces the shortcodewith the html or markdown output.</p><p>The block variant makes it possible to use Markdown content in the template. The markup inside the block delimitersis pre-rendered as html and then passed to the shortcode’s template in the <code>body</code>
+ parameter. <em>As a result, shortcodestypically written using the block syntax can also be written using the inline syntax with the <code>body</code>
+ parameterspecified manually.</em>
+</p><p><article class="message is-warning">
+  <div class="message-header">Tip</div>
+  <div class="message-body"><p>Shortcodes can be expanded over multiple lines to improve readability. For example:</p>
+
+    <div hidden id="cell_14_in">{{ name(
+    arg1=value1, 
+    arg2=&quot;a string value&quot;
+) }}
+</div><div id="cell_14_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">{{ </span><span style="color:#8fa1b3;">name</span><span style="color:#4f5b66;">(
+</span><span style="color:#4f5b66;">    </span><span style="color:#bf616a;">arg1</span><span style="color:#4f5b66;">=value1, 
+</span><span style="color:#4f5b66;">    </span><span style="color:#bf616a;">arg2</span><span style="color:#4f5b66;">=&quot;</span><span style="color:#a3be8c;">a string value</span><span style="color:#4f5b66;">&quot;
+</span><span style="color:#4f5b66;">) }}
+</span></pre>
+</div>
+    
+
+
+<div id="cell_14_out"></div>
+
+<p>The syntax does not use significant whitespace. It therefore does not matter how you choose to indent each line or evenhow many linebreaks there is between arguments.</p></div>
+</article>
+</p><h2>Codes in the default template</h2>
+<p><table class="table is-bordered is-striped is-hoverable is-fullwidth">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>id</th>
+        <th>Kind</th>
+        <th>Description</th>
+        <th>Formats</th>
+    </tr>
+    </thead>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        <tbody>
+        <tr>
+            <td><a href="#shortcode_details_shortcode_badge">Badge</a></td>
+            <td>badge</td>
+            <td>block</td>
+            <td>A badge.</td>
+            <td>html,</td>
+        </tr>
+        </tbody>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        <tbody>
+        <tr>
+            <td><a href="#shortcode_details_shortcode_figure">Figure</a></td>
+            <td>figure</td>
+            <td>inline</td>
+            <td>Produces a figure for the webpage and a regular markdown image for the notebook.</td>
+            <td>html,latex,markdown,</td>
+        </tr>
+        </tbody>
+    
+    
+    
+    
+    
+        <tbody>
+        <tr>
+            <td><a href="#shortcode_details_shortcode_message">Message</a></td>
+            <td>message</td>
+            <td>block</td>
+            <td>A box with a title and message. Useful for drawing attention to something.</td>
+            <td>html,latex,markdown,</td>
+        </tr>
+        </tbody>
+    
+    
+    
+    
+</table>
+
+<h2>Shortcodes</h2>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        
+        <h3 id="shortcode_details_shortcode_badge">Badge</h3>
+
+
+        <p>A badge.</p>
+        <h5>Syntax:</h5>
+        
+        
+
+<pre><code>{% badge(class) %}
+body
+{% end_badge %}</code></pre>
+
+        
+        <ul>
+        
+        <li><code>class</code> : Badge color.
+             Possible values:
+            <ul>
+            <li>primary</li><li>success</li><li>warning</li><li>info</li><li>danger</li>
+            </ul>
+             </li>
+        
+        </ul>
+        
+<!--        <article class="message">-->
+<!--            <div class="message-header">-->
+<!--                <p id="shortcode_details_shortcode_badge">Badge-->
+<!--                    (badge): block</p>-->
+<!--            </div>-->
+<!--            <div class="message-body">-->
+<!--                <h5>Parameters</h5>-->
+<!--                <table>-->
+<!--                    <thead>-->
+<!--                    <tr>-->
+<!--                        <th>Name</th>-->
+<!--                        <th>Description</th>-->
+<!--                        <th>Optional</th>-->
+<!--                        <th>Type</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>class</td>-->
+<!--                            <td>Badge color.</td>-->
+<!--                            <td>false</td>-->
+<!--                            <td>{"choice":["primary","success","warning","info","danger"]}</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+
+<!--        </article>-->
+    
+
+    
+
+    
+
+    
+
+    
+        
+        <h3 id="shortcode_details_shortcode_figure">Figure</h3>
+
+
+        <p>Produces a figure for the webpage and a regular markdown image for the notebook.</p>
+        <h5>Syntax:</h5>
+        
+        
+<pre><code>{{ figure(caption, url, width, alignment [optional]) }}
+</code></pre>
+        
+        <ul>
+        
+        <li><code>caption</code> : Figure caption.
+             </li>
+        
+        <li><code>url</code> : Path to the image. Relative to the resources&#x2F; folder.
+             </li>
+        
+        <li><code>width</code> : Css width property. Any valid css width is valid here.
+             </li>
+        
+        <li><code>alignment</code> <span class="tag is-warning">optional</span>: Image alignment (css class).
+             Possible values:
+            <ul>
+            <li>left</li><li>centered</li><li>right</li>
+            </ul>
+             </li>
+        
+        </ul>
+        
+            
+                <h5>Example: Simple</h5>
+                <strong>code</strong>
+                <pre><code>{{ figure(url=cat.jpg, width=&quot;80%&quot;, caption=&quot;This is my image&quot;) }}
+</code></pre>
+<strong>result</strong>
+                <p><figure class="figure" >
+<img src="&#x2F;courses/resources/cat.jpg" class="figure-img img-fluid rounded" style="width:80%" />
+<figcaption class="figure-caption has-text-centered">Figure 1: This is my image</figcaption>
+</figure>
+</p>
+            
+        
+<!--        <article class="message">-->
+<!--            <div class="message-header">-->
+<!--                <p id="shortcode_details_shortcode_figure">Figure-->
+<!--                    (figure): inline</p>-->
+<!--            </div>-->
+<!--            <div class="message-body">-->
+<!--                <h5>Parameters</h5>-->
+<!--                <table>-->
+<!--                    <thead>-->
+<!--                    <tr>-->
+<!--                        <th>Name</th>-->
+<!--                        <th>Description</th>-->
+<!--                        <th>Optional</th>-->
+<!--                        <th>Type</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>caption</td>-->
+<!--                            <td>Figure caption.</td>-->
+<!--                            <td>false</td>-->
+<!--                            <td>"regular"</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>url</td>-->
+<!--                            <td>Path to the image. Relative to the resources&#x2F; folder.</td>-->
+<!--                            <td>false</td>-->
+<!--                            <td>"regular"</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>width</td>-->
+<!--                            <td>Css width property. Any valid css width is valid here.</td>-->
+<!--                            <td>false</td>-->
+<!--                            <td>"regular"</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>alignment</td>-->
+<!--                            <td>Image alignment (css class).</td>-->
+<!--                            <td>true</td>-->
+<!--                            <td>{"choice":["left","centered","right"]}</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+
+<!--        </article>-->
+    
+
+    
+
+    
+        
+        <h3 id="shortcode_details_shortcode_message">Message</h3>
+
+
+        <p>A box with a title and message. Useful for drawing attention to something.</p>
+        <h5>Syntax:</h5>
+        
+        
+
+<pre><code>{% message(title [optional], color) %}
+body
+{% end_message %}</code></pre>
+
+        
+        <ul>
+        
+        <li><code>title</code> <span class="tag is-warning">optional</span>: Box header.
+             </li>
+        
+        <li><code>color</code> : Message color.
+             Possible values:
+            <ul>
+            <li>primary</li><li>success</li><li>warning</li><li>info</li><li>danger</li>
+            </ul>
+             </li>
+        
+        </ul>
+        
+            
+                <h5>Example: Generic</h5>
+                <strong>code</strong>
+                <pre><code>{% message(color=info, title=&quot;Optional title&quot;) %}
+Message box
+{% end %}
+</code></pre>
+<strong>result</strong>
+                <p><article class="message is-info">
+  <div class="message-header">Optional title</div>
+  <div class="message-body"><p>Message box</p></div>
+</article>
+</p>
+            
+        
+<!--        <article class="message">-->
+<!--            <div class="message-header">-->
+<!--                <p id="shortcode_details_shortcode_message">Message-->
+<!--                    (message): block</p>-->
+<!--            </div>-->
+<!--            <div class="message-body">-->
+<!--                <h5>Parameters</h5>-->
+<!--                <table>-->
+<!--                    <thead>-->
+<!--                    <tr>-->
+<!--                        <th>Name</th>-->
+<!--                        <th>Description</th>-->
+<!--                        <th>Optional</th>-->
+<!--                        <th>Type</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>title</td>-->
+<!--                            <td>Box header.</td>-->
+<!--                            <td>true</td>-->
+<!--                            <td>"regular"</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                        <tr>-->
+<!--                            <td>color</td>-->
+<!--                            <td>Message color.</td>-->
+<!--                            <td>false</td>-->
+<!--                            <td>{"choice":["primary","success","warning","info","danger"]}</td>-->
+<!--                        </tr>-->
+<!--                    -->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+
+<!--        </article>-->
+    
+
+    
+</p><h2>Custom shortcodes</h2>
+<p>Each shortcode is defined by a single template file by the same name in a project’s <code>templates&#x2F;shortcodes</code>
+ folder. Thedefault codes described above are included when using the default <code>courses init</code>
+ command to create a project. See the templates page for details on the format.</p><p>The templates use the Tera templating engine which is easy to use and hasexcellent <a src="https:&#x2F;&#x2F;tera.netlify.app&#x2F;" alt="">documentation</a>
+.</p><h3>Extra configuration</h3>
+<p>Shortcode templates contain extra fields in its <code>.yml</code>
+ file for specifying its parameters. Since shortcodes are an integral part of courses, it is critical that they can be documented in a manner that is easy to present to developers. The metadata is available when rendering templates and can thus be used to create documentation as exemplified by the default template’s <a src="https:&#x2F;&#x2F;github.com&#x2F;coursesproject&#x2F;courses-template-default&#x2F;blob&#x2F;main&#x2F;templates&#x2F;shortcodes&#x2F;docpage.yml" alt=""><code>docpage.yml</code>
+ template</a>
+.</p><p>The parameter definition also provides improved checks for arguments. The compiler ensures that all non-optional arguments are present and that only defined parameter names are used. Finally, the definition specifies the argument order when using the positional calling convention.</p><h3>Parameters</h3>
+<p>Parameters </p><p>Parameters are defined implicitly by using them in the template. Courses automatically inserts the values provided atthe shortcode call-site into the template - the names map one-to-one. For block shortcodes, the body is inserted as thevariable <code>body</code>
+.</p><p>Shortcode arguments are mandatory by default. If a value is used in a template without being defined at the call-site,Courses returns an error. Optional arguments can be implemented using the Tera <code>default</code>
+ function,e.g. <code>{{ value | default(2) }}</code>
+.</p><h3>Other available variables</h3>
+<p>Courses additionally inserts a number of project and document related variables which can be used by the templates.Below is an overview of the included elements so far:</p>
+
+</div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
+
+</body>
+</html>

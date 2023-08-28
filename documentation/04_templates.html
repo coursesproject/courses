@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <link rel="icon" type="image/x-icon" href="&#x2F;courses/resources/favicon.png" />
+
+    <style>
+        @import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+        @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css");
+
+        :root {
+            --primary: hsl(171, 100%, 41%);
+            --link: hsl(217, 71%, 53%);
+            --info: hsl(204, 86%, 53%);
+            --success: hsl(141, 53%, 53%);
+            --warning: hsl(48, 100%, 67%);
+            --danger: hsl(348, 100%, 61%);
+            --light: hsl(0, 0%, 96%);
+            --dark: hsl(0, 0%, 21%);
+            --white: hsl(0, 0%, 100%);
+            --black: hsl(0, 0%, 4%);
+
+            --sidebar-width: 300px;
+        }
+
+        figure {
+            margin-top: 20px;
+        }
+
+        .easy {
+            color: var(--success);
+        }
+
+        .medium {
+            color: var(--warning);
+        }
+        .hard {
+            color: var(--danger);
+        }
+
+
+        .editor {
+            height: 100px;
+            width: 500px;
+        }
+
+        pre {
+            border-radius: 10px;
+            margin-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .important {
+            color: red;
+        }
+
+        .optional {
+            color: blue;
+        }
+
+        .mandatory-bg {
+            background-color: red;
+        }
+
+        .regular-bg {
+            background-color: orange;
+        }
+
+        .optional-bg {
+            background-color: blue;
+        }
+
+        .color-info {
+            color: var(--success);
+        }
+
+        .color-tip {
+            color: var(--warning);
+        }
+
+        .color-important {
+            color: var(--danger);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            height: 100%;
+            top: 56px;
+            overflow-y: auto;
+            bottom: 0;
+        }
+
+        .page-container {
+            transition: 200ms;
+        }
+
+        .sidebar_active {
+            margin-left: var(--sidebar-width);
+        }
+
+        .task {
+            margin-top: 20px;
+        }
+    </style>
+
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.css"
+            integrity="sha384-bYdxxUwYipFNohQlHt0bjN/LCpueqWz13HufFEV1SUatKs1cm4L6fFgCi1jT643X"
+            crossorigin="anonymous"
+    />
+
+    
+
+    <!-- The loading of KaTeX is deferred to speed up page rendering -->
+    <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.js"
+            integrity="sha384-Qsn9KnoKISj6dI8g7p1HBlNpVx0I8p1SvlwOldgi3IorMle61nQy4zEahWYtljaz"
+            crossorigin="anonymous"
+    ></script>
+
+    <!-- To automatically render math in text elements, include the auto-render extension: -->
+    <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/contrib/auto-render.min.js"
+            integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+            crossorigin="anonymous"
+    ></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            renderMathInElement(document.body, {
+                // customised options
+                // • auto-render specific keys, e.g.:
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false},
+                    {left: "\\(", right: "\\)", display: false},
+                    {left: "\\[", right: "\\]", display: true},
+                ],
+                // • rendering keys, e.g.:
+                throwOnError: false,
+            });
+        });
+    </script>
+
+    <link
+            rel="stylesheet"
+            href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css"
+    />
+
+    <title>Templates</title>
+
+    <script
+            defer
+            src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    
+</head>
+<body x-data="{ sidebar_open: true }">
+<nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="&#x2F;courses/">
+            <img src="&#x2F;courses/resources/logo.svg" height="28" width="28">
+        </a>
+
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+
+    <div id="navbarBasicExample" class="navbar-menu">
+        <div class="navbar-start">
+
+            
+                <a class="navbar-item" @click="sidebar_open = !sidebar_open"><i class="bi bi-list"></i></a>
+            
+
+            <a href="&#x2F;courses/" class="navbar-item">
+                Home
+            </a>
+
+            
+                
+                    <a href="&#x2F;courses/changelog.html" class="navbar-item">
+                        Changelog
+                    </a>
+                
+            
+                
+                    <a href="&#x2F;courses/documentation/index.html" class="navbar-item">
+                        Documentation
+                    </a>
+                
+            
+                
+                    <a href="&#x2F;courses/roadmap.html" class="navbar-item">
+                        Roadmap
+                    </a>
+                
+            
+        </div>
+
+        <div class="navbar-end">
+            <a class="navbar-item" href="https:&#x2F;&#x2F;github.com&#x2F;antonmeskildsen&#x2F;courses&#x2F;">
+                <strong>GitHub</strong>
+                <span class="icon">
+                <i class="bi bi-github"></i>
+              </span>
+
+            </a>
+        </div>
+    </div>
+</nav>
+
+    <div class="sidebar p-2" x-show="sidebar_open" x-transition>
+    <aside class="menu">
+        
+         
+        
+        <ul class="menu-list">
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/01_getting_started.html">1. Getting started</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/02_project_organisation.html">2. Project organisation and configuration</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/03_shortcodes.html">3. Shortcodes</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/04_templates.html">4. Templates</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+            
+            <li>
+                <a href="&#x2F;courses/documentation/05_exercise_tools.html">5. Exercise definitions</a>
+                <ul class="menu-list">
+
+                    
+                    
+                </ul>
+            </li>
+
+            
+        </ul>
+         
+         
+    </aside>
+</div>
+
+
+
+<div
+        class="page-container sidebar_active"
+         :class="{ 'sidebar_active': sidebar_open }"
+>
+    <section class="section">
+        <div class="container is-max-desktop">
+
+            <div class="columns">
+                <div class="column is-full">
+
+                    <div class="content mt-2">
+
+
+<h1>Templates</h1>
+<p>In courses, the layout and style of the output is fully customizable. Everything from the page and menus to individual markdown elements are rendered using <a src="https:&#x2F;&#x2F;tera.netlify.app&#x2F;" alt="">Tera</a>
+ templates.</p><p>The templates are defined in <em>YAML</em>
+ files with the template source for each output format being provided either directly as strings or as file links. This makes organisation a lot easier, especially since there are a lot of templates. </p><p>Courses contains three kinds of templates: <em>builtins</em>
+, <em>shortcodes</em>
+, and <em>layouts</em>
+. The type determines in what situations the template may be used and what kind of metadata it might contain. Shortcodes are by far the most complex and are covered in detail in its own section. Builtins specifies templates for individual document elements such as code cells or headings. Layouts are currently only used to define a single parent layout used for all pages as the base template (only for formats where it is relevant).</p><h2>Template folder structure</h2>
+<p>The template folder should have the following structure and base files:</p>
+
+    <div hidden id="cell_3_in">- templates&#x2F;
+    - builtins&#x2F;
+        - cell.yml (code cell)
+        - emphasis.yml 
+        - hard_break.yml
+        - header.yml
+        - horizontal_rule.yml
+        - image.yml
+        - inline_code.yml
+        - image.yml (markdown image)
+        - link.yml (markdown link)
+        - list_item.yml (markdown list item)
+        - list_ordered.yml (markdown unordered list)
+        - list_unordered.yml (markdown ordered list)
+        - math.yml
+        - output_error.yml (notebook output)
+        - output_text.yml (notebook output)
+        - output_img.yml (notebook output - base64 image data)
+        - output_svg.yml (notebook output - svg data)
+        - paragraph.yml
+        - soft_break.yml
+        - strong.yml
+    - shortcodes&#x2F;
+        ...
+    - sections&#x2F;
+        - section.yml
+    - sources
+        - &lt;linked template files&gt;
+    
+</div><div id="cell_3_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">- templates/
+</span><span style="color:#4f5b66;">    - builtins/
+</span><span style="color:#4f5b66;">        - cell.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(code cell)
+</span><span style="color:#4f5b66;">        - emphasis.yml 
+</span><span style="color:#4f5b66;">        - hard_break.yml
+</span><span style="color:#4f5b66;">        - header.yml
+</span><span style="color:#4f5b66;">        - horizontal_rule.yml
+</span><span style="color:#4f5b66;">        - image.yml
+</span><span style="color:#4f5b66;">        - inline_code.yml
+</span><span style="color:#4f5b66;">        - image.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(markdown image)
+</span><span style="color:#4f5b66;">        - link.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(markdown link)
+</span><span style="color:#4f5b66;">        - list_item.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(markdown list item)
+</span><span style="color:#4f5b66;">        - list_ordered.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(markdown unordered list)
+</span><span style="color:#4f5b66;">        - list_unordered.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(markdown ordered list)
+</span><span style="color:#4f5b66;">        - math.yml
+</span><span style="color:#4f5b66;">        - output_error.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(notebook output)
+</span><span style="color:#4f5b66;">        - output_text.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(notebook output)
+</span><span style="color:#4f5b66;">        - output_img.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(notebook output - base64 image data)
+</span><span style="color:#4f5b66;">        - output_svg.</span><span style="color:#8fa1b3;">yml </span><span style="color:#4f5b66;">(notebook output - svg data)
+</span><span style="color:#4f5b66;">        - paragraph.yml
+</span><span style="color:#4f5b66;">        - soft_break.yml
+</span><span style="color:#4f5b66;">        - strong.yml
+</span><span style="color:#4f5b66;">    - shortcodes/
+</span><span style="color:#4f5b66;">        </span><span style="color:#d08770;">...
+</span><span style="color:#4f5b66;">    - sections/
+</span><span style="color:#4f5b66;">        - section.yml
+</span><span style="color:#4f5b66;">    - sources
+</span><span style="color:#4f5b66;">        - &lt;linked template files&gt;
+</span><span style="color:#4f5b66;">    
+</span></pre>
+</div>
+    
+
+
+<div id="cell_3_out"></div>
+
+<p>Check the <a src="https:&#x2F;&#x2F;github.com&#x2F;coursesproject&#x2F;courses-template-default&#x2F;tree&#x2F;main&#x2F;templates" alt="">code for the default template</a>
+ for an example implementation of the builtin templates and layouts. </p><h2>Template structure</h2>
+<p>The <code>yml</code>
+ file for each template follows a common structure as shown below:</p>
+
+    <div hidden id="cell_6_in">name: &lt;name&gt;
+description: &lt;description&gt;
+
+type: &lt;builtin&#x2F;shortcode&#x2F;layout&gt;
+
+examples:
+  - title: &lt;title&gt;
+    body: &lt;markdown body&gt;
+
+
+templates:
+  html: !String |
+    &lt;body&gt;
+  markdown: !String |
+    &lt;body&gt;
+  latex: !File &lt;path&gt;
+</div><div id="cell_6_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">name: &lt;name&gt;
+</span><span style="color:#4f5b66;">description: &lt;description&gt;
+</span><span style="color:#4f5b66;">
+</span><span style="color:#96b5b4;">type</span><span style="color:#4f5b66;">: &lt;builtin/shortcode/layout&gt;
+</span><span style="color:#4f5b66;">
+</span><span style="color:#4f5b66;">examples:
+</span><span style="color:#4f5b66;">  - title: &lt;title&gt;
+</span><span style="color:#4f5b66;">    body: &lt;markdown body&gt;
+</span><span style="color:#4f5b66;">
+</span><span style="color:#4f5b66;">
+</span><span style="color:#4f5b66;">templates:
+</span><span style="color:#4f5b66;">  html: !String |
+</span><span style="color:#4f5b66;">    &lt;body&gt;
+</span><span style="color:#4f5b66;">  markdown: !String |
+</span><span style="color:#4f5b66;">    &lt;body&gt;
+</span><span style="color:#4f5b66;">  latex: !File &lt;path&gt;
+</span></pre>
+</div>
+    
+
+
+<div id="cell_6_out"></div>
+
+<p>The following elements must always be present for the template to be valid:</p><ul><li><strong>Name:</strong>
+ A descriptive name for the template. This is mostly useful for generating documentation.</li>
+<li><strong>Description:</strong>
+ A description of what the template does.</li>
+<li><strong>Type:</strong>
+ This field must be one of: <em>builtin</em>
+, <em>layout</em>
+, or <em>shortcode</em>
+. </li>
+<li><strong>Examples:</strong>
+ Contains a list of examples, each with a title, body, and an optional description. Used for documentation.</li>
+<li><strong>Templates:</strong>
+ Contains a map consisting of a template for each output format. The format names must match the definition in the <code>config.yml</code>
+ file.</li>
+</ul>
+<h3>Template sources</h3>
+<p>Templates can be provided as either a string literal or as a file reference. String literals must be preceded by <code>!String</code>
+ and references by <code>!File</code>
+. This notation is derived from how rust deserializes the files.</p><h2>Builtins</h2>
+<p>Builtins are the simplest templates and usually only have access to a few values determined by the element it represents. </p><h2>Layouts</h2>
+<p>The <code>section.yml</code>
+ template is responsible for constructing the output for a single document and is used for <em>html</em>
+ and <em>LaTeX</em>
+ outputs. For web pages, the template should include any menu’s, navigation, and general page setup necessary. For LaTeX output, the template should contain the document preamble and any custom commands. Again, the <a src="https:&#x2F;&#x2F;github.com&#x2F;coursesproject&#x2F;courses-template-default&#x2F;tree&#x2F;main&#x2F;templates" alt="">default template</a>
+ is an excellent source for learning more about how these can be set up.</p><h3>Variables and metadata</h3>
+<p>Layouts have access to information on the project structure as well as the individual document that is being processed.</p><p>The top-level values are:</p>
+
+    <div hidden id="cell_8_in">- config
+- ids
+- id_map
+- doc_meta
+</div><div id="cell_8_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">- config
+</span><span style="color:#4f5b66;">- ids
+</span><span style="color:#4f5b66;">- id_map
+</span><span style="color:#4f5b66;">- doc_meta
+</span></pre>
+</div>
+    
+
+
+<div id="cell_8_out"></div>
+
+<h3>Project object</h3>
+<p>The project object (simply named <code>project</code>
+) contains the following elements:</p>
+
+    <div hidden id="cell_9_in">- project_path
+- index (page)
+- content
+    - part1
+      - id
+      - index (page)
+      - chapters
+        - chapter1
+          - id
+          - index (page)
+          - documents
+            - doc1 (page)
+            - ...
+          - files (included files)
+        - ...
+    - ...
+</div><div id="cell_9_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">- project_path
+</span><span style="color:#4f5b66;">- </span><span style="color:#8fa1b3;">index </span><span style="color:#4f5b66;">(page)
+</span><span style="color:#4f5b66;">- content
+</span><span style="color:#4f5b66;">    - part1
+</span><span style="color:#4f5b66;">      - </span><span style="color:#96b5b4;">id
+</span><span style="color:#4f5b66;">      - </span><span style="color:#8fa1b3;">index </span><span style="color:#4f5b66;">(page)
+</span><span style="color:#4f5b66;">      - chapters
+</span><span style="color:#4f5b66;">        - chapter1
+</span><span style="color:#4f5b66;">          - </span><span style="color:#96b5b4;">id
+</span><span style="color:#4f5b66;">          - </span><span style="color:#8fa1b3;">index </span><span style="color:#4f5b66;">(page)
+</span><span style="color:#4f5b66;">          - documents
+</span><span style="color:#4f5b66;">            - </span><span style="color:#8fa1b3;">doc1 </span><span style="color:#4f5b66;">(page)
+</span><span style="color:#4f5b66;">            - </span><span style="color:#d08770;">...
+</span><span style="color:#4f5b66;">          - </span><span style="color:#8fa1b3;">files </span><span style="color:#4f5b66;">(included files)
+</span><span style="color:#4f5b66;">        - </span><span style="color:#d08770;">...
+</span><span style="color:#4f5b66;">    - </span><span style="color:#d08770;">...
+</span></pre>
+</div>
+    
+
+
+<div id="cell_9_out"></div>
+
+<p>Each of the elements marked with <code>page</code>
+ contain information on a single document. The structure of the <code>content</code>
+ elementmirrors that of the files and folders in the <code>content</code>
+ project folder.</p><h4>Page object</h4>
+<p>Represents a rendered document:</p>
+
+    <div hidden id="cell_10_in">- id
+- path
+- content (rendered output)
+</div><div id="cell_10_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">- </span><span style="color:#96b5b4;">id
+</span><span style="color:#4f5b66;">- path
+</span><span style="color:#4f5b66;">- </span><span style="color:#8fa1b3;">content </span><span style="color:#4f5b66;">(rendered output)
+</span></pre>
+</div>
+    
+
+
+<div id="cell_10_out"></div>
+
+<h3>Config object</h3>
+<p>The config object contains the elements of the <code>config.yml</code>
+ project file:</p>
+
+    <div hidden id="cell_11_in">- url_prefix
+- repository
+    - url
+- outputs
+    - &lt;list of output formats&gt;
+- parsers
+- custom (custom configuration values)
+</div><div id="cell_11_code"><pre style="background-color:#eff1f5;">
+<span style="color:#4f5b66;">- url_prefix
+</span><span style="color:#4f5b66;">- repository
+</span><span style="color:#4f5b66;">    - url
+</span><span style="color:#4f5b66;">- outputs
+</span><span style="color:#4f5b66;">    - &lt;list of output formats&gt;
+</span><span style="color:#4f5b66;">- parsers
+</span><span style="color:#4f5b66;">- </span><span style="color:#8fa1b3;">custom </span><span style="color:#4f5b66;">(custom configuration values)
+</span></pre>
+</div>
+    
+
+
+<div id="cell_11_out"></div>
+
+<p>The <code>url_prefix</code>
+ is important for formatting urls correctly, for example when using a service like GitHub pages. The <code>custom</code>
+ object can contain any valid <code>yaml</code>
+ and is used to add custom configuration to the system.</p><h3>Current (part/chapter/doc)</h3>
+<p>These three elements (<code>current_part</code>
+, <code>current_chapter</code>
+, and <code>current_doc</code>
+) are the id’s of the current document’s path. These are most useful for creating navigation where the current document is highlighted.</p><h3>Current document</h3>
+<p>The <code>doc</code>
+ value contains the page object for the current document. To render the page, simply do <code>{{ doc.content | safe }}</code>
+.</p>
+
+</div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
+
+</body>
+</html>
