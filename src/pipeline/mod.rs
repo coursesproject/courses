@@ -679,6 +679,7 @@ impl Pipeline {
             let processor_ctx = PreprocessorContext {
                 templates: &self.templates,
                 output_format: format,
+                project_root: self.project_path.clone(),
             };
 
             let res = self.profile.parser.parse(&doc, &processor_ctx)?;

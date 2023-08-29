@@ -5,17 +5,20 @@ custom:
     cdoc: https://crates.io/crates/cdoc
     courses: https://crates.io/crates/courses
 
-preprocessors:
-  - name: exercises
-
-settings:
-  solutions: false
-
 repository:
-  url: "https://github.com/antonmeskildsen/courses/"
+  url: "https://github.com/coursesproject/courses"
 
-outputs:
-  - html: {}
+profiles:
+  draft:
+    mode: draft
+    parser: # Parser settings
+      preprocessors:
+        - exercises: null
+        - script:
+            name: "test.rhai"
+      solutions: false # Don't include exercise solutions
+    formats:
+      - html: {}
 
 notebook_meta:
   kernelspec:

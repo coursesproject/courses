@@ -17,6 +17,7 @@ pub struct ProjectConfig {
     pub url_prefix: String,
     #[serde(default)]
     pub repository: RepositoryConfig,
+    #[serde(default)]
     pub outputs: Vec<Box<dyn Format>>,
     #[serde(default = "default_profiles")]
     pub profiles: HashMap<String, Profile>,
@@ -65,10 +66,7 @@ fn default_profiles() -> HashMap<String, Profile> {
             mode: Mode::Draft,
             parser: Parser {
                 preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
-                settings: ParserSettings {
-                    solutions: true,
-                    notebook_outputs: false,
-                },
+                settings: ParserSettings { solutions: true },
             },
             formats: vec![],
             create_filters: true,
@@ -81,10 +79,7 @@ fn default_profiles() -> HashMap<String, Profile> {
             mode: Mode::Release,
             parser: Parser {
                 preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
-                settings: ParserSettings {
-                    solutions: false,
-                    notebook_outputs: false,
-                },
+                settings: ParserSettings { solutions: false },
             },
             formats: vec![],
             create_filters: false,
