@@ -71,6 +71,7 @@ pub struct TemplateManager {
     path: PathBuf,
     pub tera: Tera,
     pub definitions: HashMap<String, TemplateDefinition>,
+    filter_path: PathBuf,
 }
 
 impl TemplateManager {
@@ -95,8 +96,8 @@ impl TemplateManager {
         create_filters: bool,
     ) -> anyhow::Result<Self> {
         let defs = get_templates_from_definitions(&definitions, dir.clone());
-        let filters = get_filters_from_files(filter_path)?;
         let mut tera = Tera::new(&format!("{}/sources/**.html", dir.to_str().unwrap()))?;
+        let filters = get_filters_from_files(filter_path.clone())?;
 
         filters.into_iter().for_each(|(name, source)| {
             tera.register_filter(&name, create_rhai_filter(source));
@@ -108,6 +109,7 @@ impl TemplateManager {
             path: dir,
             tera,
             definitions,
+            filter_path,
         };
 
         Ok(if create_filters {
@@ -153,6 +155,12 @@ impl TemplateManager {
         let tps = get_templates_from_definitions(&defs, self.path.clone());
         self.tera.full_reload()?;
         self.tera.add_raw_templates(tps)?;
+        let filters = get_filters_from_files(self.filter_path.clone())?;
+
+        filters.into_iter().for_each(|(name, source)| {
+            self.tera.register_filter(&name, create_rhai_filter(source));
+        });
+
         self.definitions = defs;
         Ok(())
     }

@@ -1,14 +1,10 @@
-use crate::ast::{AstVisitor, CodeAttributes, Inline};
-use crate::notebook::CellOutput;
-
-use anyhow::{anyhow, Result};
-use pulldown_cmark::LinkType;
+use crate::document::DocumentMetadata;
 use rhai::plugin::*;
-use rhai::{CustomType, Engine, EvalAltResult, Func, Scope, TypeBuilder};
+use rhai::{Array, CustomType, TypeBuilder};
 
 #[allow(non_snake_case, non_upper_case_globals)]
 #[export_module]
-mod rhai_inline_type {
+pub(crate) mod rhai_inline_type {
     use crate::ast::Shortcode;
     use pulldown_cmark::LinkType;
     use rhai::{Array, Dynamic};
@@ -119,112 +115,19 @@ mod rhai_inline_type {
     }
 }
 
-#[derive(Clone)]
-struct Response {
-    status: String,
-    text: String,
-}
-
-impl From<reqwest::blocking::Response> for Response {
-    fn from(value: reqwest::blocking::Response) -> Self {
-        Response {
-            status: value.status().to_string(),
-            text: value.text().unwrap(),
-        }
-    }
-}
-
-impl CustomType for Response {
+impl CustomType for DocumentMetadata {
     fn build(mut builder: TypeBuilder<Self>) {
         builder
-            .with_name("Response")
-            .with_get("status", |s: &mut Self| s.status.clone())
-            .with_get("text", |s: &mut Self| s.text.clone());
-    }
-}
-
-fn get_url(url: &str) -> Response {
-    reqwest::blocking::get(url).unwrap().into()
-}
-
-pub struct ScriptedVisitor {
-    engine: Engine,
-    ast: rhai::AST,
-}
-
-impl ScriptedVisitor {
-    pub fn new(script: &str) -> Result<Self> {
-        let mut engine = Engine::new();
-        engine.build_type::<Response>();
-        engine.register_fn("get_url", get_url);
-
-        let module = exported_module!(rhai_inline_type);
-        engine.register_global_module(module.into());
-
-        Ok(ScriptedVisitor {
-            ast: engine.compile(script)?,
-            engine,
-        })
-    }
-}
-
-impl AstVisitor for ScriptedVisitor {
-    fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        let mut scope = Scope::new();
-
-        scope.push("inline", inline.clone());
-
-        match self
-            .engine
-            .call_fn::<()>(&mut scope, &self.ast, "visit_inline", ())
-        {
-            Ok(_) => Ok(()),
-            Err(e) => match *e {
-                EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
-                _ => Err(anyhow!(format!("{}", e))),
-            },
-        }?;
-
-        *inline = scope.get_value::<Inline>("inline").unwrap();
-
-        self.walk_inline(inline)
-    }
-    fn visit_code_block(
-        &mut self,
-        source: &mut String,
-        reference: &mut Option<String>,
-        attr: &mut CodeAttributes,
-        tags: &mut Option<Vec<String>>,
-        outputs: &mut Vec<CellOutput>,
-        display_cell: &mut bool,
-    ) -> Result<()> {
-        let mut scope = Scope::new();
-
-        scope.push("source", source.clone());
-        scope.push("reference", reference.clone());
-        scope.push("attr", attr.clone());
-        scope.push("tags", tags.clone());
-        scope.push("outputs", outputs.clone());
-        scope.push("display_cell", display_cell.clone());
-
-        match self
-            .engine
-            .call_fn::<()>(&mut scope, &self.ast, "visit_code_block", ())
-        {
-            Ok(_) => Ok(()),
-            Err(e) => match *e {
-                EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
-                _ => Err(anyhow!(format!("{}", e))),
-            },
-        }?;
-
-        *source = scope.get_value::<String>("source").unwrap();
-        *reference = scope.get_value::<Option<String>>("reference").unwrap();
-        *attr = scope.get_value::<CodeAttributes>("attr").unwrap();
-        *tags = scope.get_value::<Option<Vec<String>>>("tags").unwrap();
-        *outputs = scope.get_value::<Vec<CellOutput>>("outputs").unwrap();
-        *display_cell = scope.get_value::<bool>("display_cell").unwrap();
-
-        Ok(())
+            .with_name("Metadata")
+            .with_get("title", |s: &mut Self| s.title.clone())
+            .with_get("draft", |s: &mut Self| s.draft.clone())
+            .with_get("exercises", |s: &mut Self| s.exercises)
+            .with_get("code_solutions", |s: &mut Self| s.code_solutions)
+            .with_get("cell_outputs", |s: &mut Self| s.cell_outputs)
+            .with_get("interactive", |s: &mut Self| s.interactive)
+            .with_get("editable", |s: &mut Self| s.editable)
+            .with_get("hide_sidebar", |s: &mut Self| s.layout.hide_sidebar)
+            .with_get("exclude_outputs", |s: &mut Self| s.exclude_outputs.clone())
+            .with_get("user_defined", |s: &mut Self| s.user_defined.clone());
     }
 }

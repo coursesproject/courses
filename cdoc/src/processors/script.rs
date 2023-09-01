@@ -27,7 +27,7 @@ impl AstPreprocessorConfig for ScriptConfig {
         let script = fs::read_to_string(ctx.project_root.join("scripts").join(&self.name))?;
         Ok(Box::new(ScriptPreprocessor {
             name: self.name.clone(),
-            visitor: ScriptedVisitor::new(&script)?,
+            visitor: ScriptedVisitor::new(&ctx.project_root, &script)?,
         }))
     }
 }
@@ -39,6 +39,7 @@ impl AstPreprocessor for ScriptPreprocessor {
 
     fn process(&mut self, mut input: Document<Ast>) -> Result<Document<Ast>, Error> {
         self.visitor.walk_ast(&mut input.content)?;
+        self.visitor.finalize(&input.metadata)?;
         Ok(input)
     }
 }

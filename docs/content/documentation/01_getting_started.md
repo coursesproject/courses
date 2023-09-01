@@ -2,6 +2,7 @@
 title: Getting started
 ---
 
+
 # Getting started
 This page explains the basics of how `courses` is used. It covers installation, creating a new project, serving the project locally, and building the project.
 

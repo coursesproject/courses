@@ -15,7 +15,7 @@ profiles:
       preprocessors:
         - exercises: null
         - script:
-            name: "test.rhai"
+            name: "fun.rhai"
       solutions: false # Don't include exercise solutions
     formats:
       - html: {}

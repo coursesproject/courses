@@ -49,7 +49,7 @@ replace_with = "0.1.7"
 include_dir = "0.7.3"
 dirs = "5.0.1"
 
-rhai = {version="1.13.0", features=["serde"]}
+rhai = {version="1.13.0", features=["serde", "metadata", "internals"]}
 reqwest = "0.11.18"
 
 clap = {version="4.0.29", features=["derive"]}

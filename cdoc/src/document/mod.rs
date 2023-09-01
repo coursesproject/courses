@@ -18,7 +18,7 @@ use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeCall};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DocumentMetadata {
-    pub title: Option<String>,
+    pub title: String,
     #[serde(default)]
     pub draft: bool,
     #[serde(default = "default_true")]

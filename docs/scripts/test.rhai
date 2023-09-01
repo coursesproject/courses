@@ -1,17 +1,29 @@
 
-fn visit_code_block() {
-    //source = get_url("https://google.com").status;
-}
+let errors = [];
 
-fn visit_inline() {
-    switch inline.type {
-        "Link" => {
-            print(inline.value[1]);
+let hej = 2;
+
+
+fn visit_inline(inline) {
+    if inline.type == "Link" {
+        try {
             let response = get_url(inline.value[1]);
             if response.status != "200 OK" {
-                print(`invalid link at ${inline.value[1]}. Status code ${response.status}`);
+                errors += `invalid link at ${inline.value[1]}. Status code ${response.status}`;
             }
-        },
-        _ => {}
+        } catch (err) {
+            errors += "Other error"
+        }
+        
     }
+    return inline;
+}
+
+fn finalize(meta) {
+    if len(errors) > 0 {
+        for e in errors {
+            print(`Error in "${meta.title}": ${e}`)
+        }
+    }
+    
 }
