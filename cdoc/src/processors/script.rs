@@ -3,6 +3,7 @@ use crate::document::Document;
 use crate::parser::ParserSettings;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
 use crate::scripting::ScriptedVisitor;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -24,7 +25,9 @@ impl AstPreprocessorConfig for ScriptConfig {
         ctx: &PreprocessorContext,
         settings: &ParserSettings,
     ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
-        let script = fs::read_to_string(ctx.project_root.join("scripts").join(&self.name))?;
+        let script_path = ctx.project_root.join("scripts").join(&self.name);
+        let script = fs::read_to_string(&script_path)
+            .with_context(|| format!("script not found at {}", script_path.display()))?;
         Ok(Box::new(ScriptPreprocessor {
             name: self.name.clone(),
             visitor: ScriptedVisitor::new(&ctx.project_root, &script)?,

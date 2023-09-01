@@ -64,7 +64,8 @@ impl Generator<'_> {
             )
         })?;
 
-        let file = File::create(section_build_path)?;
+        let file = File::create(&section_build_path)
+            .with_context(|| format!("{}", section_build_path.display()))?;
         let writer = BufWriter::new(file);
         Ok(writer)
     }
@@ -79,7 +80,14 @@ impl Generator<'_> {
             let mut options = fs_extra::dir::CopyOptions::new();
             options.overwrite = true;
 
-            fs_extra::copy_items(&[resource_path_src], self.build_dir.as_path(), &options)?;
+            fs_extra::copy_items(&[&resource_path_src], self.build_dir.as_path(), &options)
+                .with_context(|| {
+                    format!(
+                        "from {} to {}",
+                        resource_path_src.display(),
+                        self.build_dir.as_path().display()
+                    )
+                })?;
         }
 
         let res: anyhow::Result<()> = self

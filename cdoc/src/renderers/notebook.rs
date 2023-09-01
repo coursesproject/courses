@@ -28,7 +28,8 @@ impl DocumentRenderer for NotebookRenderer {
         };
 
         let notebook: Notebook = writer.convert(ctx.doc.content.clone())?;
-        let output = serde_json::to_string(&notebook).expect("Invalid notebook (this is a bug)");
+        let output =
+            serde_json::to_string_pretty(&notebook).expect("Invalid notebook (this is a bug)");
 
         Ok(Document {
             content: output,

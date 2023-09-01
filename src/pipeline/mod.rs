@@ -148,7 +148,8 @@ impl Pipeline {
         println!("{}", style("done").green());
 
         let cache_path = project_path.as_ref().join(".cache");
-        fs::create_dir_all(&cache_path)?;
+        fs::create_dir_all(&cache_path)
+            .with_context(|| format!("at path {}", cache_path.display()))?;
 
         template_manager.register_filter(
             "embed",
@@ -391,7 +392,7 @@ impl Pipeline {
     pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
         let build_path = self.project_path.join("build").join(&self.profile_name);
 
-        fs::create_dir_all(&build_path)?;
+        fs::create_dir_all(&build_path).with_context(|| format!("at {}", build_path.display()))?;
 
         let format_folder_names: Vec<&str> = self
             .get_formats_or_default()
@@ -399,15 +400,19 @@ impl Pipeline {
             .map(|f| f.name())
             .collect();
         if remove_existing && build_path.exists() {
-            for entry in fs::read_dir(build_path)? {
+            for entry in
+                fs::read_dir(&build_path).with_context(|| format!("at {}", build_path.display()))?
+            {
                 let entry = entry?;
                 if entry.path().is_dir()
                     && format_folder_names
                         .iter()
                         .any(|f| entry.path().ends_with(f))
                 {
-                    fs::remove_dir_all(entry.path())?;
-                    fs::create_dir(entry.path())?;
+                    fs::remove_dir_all(entry.path())
+                        .with_context(|| format!("at {}", entry.path().display()))?;
+                    fs::create_dir(entry.path())
+                        .with_context(|| format!("at {}", entry.path().display()))?;
                 }
             }
         }
