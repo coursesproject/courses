@@ -24,6 +24,7 @@ pub struct TemplateDefinition {
     pub description: String,
     #[serde(rename = "type")]
     pub type_: TemplateType,
+    pub script: Option<String>,
     /// Only present for shortcodes
     pub shortcode: Option<ShortcodeDefinition>,
     /// A map of the templates for each defined output format

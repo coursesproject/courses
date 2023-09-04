@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{Cursor, Write};
 
+use rhai::serde::{from_dynamic, to_dynamic};
 use std::io;
 use std::path::PathBuf;
 
@@ -202,7 +203,7 @@ impl TemplateManager {
         id: &str,
         template_prefix: &str,
         type_: TemplateType,
-        args: &Context,
+        mut args: &Context,
         buf: impl Write,
     ) -> anyhow::Result<()> {
         let tp = self.get_template(id, type_)?;
@@ -210,22 +211,36 @@ impl TemplateManager {
         let format = tp.get_format(format_str).context(format!(
             "template with id '{id}' does not support format '{format_str}"
         ))?;
+        let args = if let Some(script) = &tp.script {
+            let engine = Engine::new();
+            let mut scope = Scope::new();
+            scope.push_dynamic("args", to_dynamic(args.clone().into_json())?);
+            engine
+                .run_with_scope(&mut scope, script)
+                .context("running script")?;
+
+            let args = scope.get_value::<Dynamic>("args").expect("args missing");
+            let args_value = from_dynamic(&args)?;
+            Context::from_value(args_value).expect("invalid type")
+        } else {
+            args.clone()
+        };
         match format {
             TemplateSource::Precompiled(tp, fm) => {
-                tp.render(fm, args, buf)?;
+                tp.render(fm, &args, buf)?;
             }
             TemplateSource::Derive(from) => {
                 let format = tp.get_format(from).context(format!(
                     "template with id '{id}' does not support format '{format_str}"
                 ))?;
                 if let TemplateSource::Precompiled(tp, fm) = format {
-                    tp.render(fm, args, buf)?;
+                    tp.render(fm, &args, buf)?;
                 } else {
                     let type_ = &tp.type_;
 
                     let template_name = format!("{type_}_{id}.{format_str}");
 
-                    self.tera.render_to(&template_name, args, buf)?;
+                    self.tera.render_to(&template_name, &args, buf)?;
                 }
             }
             _ => {
@@ -233,7 +248,7 @@ impl TemplateManager {
 
                 let template_name = format!("{type_}_{id}.{format_str}");
 
-                self.tera.render_to(&template_name, args, buf)?;
+                self.tera.render_to(&template_name, &args, buf)?;
             }
         }
 
