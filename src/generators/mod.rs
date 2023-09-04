@@ -121,7 +121,7 @@ impl Generator<'_> {
                         item.doc.path.display()
                     )
                 })?;
-            if self.format.use_layout() {
+            if let Some(layout_id) = self.format.layout() {
                 let mut context = Context::default();
                 context.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
                 context.insert("config", &self.config);
@@ -133,7 +133,7 @@ impl Generator<'_> {
                 context.insert("mode", &self.mode);
 
                 self.templates.render(
-                    "section",
+                    &layout_id,
                     self.format.template_prefix(),
                     TemplateType::Layout,
                     &context,

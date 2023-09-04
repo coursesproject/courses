@@ -1,7 +1,7 @@
 mod code_block;
 mod types;
 
-use crate::ast::{AstVisitor, CodeAttributes, Inline};
+use crate::ast::{AstVisitor, CodeAttributes, CodeMeta, Inline};
 use crate::notebook::CellOutput;
 use std::path::PathBuf;
 
@@ -127,15 +127,17 @@ impl AstVisitor for ScriptedVisitor {
     fn visit_code_block(
         &mut self,
         source: &mut String,
-        reference: &mut Option<String>,
-        attr: &mut CodeAttributes,
-        tags: &mut Option<Vec<String>>,
-        outputs: &mut Vec<CellOutput>,
-        display_cell: &mut bool,
+        _reference: &mut Option<String>,
+        _attr: &mut CodeAttributes,
+        _tags: &mut Option<Vec<String>>,
+        _meta: &mut CodeMeta,
+        _outputs: &mut Vec<CellOutput>,
+        _display_cell: &mut bool,
     ) -> Result<()> {
         let mut scope = &mut self.state;
 
-        let block = ScriptCodeBlock::new(source, reference, attr, tags, outputs, *display_cell);
+        let block =
+            ScriptCodeBlock::new(source, _reference, _attr, _tags, _outputs, *_display_cell);
 
         match self.engine.call_fn::<ScriptCodeBlock>(
             &mut scope,
@@ -143,7 +145,7 @@ impl AstVisitor for ScriptedVisitor {
             "visit_code_block",
             (block,),
         ) {
-            Ok(v) => v.apply_changes(source, reference, attr, tags, outputs, display_cell),
+            Ok(v) => v.apply_changes(source, _reference, _attr, _tags, _outputs, _display_cell),
             Err(e) => match *e {
                 EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
                 EvalAltResult::ErrorRuntime(value, _) => Err(anyhow!(format!("{}", value))),

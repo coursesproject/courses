@@ -1,6 +1,7 @@
 use crate::ast::Ast;
 use crate::config::Format;
 use anyhow::Result;
+use std::collections::HashMap;
 
 use dyn_clone::DynClone;
 
@@ -17,6 +18,7 @@ use crate::notebook::NotebookMeta;
 use crate::templates::TemplateManager;
 
 pub mod generic;
+pub mod json;
 pub mod notebook;
 
 /// Type alias used to specify that the string is a renderer output.

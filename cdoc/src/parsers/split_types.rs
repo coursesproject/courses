@@ -1,5 +1,6 @@
 //! Types for exercise definitions.
 
+use crate::ast::CodeMeta;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -48,19 +49,21 @@ pub struct Block {
 /// Top-level structure. A code file is split into these types.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "value", untagged)]
-pub enum Value {
+pub enum SplitParseValue {
     #[serde(rename = "block")]
     Block { block: Block },
     #[serde(rename = "src")]
     SrcBlock { content: Content },
     #[serde(rename = "code_block")]
     SolutionBlock(ExerciseBlock),
+    #[serde(rename = "meta")]
+    Meta(String, String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename = "document")]
 pub struct CodeTaskDefinition {
-    pub blocks: Vec<Value>,
+    pub blocks: Vec<SplitParseValue>,
 }
 
 impl CodeTaskDefinition {
@@ -71,6 +74,23 @@ impl CodeTaskDefinition {
 
     fn __repr__(&self) -> String {
         format!("{:?}", self)
+    }
+}
+
+impl From<CodeTaskDefinition> for CodeMeta {
+    fn from(value: CodeTaskDefinition) -> Self {
+        let mut tmp = CodeMeta::default();
+
+        for v in value.blocks {
+            match v {
+                SplitParseValue::Meta(k, v) => {
+                    tmp.custom.insert(k, v);
+                }
+                _ => {}
+            }
+        }
+
+        tmp
     }
 }
 
@@ -122,12 +142,12 @@ impl Output for Block {
     }
 }
 
-impl Output for Value {
+impl Output for SplitParseValue {
     fn write_string(&self, solution: bool) -> String {
         match self {
-            Value::Block { block } => block.write_string(solution),
-            Value::SrcBlock { content } => content.write_string(solution),
-            Value::SolutionBlock(ExerciseBlock {
+            SplitParseValue::Block { block } => block.write_string(solution),
+            SplitParseValue::SrcBlock { content } => content.write_string(solution),
+            SplitParseValue::SolutionBlock(ExerciseBlock {
                 placeholder,
                 solution: solution_block,
             }) => {
@@ -140,6 +160,7 @@ impl Output for Value {
                         .unwrap_or_default()
                 }
             }
+            SplitParseValue::Meta(_, _) => String::default(),
         }
     }
 }

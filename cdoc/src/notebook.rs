@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Block, CodeAttributes};
+use crate::ast::{Ast, Block, CodeAttributes, CodeMeta};
 use crate::document::DocumentMetadata;
 
 use anyhow::Context;
@@ -11,6 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::{formats::PreferOne, serde_as, EnumMap, OneOrMany};
 use std::collections::HashMap;
+use std::default::Default;
 
 /// Top-level notebook structure (the type is a mostly complete implementation of the official
 /// notebook specification (http://ipython.org/ipython-doc/3/notebook/nbformat.html).
@@ -87,6 +88,15 @@ pub enum StreamType {
     StdErr,
 }
 
+impl ToString for StreamType {
+    fn to_string(&self) -> String {
+        match self {
+            StreamType::StdOut => "stdout".to_string(),
+            StreamType::StdErr => "stderr".to_string(),
+        }
+    }
+}
+
 /// Notebooks can save execution outputs in a variety of formats. Representing these makes it easy
 /// to replicate their types in the rendered output.
 #[serde_as]
@@ -97,10 +107,7 @@ pub enum CellOutput {
     #[serde(rename = "stream")]
     Stream {
         name: StreamType,
-        #[serde(
-            deserialize_with = "concatenate_deserialize",
-            serialize_with = "concatenate_serialize"
-        )]
+        #[serde(deserialize_with = "concatenate_deserialize")]
         text: String,
     },
     /// Complex output values (correspond to mime-types)
@@ -272,6 +279,7 @@ impl TryFrom<Cell> for Vec<Block> {
                         fold: common.metadata.collapsed.unwrap_or(false),
                     },
                     tags: common.metadata.tags,
+                    meta: CodeMeta::default(),
                     outputs,
                     display_cell: true,
                 }]

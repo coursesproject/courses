@@ -194,7 +194,7 @@ impl ShortCodeCall {
         Ok(ShortcodeBase {
             name: self.name.clone(),
             id: self.id,
-            num: counters.get(&self.name).unwrap().0,
+            // num: counters.get(&self.name).unwrap().0,
             parameters: parameters?,
             pos: range,
             cell: 0,
@@ -284,6 +284,16 @@ impl<C> Document<C> {
             id_map: self.id_map,
         }
     }
+
+    pub fn try_map<O, F: Fn(C) -> Result<O>>(self, f: F) -> Result<Document<O>> {
+        Ok(Document {
+            content: f(self.content)?,
+            metadata: self.metadata,
+            variables: self.variables,
+            ids: self.ids,
+            id_map: self.id_map,
+        })
+    }
 }
 
 impl TryFrom<Notebook> for Document<Ast> {
@@ -309,6 +319,7 @@ impl TryFrom<Notebook> for Document<Ast> {
                     tags: common.metadata.tags,
                     attr: Default::default(),
                     reference: None,
+                    meta: Default::default(),
                     outputs,
                     display_cell: true,
                 }]),

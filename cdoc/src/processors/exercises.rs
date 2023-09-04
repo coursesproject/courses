@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-use crate::ast::{Ast, AstVisitor, CodeAttributes};
+use crate::ast::{Ast, AstVisitor, CodeAttributes, CodeMeta};
 use crate::document::Document;
 use crate::notebook::CellOutput;
 use crate::parser::ParserSettings;
@@ -36,6 +36,7 @@ impl AstVisitor for Exercises {
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
+        meta: &mut CodeMeta,
         _outputs: &mut Vec<CellOutput>,
         _display_cell: &mut bool,
     ) -> anyhow::Result<()> {
@@ -47,6 +48,8 @@ impl AstVisitor for Exercises {
             .strip_suffix('\n')
             .unwrap_or(&out_string)
             .to_string();
+
+        *meta = res.into();
         Ok(())
     }
 }

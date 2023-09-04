@@ -1,13 +1,12 @@
 use anyhow::anyhow;
+use clap::builder::Resettable::Value;
 use pest::error::ErrorVariant;
 use pest::iterators::Pair;
 use pest::{Parser, Span};
 use pest_derive::Parser;
 use std::collections::HashMap;
 
-use crate::parsers::split_types::{
-    Block, CodeTaskDefinition, Content, ExerciseBlock, Inner, Value,
-};
+use crate::parsers::split_types::{CodeTaskDefinition, Content, ExerciseBlock, SplitParseValue};
 
 /// The parser for exercise placeholders/solutions.
 #[derive(Parser)]
@@ -68,39 +67,12 @@ pub(crate) fn parse_code_placeholder_block(
         ))),
     }
 }
-//
-// pub(crate) fn parse_inner_block(pair: Pair<Rule>) -> Result<Inner, Box<pest::error::Error<Rule>>> {
-//     let r = pair.as_rule();
-//     Ok(match r {
-//         Rule::code_block => {
-//             let mut block_segments = pair.into_inner();
-//             let solution_pair = block_segments.next().expect("Unexpected end of iterator");
-//             let placeholder_pair = block_segments.next().expect("Unexpected end of iterator");
-//
-//             let solution: Vec<Content> =
-//                 solution_pair
-//                     .into_inner()
-//                     .map(parse_src_block)
-//                     .collect::<anyhow::Result<Vec<Content>, Box<pest::error::Error<Rule>>>>()?;
-//
-//             let placeholder: Vec<Content> = placeholder_pair
-//                 .into_inner()
-//                 .map(parse_code_placeholder_block)
-//                 .collect::<anyhow::Result<Vec<Content>, Box<pest::error::Error<Rule>>>>()?;
-//
-//             Inner::ExerciseBlock(ExerciseBlock {
-//                 placeholder,
-//                 solution,
-//             })
-//         }
-//         Rule::source_code_block => Inner::SrcBlock(parse_src_block(pair)?),
-//         _ => unreachable!(),
-//     })
-// }
 
-pub(crate) fn parse_value(pair: Pair<Rule>) -> Result<Value, Box<pest::error::Error<Rule>>> {
+pub(crate) fn parse_value(
+    pair: Pair<Rule>,
+) -> Result<SplitParseValue, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
-        Rule::source_code_block => Value::SrcBlock {
+        Rule::source_code_block => SplitParseValue::SrcBlock {
             content: parse_src_block(pair)?,
         },
         Rule::code_block => {
@@ -126,11 +98,23 @@ pub(crate) fn parse_value(pair: Pair<Rule>) -> Result<Value, Box<pest::error::Er
                 None
             };
 
-            Value::SolutionBlock(ExerciseBlock {
+            SplitParseValue::SolutionBlock(ExerciseBlock {
                 placeholder,
                 solution,
             })
         }
+
+        Rule::meta => {
+            let mut outer = pair.into_inner();
+            let tp = outer.next().expect("Missing meta type");
+            let mut content = tp.into_inner();
+
+            let ident = content.next().unwrap().as_str().to_string();
+            let value = content.next().unwrap().as_str().to_string();
+
+            SplitParseValue::Meta(ident, value)
+        }
+
         _ => unreachable!(),
     })
 }
@@ -145,7 +129,7 @@ pub fn parse_code_string(
     let vals = p
         .into_iter()
         .map(parse_value)
-        .collect::<anyhow::Result<Vec<Value>, Box<pest::error::Error<Rule>>>>()?;
+        .collect::<anyhow::Result<Vec<SplitParseValue>, Box<pest::error::Error<Rule>>>>()?;
     Ok(CodeTaskDefinition { blocks: vals })
 }
 

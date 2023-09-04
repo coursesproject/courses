@@ -8,12 +8,13 @@ use crate::notebook::CellOutput;
 use crate::parsers::shortcodes::Argument;
 use anyhow::Context;
 use pulldown_cmark::{HeadingLevel, LinkType, Options, Parser};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::ops::Range;
 
 /// Inline elements.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Inline {
     /// Plain text
     Text(String),
@@ -88,8 +89,14 @@ impl ToString for ShortcodeBase {
 #[derive(Clone, Debug)]
 pub struct Ast(pub Vec<Block>);
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CodeMeta {
+    #[serde(flatten)]
+    pub custom: HashMap<String, String>,
+}
+
 /// Code cell attributes. Currently limited but may be extended to arbitrary values.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CodeAttributes {
     /// Can edit cell
     #[allow(unused)]
@@ -118,7 +125,7 @@ pub enum CodeOutput {
 /// The base ast component. Mostly corresponds to markdown blocks, but certain elements like Math
 /// are represented as Inline even in block display mode. The two enums might be combined in the
 /// future.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Block {
     Heading {
         lvl: HeadingLevel,
@@ -141,6 +148,8 @@ pub enum Block {
         tags: Option<Vec<String>>,
         /// Notebook cell outputs.
         outputs: Vec<CellOutput>,
+        /// Meta
+        meta: CodeMeta,
         /// Display the block as a cell or listing (only used for notebooks)
         display_cell: bool,
     },
@@ -150,7 +159,7 @@ pub enum Block {
 }
 
 /// Shortcode source. Can contain recursive ast elements.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Shortcode {
     /// Inline code using the {{ name(param) }} syntax.
     Inline(ShortcodeBase),
@@ -165,15 +174,15 @@ pub(crate) fn str_to_blocks(input: &str) -> anyhow::Result<Ast> {
 }
 
 /// Shortcode call and argument specification
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortcodeBase {
     /// Shortcode name (currently equivalent to the filename of the corresponding template)
     pub(crate) name: String,
     /// Shortcode reference - used to build a shortcode reference map for use in links.
     pub(crate) id: Option<String>,
-    /// Shortcode number by type. Useful for enumeration - available for use in the shortcode
-    /// template.
-    pub(crate) num: usize,
+    // /// Shortcode number by type. Useful for enumeration - available for use in the shortcode
+    // /// template.
+    // pub(crate) num: usize,
     /// List of shortcode parameters.
     pub(crate) parameters: Vec<Argument<Vec<Block>>>,
     pub pos: Range<usize>,

@@ -12,6 +12,7 @@ use crate::parser::ParserSettings;
 use crate::parsers::split::Rule;
 use crate::templates::TemplateManager;
 
+mod cell_outputs;
 pub mod exercises;
 pub mod script;
 
