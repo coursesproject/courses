@@ -1,23 +1,15 @@
-#| DOC
-#| TASK {id=a, title=My Task} <<
-def somefunc(a):
-    #| CODE <<
-    # ...
-    # more code
-    #| Markup here
-    #| More markup
-    #| >> SOLUTION <<
+#| meta: label
 
+def somefunc(a):
+    #| solution <<
     # Comments
-    #| Markup
     print(a)
     return 2*a
+    #| placeholder
+    # ...
+    # more code
+    #| >>
 
-    #| >> END_CODE
-#| >> END_TASK
 
-
-#| TEST {task=a} <<
 assert somefunc(5) == 10
 assert somefunc(10) == 20
-#| >> END_TEST
