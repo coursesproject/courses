@@ -20,6 +20,9 @@ categories = ["command-line-utilities"]
 name = "cdoc"
 path = "src/lib.rs"
 
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
 [dependencies]
 # Serialization
 serde = "1.0.150"
