@@ -1,5 +1,6 @@
 //! Types for exercise definitions.
 
+use crate::ast::CodeMeta;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -22,7 +23,7 @@ pub enum Content {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "code_block")]
 pub struct ExerciseBlock {
-    pub placeholder: Vec<Content>,
+    pub placeholder: Option<Vec<Content>>,
     pub solution: Vec<Content>,
 }
 
@@ -48,19 +49,21 @@ pub struct Block {
 /// Top-level structure. A code file is split into these types.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "value", untagged)]
-pub enum Value {
+pub enum SplitParseValue {
     #[serde(rename = "block")]
     Block { block: Block },
     #[serde(rename = "src")]
     SrcBlock { content: Content },
     #[serde(rename = "code_block")]
     SolutionBlock(ExerciseBlock),
+    #[serde(rename = "meta")]
+    Meta(String, String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename = "document")]
 pub struct CodeTaskDefinition {
-    pub blocks: Vec<Value>,
+    pub blocks: Vec<SplitParseValue>,
 }
 
 impl CodeTaskDefinition {
@@ -71,6 +74,20 @@ impl CodeTaskDefinition {
 
     fn __repr__(&self) -> String {
         format!("{:?}", self)
+    }
+}
+
+impl From<CodeTaskDefinition> for CodeMeta {
+    fn from(value: CodeTaskDefinition) -> Self {
+        let mut tmp = CodeMeta::default();
+
+        for v in value.blocks {
+            if let SplitParseValue::Meta(k, v) = v {
+                tmp.custom.insert(k, v);
+            }
+        }
+
+        tmp
     }
 }
 
@@ -105,7 +122,10 @@ impl Output for Inner {
                 if solution {
                     solution_block.write_string(solution)
                 } else {
-                    placeholder.write_string(solution)
+                    placeholder
+                        .as_ref()
+                        .map(|p| p.write_string(solution))
+                        .unwrap_or_default()
                 }
             }
             Inner::SrcBlock(content) => content.write_string(solution),
@@ -119,21 +139,25 @@ impl Output for Block {
     }
 }
 
-impl Output for Value {
+impl Output for SplitParseValue {
     fn write_string(&self, solution: bool) -> String {
         match self {
-            Value::Block { block } => block.write_string(solution),
-            Value::SrcBlock { content } => content.write_string(solution),
-            Value::SolutionBlock(ExerciseBlock {
+            SplitParseValue::Block { block } => block.write_string(solution),
+            SplitParseValue::SrcBlock { content } => content.write_string(solution),
+            SplitParseValue::SolutionBlock(ExerciseBlock {
                 placeholder,
                 solution: solution_block,
             }) => {
                 if solution {
                     solution_block.write_string(solution)
                 } else {
-                    placeholder.write_string(solution)
+                    placeholder
+                        .as_ref()
+                        .map(|p| p.write_string(solution))
+                        .unwrap_or_default()
                 }
             }
+            SplitParseValue::Meta(_, _) => String::default(),
         }
     }
 }

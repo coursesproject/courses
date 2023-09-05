@@ -24,6 +24,7 @@ pub struct TemplateDefinition {
     pub description: String,
     #[serde(rename = "type")]
     pub type_: TemplateType,
+    pub script: Option<String>,
     /// Only present for shortcodes
     pub shortcode: Option<ShortcodeDefinition>,
     /// A map of the templates for each defined output format
@@ -58,6 +59,8 @@ pub enum TemplateType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShortcodeDefinition {
     pub kind: ShortcodeType,
+    #[serde(default)]
+    pub accept_arbitrary_params: bool,
     /// The ordering of the parameters determine their expected position if positional arguments
     /// are used.
     #[serde(default)]
@@ -285,12 +288,17 @@ impl TemplateDefinition {
                         .get(i)
                         .map(|sp| sp.type_.validate(value))
                         .ok_or(ValidationError::InvalidValue(value.inner().to_string()))?,
-                    Argument::Keyword { name, value } => s
-                        .parameters
-                        .iter()
-                        .find(|sp| &sp.name == name)
-                        .map(|sp| sp.type_.validate(value))
-                        .ok_or(ValidationError::InvalidName(name.clone()))?,
+                    Argument::Keyword { name, value } => {
+                        if s.accept_arbitrary_params {
+                            Ok(())
+                        } else {
+                            s.parameters
+                                .iter()
+                                .find(|sp| &sp.name == name)
+                                .map(|sp| sp.type_.validate(value))
+                                .ok_or(ValidationError::InvalidName(name.clone()))?
+                        }
+                    }
                 })
                 .map(|r| r.context(format!("when parsing shortcode '{}'", self.name)))
                 .collect();

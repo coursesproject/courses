@@ -17,6 +17,7 @@ use crate::notebook::NotebookMeta;
 use crate::templates::TemplateManager;
 
 pub mod generic;
+pub mod json;
 pub mod notebook;
 
 /// Type alias used to specify that the string is a renderer output.

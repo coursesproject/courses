@@ -41,8 +41,8 @@ block_def = _{ MARKUP ~ SPACES ~ TAG_OPEN ~ SPACES ~ PUSH(keyword) ~ SPACES ~ at
 end_tag = _{("END_" ~ POP)}
 block_end = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ end_tag }
 
-code_block_def = _{ MARKUP ~ SPACES ~ TAG_OPEN ~ SPACES ~ CODE}
-code_block_solution = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ SOLUTION ~ SPACES ~ TAG_OPEN }
+code_block_def = _{ MARKUP ~ SPACES ~ SPACES ~ CODE}
+code_block_solution = _{ SPACES ~ MARKUP ~ SPACES ~ SPACES ~ SOLUTION ~ SPACES }
 end_code = _{("END_" ~ CODE)}
 code_block_end = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ end_code }
 

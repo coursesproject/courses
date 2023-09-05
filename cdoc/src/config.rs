@@ -38,7 +38,7 @@ pub trait Format: DynClone + Debug + Send + Sync {
     fn renderer(&self) -> Box<dyn DocumentRenderer>;
     /// Determines whether non-source files should be copied to
     fn include_resources(&self) -> bool;
-    fn use_layout(&self) -> bool;
+    fn layout(&self) -> Option<String>;
 }
 
 impl PartialEq for dyn Format {
@@ -98,8 +98,7 @@ pub struct DynamicFormat {
     #[serde(default)]
     pub include_resources: bool,
     /// Use layout template
-    #[serde(default)]
-    pub use_layout: bool,
+    pub layout: Option<String>,
 }
 
 fn default_renderer() -> Box<dyn DocumentRenderer> {
@@ -132,8 +131,8 @@ impl Format for DynamicFormat {
         self.include_resources
     }
 
-    fn use_layout(&self) -> bool {
-        self.use_layout
+    fn layout(&self) -> Option<String> {
+        self.layout.clone()
     }
 }
 
@@ -163,8 +162,8 @@ impl Format for NotebookFormat {
         true
     }
 
-    fn use_layout(&self) -> bool {
-        false
+    fn layout(&self) -> Option<String> {
+        None
     }
 }
 
@@ -192,8 +191,8 @@ impl Format for HtmlFormat {
     fn include_resources(&self) -> bool {
         true
     }
-    fn use_layout(&self) -> bool {
-        true
+    fn layout(&self) -> Option<String> {
+        Some("section".to_string())
     }
 }
 
@@ -221,8 +220,8 @@ impl Format for InfoFormat {
     fn include_resources(&self) -> bool {
         false
     }
-    fn use_layout(&self) -> bool {
-        false
+    fn layout(&self) -> Option<String> {
+        None
     }
 }
 
@@ -249,8 +248,8 @@ impl Format for MarkdownFormat {
     fn include_resources(&self) -> bool {
         false
     }
-    fn use_layout(&self) -> bool {
-        false
+    fn layout(&self) -> Option<String> {
+        None
     }
 }
 
@@ -277,8 +276,8 @@ impl Format for LaTexFormat {
     fn include_resources(&self) -> bool {
         true
     }
-    fn use_layout(&self) -> bool {
-        true
+    fn layout(&self) -> Option<String> {
+        Some("section".to_string())
     }
 }
 

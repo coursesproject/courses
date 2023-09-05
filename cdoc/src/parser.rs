@@ -10,7 +10,7 @@ use crate::processors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorCont
 pub struct Parser {
     #[serde(default = "default_preprocessors")]
     pub preprocessors: Vec<Box<dyn AstPreprocessorConfig>>,
-    #[serde(default)]
+    #[serde(default, flatten)]
     pub settings: ParserSettings,
 }
 
@@ -24,9 +24,6 @@ pub struct ParserSettings {
     /// Include solutions for the [crate::processors::exercises::Exercises] preprocessor.
     #[serde(default)]
     pub solutions: bool,
-    /// Include notebook outputs (from cells) in the loaded output.
-    #[serde(default)]
-    pub notebook_outputs: bool,
 }
 
 impl Parser {
@@ -51,9 +48,9 @@ impl Parser {
             .map(|p| p.build(ctx, &self.settings))
             .collect::<anyhow::Result<Vec<Box<dyn AstPreprocessor>>>>()?;
 
-        let doc = built.iter_mut().fold(Ok(doc), |c, ast_processor| {
-            c.and_then(|c| ast_processor.process(c))
-        })?;
+        let doc = built
+            .iter_mut()
+            .try_fold(doc, |c, ast_processor| ast_processor.process(c))?;
 
         Ok(doc)
     }

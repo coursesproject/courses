@@ -1,17 +1,13 @@
-//| DOC
-//| TASK {id=a, title=My Task} <<
+//| meta: label
 fn somefunc(a: i64) {
-    //| CODE <<
-    // jkl
-    //| >> SOLUTION <<
+    //| solution <<
     return 2 * a;
-    //| >> END_CODE
+    //| placeholder
+    // jkl
+    //| >>
 }
-//| >> END_TASK
 
-//| TEST {task=a} <<
 fn test() {
     assert!(somefunc(5) == 10);
     assert!(somefunc(10) == 20);
 }
-//| >> END_TEST

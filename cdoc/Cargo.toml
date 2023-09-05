@@ -1,6 +1,6 @@
 [package]
 name = "cdoc"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -19,6 +19,9 @@ categories = ["command-line-utilities"]
 [lib]
 name = "cdoc"
 path = "src/lib.rs"
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
 # Serialization
@@ -49,7 +52,8 @@ replace_with = "0.1.7"
 include_dir = "0.7.3"
 dirs = "5.0.1"
 
-rhai = {version="1.13.0", features=["serde"]}
+rhai = {version="1.13.0", features=["serde", "metadata", "internals", "sync"]}
+reqwest = {version = "0.11.18", features = ["blocking"]}
 
 clap = {version="4.0.29", features=["derive"]}
 

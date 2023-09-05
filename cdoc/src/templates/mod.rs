@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{Cursor, Write};
 
+use rhai::serde::{from_dynamic, to_dynamic};
 use std::io;
 use std::path::PathBuf;
 
@@ -71,6 +72,7 @@ pub struct TemplateManager {
     path: PathBuf,
     pub tera: Tera,
     pub definitions: HashMap<String, TemplateDefinition>,
+    filter_path: PathBuf,
 }
 
 impl TemplateManager {
@@ -95,8 +97,8 @@ impl TemplateManager {
         create_filters: bool,
     ) -> anyhow::Result<Self> {
         let defs = get_templates_from_definitions(&definitions, dir.clone());
-        let filters = get_filters_from_files(filter_path)?;
         let mut tera = Tera::new(&format!("{}/sources/**.html", dir.to_str().unwrap()))?;
+        let filters = get_filters_from_files(filter_path.clone())?;
 
         filters.into_iter().for_each(|(name, source)| {
             tera.register_filter(&name, create_rhai_filter(source));
@@ -108,6 +110,7 @@ impl TemplateManager {
             path: dir,
             tera,
             definitions,
+            filter_path,
         };
 
         Ok(if create_filters {
@@ -120,7 +123,7 @@ impl TemplateManager {
     #[allow(unused)]
     fn combine(mut self, other: TemplateManager) -> anyhow::Result<TemplateManager> {
         self.tera.extend(&other.tera)?;
-        self.definitions.extend(other.definitions.into_iter());
+        self.definitions.extend(other.definitions);
 
         Ok(self)
     }
@@ -153,6 +156,12 @@ impl TemplateManager {
         let tps = get_templates_from_definitions(&defs, self.path.clone());
         self.tera.full_reload()?;
         self.tera.add_raw_templates(tps)?;
+        let filters = get_filters_from_files(self.filter_path.clone())?;
+
+        filters.into_iter().for_each(|(name, source)| {
+            self.tera.register_filter(&name, create_rhai_filter(source));
+        });
+
         self.definitions = defs;
         Ok(())
     }
@@ -202,22 +211,36 @@ impl TemplateManager {
         let format = tp.get_format(format_str).context(format!(
             "template with id '{id}' does not support format '{format_str}"
         ))?;
+        let args = if let Some(script) = &tp.script {
+            let engine = Engine::new();
+            let mut scope = Scope::new();
+            scope.push_dynamic("args", to_dynamic(args.clone().into_json())?);
+            engine
+                .run_with_scope(&mut scope, script)
+                .context("running script")?;
+
+            let args = scope.get_value::<Dynamic>("args").expect("args missing");
+            let args_value = from_dynamic(&args)?;
+            Context::from_value(args_value).expect("invalid type")
+        } else {
+            args.clone()
+        };
         match format {
             TemplateSource::Precompiled(tp, fm) => {
-                tp.render(fm, args, buf)?;
+                tp.render(fm, &args, buf)?;
             }
             TemplateSource::Derive(from) => {
                 let format = tp.get_format(from).context(format!(
                     "template with id '{id}' does not support format '{format_str}"
                 ))?;
                 if let TemplateSource::Precompiled(tp, fm) = format {
-                    tp.render(fm, args, buf)?;
+                    tp.render(fm, &args, buf)?;
                 } else {
                     let type_ = &tp.type_;
 
                     let template_name = format!("{type_}_{id}.{format_str}");
 
-                    self.tera.render_to(&template_name, args, buf)?;
+                    self.tera.render_to(&template_name, &args, buf)?;
                 }
             }
             _ => {
@@ -225,7 +248,7 @@ impl TemplateManager {
 
                 let template_name = format!("{type_}_{id}.{format_str}");
 
-                self.tera.render_to(&template_name, args, buf)?;
+                self.tera.render_to(&template_name, &args, buf)?;
             }
         }
 

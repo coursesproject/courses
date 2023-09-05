@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Block, CodeAttributes, Inline};
+use crate::ast::{Ast, Block, CodeAttributes, CodeMeta, Inline};
 use anyhow::{anyhow, Context};
 use pulldown_cmark::{Event, Tag};
 
@@ -117,6 +117,7 @@ impl Ast {
                                     reference: None,
                                     attr: CodeAttributes::default(),
                                     tags: None,
+                                    meta: CodeMeta::default(),
                                     outputs: vec![],
                                     display_cell: false,
                                 });

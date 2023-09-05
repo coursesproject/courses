@@ -134,9 +134,7 @@ impl<C> ContentItemDescriptor<C> {
 pub fn from_vec<C: Clone>(vec: &Vec<ContentItemDescriptor<C>>) -> ContentItem<C> {
     let mut current_idx = 0;
     let mut current_lvl = 0;
-    from_vec_helper(vec, &mut current_idx, &mut current_lvl, 1)
-        .unwrap()
-        .remove(0)
+    from_vec_helper(vec, &mut current_idx, &mut current_lvl, 1).remove(0)
 }
 
 fn from_vec_helper<C>(
@@ -144,7 +142,7 @@ fn from_vec_helper<C>(
     current_idx: &mut usize,
     current_lvl: &mut usize,
     current_path_len: usize,
-) -> Option<Vec<ContentItem<C>>> {
+) -> Vec<ContentItem<C>> {
     // let section_item = iter.next().unwrap();
 
     let mut children = Vec::new();
@@ -157,11 +155,10 @@ fn from_vec_helper<C>(
                 *current_idx += 1;
             } else if current_path_len >= next.path.len() {
                 *current_lvl -= 1;
-                return Some(children);
+                return children;
             }
 
-            let inner =
-                from_vec_helper(vec, current_idx, current_lvl, next.path.len()).unwrap_or_default();
+            let inner = from_vec_helper(vec, current_idx, current_lvl, next.path.len());
             children.push(ContentItem::Section {
                 section_id: next.path.get(next.path.len() - 2).unwrap().clone(),
                 section_path: next.path[1..next.path.len() - 1].join("/"),
@@ -170,7 +167,7 @@ fn from_vec_helper<C>(
             });
         } else if current_path_len > next.path.len() {
             *current_lvl -= 1;
-            return Some(children);
+            return children;
         } else {
             children.push(ContentItem::Document {
                 doc: next.doc.clone(),
@@ -179,7 +176,7 @@ fn from_vec_helper<C>(
         }
     }
 
-    Some(children)
+    children
 }
 
 impl<C> Hash for ContentItemDescriptor<C>
@@ -232,7 +229,7 @@ impl<C: Debug> ContentItem<C> {
 
     pub fn doc_at_idx(&self, path_idx: &[usize]) -> anyhow::Result<DocumentDescriptor<C>> {
         if let ContentItem::Section { children, doc, .. } = self {
-            if path_idx[0] == 0 {
+            if path_idx[1] == 0 {
                 Ok(doc.clone())
             } else {
                 ContentItem::doc_at_idx_inner(

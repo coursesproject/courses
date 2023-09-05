@@ -1,5 +1,6 @@
 use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
+use std::path::PathBuf;
 
 use crate::ast::Ast;
 
@@ -11,7 +12,9 @@ use crate::parser::ParserSettings;
 use crate::parsers::split::Rule;
 use crate::templates::TemplateManager;
 
+mod cell_outputs;
 pub mod exercises;
+pub mod script;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -26,6 +29,7 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct PreprocessorContext<'a> {
+    pub project_root: PathBuf,
     pub templates: &'a TemplateManager,
     pub output_format: &'a dyn Format,
 }
@@ -35,7 +39,7 @@ pub trait AstPreprocessor: Display {
     fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
 }
 
-#[typetag::serde(tag = "name")]
+#[typetag::serde]
 pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
     fn build(
         &self,

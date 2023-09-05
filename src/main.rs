@@ -221,6 +221,9 @@ async fn cli_run() -> anyhow::Result<()> {
                                         println!("{}", style("reloaded templates").green());
                                         let res = pipeline.build_all(false);
                                         err_print(res);
+                                    } else if p.starts_with(Path::new("scripts")) {
+                                        let res = pipeline.build_all(false);
+                                        err_print(res);
                                     }
 
                                     // Reload the webpage to show the updated content.
@@ -245,17 +248,20 @@ async fn cli_run() -> anyhow::Result<()> {
                 notify_config,
             )?;
 
-            let p2 = path.as_path().join("content");
-            let tp = path.as_path().join("templates");
-
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
-            debouncer
-                .watcher()
-                .watch(p2.as_path(), RecursiveMode::Recursive)?;
-            debouncer
-                .watcher()
-                .watch(tp.as_path(), RecursiveMode::Recursive)?;
+            debouncer.watcher().watch(
+                path.as_path().join("content").as_path(),
+                RecursiveMode::Recursive,
+            )?;
+            debouncer.watcher().watch(
+                path.as_path().join("templates").as_path(),
+                RecursiveMode::Recursive,
+            )?;
+            debouncer.watcher().watch(
+                path.as_path().join("scripts").as_path(),
+                RecursiveMode::Recursive,
+            )?;
 
             server.await?;
 
@@ -268,7 +274,7 @@ async fn cli_run() -> anyhow::Result<()> {
             // Select template repository (currently only supports Default)
             let repository = repository.map(Ok::<String, InquireError>).unwrap_or_else(|| {
                 let options = vec!["Default", "Empty"];
-                let values = vec!["https://github.com/coursesproject/courses-template-default/archive/main.zip", ""];
+                let values = ["https://github.com/coursesproject/courses-template-default/archive/main.zip", ""];
 
                 let mut s: Select<&str> = Select::new("Select a project template:", options);
 

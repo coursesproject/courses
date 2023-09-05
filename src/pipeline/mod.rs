@@ -148,7 +148,8 @@ impl Pipeline {
         println!("{}", style("done").green());
 
         let cache_path = project_path.as_ref().join(".cache");
-        fs::create_dir_all(&cache_path)?;
+        fs::create_dir_all(&cache_path)
+            .with_context(|| format!("at path {}", cache_path.display()))?;
 
         template_manager.register_filter(
             "embed",
@@ -391,7 +392,7 @@ impl Pipeline {
     pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
         let build_path = self.project_path.join("build").join(&self.profile_name);
 
-        fs::create_dir_all(&build_path)?;
+        fs::create_dir_all(&build_path).with_context(|| format!("at {}", build_path.display()))?;
 
         let format_folder_names: Vec<&str> = self
             .get_formats_or_default()
@@ -399,15 +400,19 @@ impl Pipeline {
             .map(|f| f.name())
             .collect();
         if remove_existing && build_path.exists() {
-            for entry in fs::read_dir(build_path)? {
+            for entry in
+                fs::read_dir(&build_path).with_context(|| format!("at {}", build_path.display()))?
+            {
                 let entry = entry?;
                 if entry.path().is_dir()
                     && format_folder_names
                         .iter()
                         .any(|f| entry.path().ends_with(f))
                 {
-                    fs::remove_dir_all(entry.path())?;
-                    fs::create_dir(entry.path())?;
+                    fs::remove_dir_all(entry.path())
+                        .with_context(|| format!("at {}", entry.path().display()))?;
+                    fs::create_dir(entry.path())
+                        .with_context(|| format!("at {}", entry.path().display()))?;
                 }
             }
         }
@@ -439,7 +444,7 @@ impl Pipeline {
         }
 
         self.get_formats_or_default()
-            .par_iter()
+            .iter()
             .zip(bars.clone())
             .for_each(|(format, bar)| {
                 let mut format_errs = Vec::new();
@@ -490,6 +495,15 @@ impl Pipeline {
                     profile: &self.profile,
                 };
 
+                // println!("format {:?}", format);
+                // let project_full2 = from_vec(
+                //     &output
+                //         .clone()
+                //         .into_iter()
+                //         .map(|i| i.map(|d| Ok(())).unwrap())
+                //         .collect::<Vec<ContentItemDescriptor<()>>>(),
+                // );
+                // println!("{:#?}", &project_full2);
                 let res = mover.traverse_content(&project_full);
                 if let Err(e) = res {
                     format_errs.push(e);
@@ -592,6 +606,8 @@ impl Pipeline {
                     }
                 };
 
+                // println!("doc is {:?}, {}", &i.path, res.is_some());
+
                 // let res = print_err(res);
                 ContentItemDescriptor {
                     is_section: i.is_section,
@@ -668,6 +684,7 @@ impl Pipeline {
             let processor_ctx = PreprocessorContext {
                 templates: &self.templates,
                 output_format: format,
+                project_root: self.project_path.clone(),
             };
 
             let res = self.profile.parser.parse(&doc, &processor_ctx)?;

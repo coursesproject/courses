@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Block, CodeAttributes, Inline, Shortcode, ShortcodeBase};
+use crate::ast::{Ast, Block, CodeAttributes, CodeMeta, Inline, Shortcode, ShortcodeBase};
 use crate::notebook::CellOutput;
 use anyhow::Result;
 use std::ops::Range;
@@ -26,9 +26,10 @@ pub trait AstVisitor {
                 ref mut reference,
                 ref mut attr,
                 ref mut tags,
+                ref mut meta,
                 ref mut outputs,
                 ref mut display_cell,
-            } => self.visit_code_block(source, reference, attr, tags, outputs, display_cell),
+            } => self.visit_code_block(source, reference, attr, tags, meta, outputs, display_cell),
             Block::List(_, ref mut blocks) => self.visit_vec_block(blocks),
             Block::ListItem(ref mut blocks) => self.visit_vec_block(blocks),
         }
@@ -77,12 +78,14 @@ pub trait AstVisitor {
         self.walk_inline(inline)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn visit_code_block(
         &mut self,
         source: &mut String,
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
+        _meta: &mut CodeMeta,
         _outputs: &mut Vec<CellOutput>,
         _display_cell: &mut bool,
     ) -> Result<()> {

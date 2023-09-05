@@ -1,6 +1,7 @@
 use crate::ast::{Block, Inline, Shortcode};
 use crate::document::Document;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
+use std::collections::HashMap;
 
 use anyhow::{anyhow, Context as AhContext, Result};
 use pulldown_cmark::HeadingLevel;
@@ -27,6 +28,7 @@ fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
 pub struct GenericRenderer {
     list_level: usize,
     current_list_idx: Vec<Option<u64>>,
+    counters: HashMap<String, usize>,
 }
 
 #[typetag::serde(name = "generic")]
@@ -84,6 +86,14 @@ impl GenericRenderer {
 
         let name = match shortcode {
             Shortcode::Inline(def) => {
+                let num = if def.id.is_some() {
+                    let num = self.counters.entry(def.name.clone()).or_insert(0);
+                    *num += 1;
+                    *num
+                } else {
+                    0
+                };
+
                 let rendered = self
                     .render_params(def.parameters.clone(), ctx)
                     .with_context(|| {
@@ -109,10 +119,17 @@ impl GenericRenderer {
                     .collect();
                 r?;
 
-                add_args(&tdef, &mut args, &def.id, def.num, rendered)?;
+                add_args(&tdef, &mut args, &def.id, num, rendered)?;
                 def.name.clone()
             }
             Shortcode::Block(def, body, _pos) => {
+                let num = if def.id.is_some() {
+                    let num = self.counters.entry(def.name.clone()).or_insert(0);
+                    *num += 1;
+                    *num
+                } else {
+                    0
+                };
                 let rendered = self
                     .render_params(def.parameters.clone(), ctx)
                     .with_context(|| {
@@ -138,7 +155,7 @@ impl GenericRenderer {
                     .collect();
                 r?;
 
-                add_args(&tdef, &mut args, &def.id, def.num, rendered)?;
+                add_args(&tdef, &mut args, &def.id, num, rendered)?;
                 let body = self.render_inner(body, ctx)?;
                 args.insert("body", &body);
                 def.name.clone()
@@ -300,6 +317,7 @@ impl RenderElement<Block> for GenericRenderer {
                 source,
                 outputs,
                 tags,
+                meta,
                 ..
             } => {
                 let id = get_id();
@@ -319,7 +337,9 @@ impl RenderElement<Block> for GenericRenderer {
                 args.insert("highlighted", &highlighted);
                 args.insert("id", &id);
                 args.insert("tags", &tags);
-                args.insert("outputs", &self.render_inner(outputs, ctx)?);
+                args.insert("meta", &meta);
+                // args.insert("outputs", &self.render_inner(outputs, ctx)?);
+                args.insert("outputs", outputs);
 
                 Ok(ctx.templates.render(
                     "cell",

@@ -1,4 +1,4 @@
-use crate::ast::{AstVisitor, CodeAttributes, Inline, Shortcode};
+use crate::ast::{AstVisitor, CodeAttributes, CodeMeta, Inline, Shortcode};
 use crate::document::split_shortcodes;
 use crate::notebook::CellOutput;
 use crate::parsers::shortcodes::{parse_shortcode, ShortCodeCall};
@@ -72,6 +72,7 @@ impl AstVisitor for MathInserter {
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
+        _meta: &mut CodeMeta,
         _outputs: &mut Vec<CellOutput>,
         _display_cell: &mut bool,
     ) -> anyhow::Result<()> {
@@ -183,6 +184,7 @@ impl AstVisitor for ShortcodeInserter<'_> {
         _reference: &mut Option<String>,
         _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
+        _meta: &mut CodeMeta,
         _outputs: &mut Vec<CellOutput>,
         _display_cell: &mut bool,
     ) -> anyhow::Result<()> {

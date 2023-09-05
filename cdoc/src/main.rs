@@ -12,6 +12,7 @@ struct Args {
     input: PathBuf,
 }
 
+#[allow(unused)]
 static TEMPLATE_FILES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources/config");
 
 fn ensure_config_created(config_path: &PathBuf) -> anyhow::Result<()> {
