@@ -8,9 +8,17 @@ layout:
 
 ## 0.8.x
 
+
 ### 0.8.0
 - Updated cdoc dependency to 0.7.0.
-- Working on project testing facilities.
+- Scripting system basic implementation (not ready for use)
+- Code block output extension (usable but barebones)
+- Notebook json output is pretty printed for line-by-line diffs when using git repos.
+- Code cells now support metadata using the `#| label: value` syntax.
+- Code cells now use "solution" instead of "code" to better reflect actual usage.
+- Shortcode numbers are now calculated during rendering.
+- Document ASTs can be output directly to json for easy debugging and inspection.
+
 
 ## 0.7.x
 
