@@ -89,7 +89,7 @@ with only the `title` being required.
 - `output`: Enable/disable output generation for web and/or notebooks (called `source` because script files are also included).
 
 ## Global configuration
-The `config.yml` is used for changing settings related to the project as a whole. The default configuration is:
+The `config.yml` is used for changing _settings related to the project as a whole. The default configuration is:
 ```yaml
 url_prefix: ""
 build:
@@ -100,7 +100,7 @@ build:
 ```
 *As with the file configurations, the defaults are selected if your configuration file does not define the given property.*
 
-The `build` element defines different build profiles, similar to many build tools such as Maven, Cargo, Cmake, and many more. The reason for having multiple configurations is that it allows the final deployment settings to differ from what is used for local development. In the default case, the `dev` profile does not precompile LaTeX math expressions (using the KaTeX library) - instead they will be rendered by the browser. The `release` profile invokes KaTeX in the build step which is slower when building but faster when showing the webpage. 
+The `build` element defines different build profiles, similar to many build tools such as Maven, Cargo, Cmake, and many more. The reason for having multiple configurations is that it allows the final deployment _settings to differ from what is used for local development. In the default case, the `dev` profile does not precompile LaTeX math expressions (using the KaTeX library) - instead they will be rendered by the browser. The `release` profile invokes KaTeX in the build step which is slower when building but faster when showing the webpage. 
 
 Right now, there are very few meaningful options to warrant this multi-profile setup, but more will be added in the future. One very obvious use case is to output some form of helpful information for development in the `dev` profile.
 

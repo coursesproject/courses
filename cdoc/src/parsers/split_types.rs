@@ -82,11 +82,8 @@ impl From<CodeTaskDefinition> for CodeMeta {
         let mut tmp = CodeMeta::default();
 
         for v in value.blocks {
-            match v {
-                SplitParseValue::Meta(k, v) => {
-                    tmp.custom.insert(k, v);
-                }
-                _ => {}
+            if let SplitParseValue::Meta(k, v) = v {
+                tmp.custom.insert(k, v);
             }
         }
 

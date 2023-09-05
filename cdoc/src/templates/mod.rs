@@ -203,7 +203,7 @@ impl TemplateManager {
         id: &str,
         template_prefix: &str,
         type_: TemplateType,
-        mut args: &Context,
+        args: &Context,
         buf: impl Write,
     ) -> anyhow::Result<()> {
         let tp = self.get_template(id, type_)?;

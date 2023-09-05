@@ -274,7 +274,7 @@ async fn cli_run() -> anyhow::Result<()> {
             // Select template repository (currently only supports Default)
             let repository = repository.map(Ok::<String, InquireError>).unwrap_or_else(|| {
                 let options = vec!["Default", "Empty"];
-                let values = vec!["https://github.com/coursesproject/courses-template-default/archive/main.zip", ""];
+                let values = ["https://github.com/coursesproject/courses-template-default/archive/main.zip", ""];
 
                 let mut s: Select<&str> = Select::new("Select a project template:", options);
 

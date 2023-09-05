@@ -1,10 +1,7 @@
-use anyhow::anyhow;
-use clap::builder::Resettable::Value;
 use pest::error::ErrorVariant;
 use pest::iterators::Pair;
-use pest::{Parser, Span};
+use pest::Parser;
 use pest_derive::Parser;
-use std::collections::HashMap;
 
 use crate::parsers::split_types::{CodeTaskDefinition, Content, ExerciseBlock, SplitParseValue};
 
@@ -12,16 +9,6 @@ use crate::parsers::split_types::{CodeTaskDefinition, Content, ExerciseBlock, Sp
 #[derive(Parser)]
 #[grammar = "parsers/exercises.pest"]
 pub struct TaskParser;
-
-pub(crate) fn parse_markup_block(
-    pair: Pair<Rule>,
-) -> Result<String, Box<pest::error::Error<Rule>>> {
-    Ok(pair
-        .into_inner()
-        .map(|p| Ok(p.as_str().parse().expect("String parse error")))
-        .collect::<Result<Vec<String>, pest::error::Error<Rule>>>()?
-        .join("\n"))
-}
 
 pub(crate) fn parse_src_block(pair: Pair<Rule>) -> Result<Content, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {

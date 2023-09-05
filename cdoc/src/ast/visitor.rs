@@ -78,6 +78,7 @@ pub trait AstVisitor {
         self.walk_inline(inline)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn visit_code_block(
         &mut self,
         source: &mut String,

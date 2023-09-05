@@ -1,6 +1,6 @@
 use crate::document::DocumentMetadata;
 use rhai::plugin::*;
-use rhai::{Array, CustomType, TypeBuilder};
+use rhai::{CustomType, TypeBuilder};
 
 #[allow(non_snake_case, non_upper_case_globals)]
 #[export_module]
@@ -58,7 +58,46 @@ pub(crate) mod rhai_inline_type {
         Inline::Shortcode(value)
     }
 
+    #[rhai_fn(global, get = "value", pure)]
+    #[allow(clippy::needless_pass_by_ref_mut)]
+    pub fn get_value(value: &mut Inline) -> Array {
+        match value {
+            Inline::Text(v) => vec![v.clone().into()] as Array,
+            Inline::Emphasis(i) => vec![i.clone().into()] as Array,
+            Inline::Strong(i) => vec![i.clone().into()] as Array,
+            Inline::Strikethrough(i) => vec![i.clone().into()] as Array,
+            Inline::Code(v) => vec![v.clone().into()] as Array,
+            Inline::SoftBreak => vec![] as Array,
+            Inline::HardBreak => vec![] as Array,
+            Inline::Rule => vec![] as Array,
+            Inline::Image(t, u, a, i) => vec![
+                Dynamic::from(*t),
+                u.clone().into(),
+                a.clone().into(),
+                i.clone().into(),
+            ] as Array,
+            Inline::Link(t, u, a, i) => vec![
+                Dynamic::from(*t),
+                u.clone().into(),
+                a.clone().into(),
+                i.clone().into(),
+            ] as Array,
+            Inline::Html(v) => vec![v.clone().into()] as Array,
+            Inline::Math {
+                source,
+                display_block,
+                trailing_space,
+            } => vec![
+                source.clone().into(),
+                (*display_block).into(),
+                (*trailing_space).into(),
+            ] as Array,
+            Inline::Shortcode(s) => vec![Dynamic::from(s.clone())] as Array,
+        }
+    }
+
     #[rhai_fn(global, get = "type", pure)]
+    #[allow(clippy::needless_pass_by_ref_mut)]
     pub fn get_type(value: &mut Inline) -> String {
         match value {
             Inline::Text(_) => "Text".to_string(),
@@ -76,43 +115,6 @@ pub(crate) mod rhai_inline_type {
             Inline::Shortcode(_) => "Shortcode".to_string(),
         }
     }
-
-    #[rhai_fn(global, get = "value", pure)]
-    pub fn get_value(value: &mut Inline) -> Array {
-        match value {
-            Inline::Text(v) => vec![v.clone().into()] as Array,
-            Inline::Emphasis(i) => vec![i.clone().into()] as Array,
-            Inline::Strong(i) => vec![i.clone().into()] as Array,
-            Inline::Strikethrough(i) => vec![i.clone().into()] as Array,
-            Inline::Code(v) => vec![v.clone().into()] as Array,
-            Inline::SoftBreak => vec![] as Array,
-            Inline::HardBreak => vec![] as Array,
-            Inline::Rule => vec![] as Array,
-            Inline::Image(t, u, a, i) => vec![
-                Dynamic::from(t.clone()),
-                u.clone().into(),
-                a.clone().into(),
-                i.clone().into(),
-            ] as Array,
-            Inline::Link(t, u, a, i) => vec![
-                Dynamic::from(t.clone()),
-                u.clone().into(),
-                a.clone().into(),
-                i.clone().into(),
-            ] as Array,
-            Inline::Html(v) => vec![v.clone().into()] as Array,
-            Inline::Math {
-                source,
-                display_block,
-                trailing_space,
-            } => vec![
-                source.clone().into(),
-                display_block.clone().into(),
-                trailing_space.clone().into(),
-            ] as Array,
-            Inline::Shortcode(s) => vec![Dynamic::from(s.clone())] as Array,
-        }
-    }
 }
 
 impl CustomType for DocumentMetadata {
@@ -120,7 +122,7 @@ impl CustomType for DocumentMetadata {
         builder
             .with_name("Metadata")
             .with_get("title", |s: &mut Self| s.title.clone())
-            .with_get("draft", |s: &mut Self| s.draft.clone())
+            .with_get("draft", |s: &mut Self| s.draft)
             .with_get("exercises", |s: &mut Self| s.exercises)
             .with_get("code_solutions", |s: &mut Self| s.code_solutions)
             .with_get("cell_outputs", |s: &mut Self| s.cell_outputs)

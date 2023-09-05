@@ -3,14 +3,14 @@ mod types;
 
 use crate::ast::{AstVisitor, CodeAttributes, CodeMeta, Inline};
 use crate::notebook::CellOutput;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::document::DocumentMetadata;
 use anyhow::{anyhow, Result};
 
 use crate::scripting::code_block::{CellOutputData, CellOutputError, CellOutputStream};
 use code_block::ScriptCodeBlock;
-use rhai::{exported_module, CustomType, Engine, EvalAltResult, Func, Scope, TypeBuilder};
+use rhai::{exported_module, CustomType, Engine, EvalAltResult, Scope, TypeBuilder};
 
 #[derive(Clone)]
 struct Response {
@@ -49,7 +49,7 @@ pub struct ScriptedVisitor {
 }
 
 impl ScriptedVisitor {
-    pub fn new(project_dir: &PathBuf, script: &str) -> Result<Self> {
+    pub fn new(project_dir: &Path, script: &str) -> Result<Self> {
         let mut engine = Engine::new();
         engine.set_max_expr_depths(1000, 1000);
         engine.build_type::<Response>();
@@ -101,10 +101,8 @@ impl ScriptedVisitor {
 
 impl AstVisitor for ScriptedVisitor {
     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        let mut scope = &mut self.state;
-
         match self.engine.call_fn::<Inline>(
-            &mut scope,
+            &mut self.state,
             &self.ast,
             "visit_inline",
             (inline.clone(),),
@@ -134,13 +132,11 @@ impl AstVisitor for ScriptedVisitor {
         _outputs: &mut Vec<CellOutput>,
         _display_cell: &mut bool,
     ) -> Result<()> {
-        let mut scope = &mut self.state;
-
         let block =
             ScriptCodeBlock::new(source, _reference, _attr, _tags, _outputs, *_display_cell);
 
         match self.engine.call_fn::<ScriptCodeBlock>(
-            &mut scope,
+            &mut self.state,
             &self.ast,
             "visit_code_block",
             (block,),

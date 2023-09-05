@@ -57,7 +57,7 @@ layout:
 ### 0.6.2
 - Output formats can now have a `dynamic` type. This allows the user to specify the renderer and template prefix used. 
   A use case is having multiple notebook output formats using different templates.
-- Parser settings are now available for preprocessors.
+- Parser _settings are now available for preprocessors.
 - Template definitions can now be copied from others in the same file using the `Derived` type.
 - Syntect types have been changed to references where applicable due to the large cloning overhead.
 

@@ -1,7 +1,6 @@
 use crate::ast::Ast;
 use crate::config::Format;
 use anyhow::Result;
-use std::collections::HashMap;
 
 use dyn_clone::DynClone;
 

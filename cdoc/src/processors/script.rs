@@ -23,7 +23,7 @@ impl AstPreprocessorConfig for ScriptConfig {
     fn build(
         &self,
         ctx: &PreprocessorContext,
-        settings: &ParserSettings,
+        _settings: &ParserSettings,
     ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
         let script_path = ctx.project_root.join("scripts").join(&self.name);
         let script = fs::read_to_string(&script_path)

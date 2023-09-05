@@ -95,7 +95,7 @@ with only the `title` being required.
 - `exclude_outputs`: Disable output generation for listed formats.
 
 ## Global configuration
-The `config.yml` is used for changing settings related to the project as a whole. See the [default template](https://github.com/coursesproject/courses-template-default) 
+The `config.yml` is used for changing _settings related to the project as a whole. See the [default template](https://github.com/coursesproject/courses-template-default) 
 for an example.
 
 The configuration file includes the following elements:
@@ -107,7 +107,7 @@ The configuration file includes the following elements:
 
 
 ### Profiles
-Profiles make it possible to create multiple sets of build settings for creating different outputs. For example, the 
+Profiles make it possible to create multiple sets of build _settings for creating different outputs. For example, the 
 default *draft* profile includes documents marked as *drafts* while the *release* profile does not. 
 
 A profile consists of the following elements:
@@ -119,7 +119,7 @@ Here's an example of a customized *release* profile:
 ```yml
 release: # Name of the profile
   mode: release
-  parser: # Parser settings
+  parser: # Parser _settings
     preprocessors:
       - exercises # The default preprocessor
     solutions: false # Don't include exercise solutions

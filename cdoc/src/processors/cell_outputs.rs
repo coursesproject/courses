@@ -28,105 +28,55 @@ impl AstVisitor for CellProcessor {
     fn visit_vec_block(&mut self, blocks: &mut Vec<Block>) -> anyhow::Result<()> {
         let mut offset = 0;
         for (i, block) in blocks.clone().into_iter().enumerate() {
-            match block {
-                Block::CodeBlock {
-                    source,
-                    reference,
-                    attr,
-                    tags,
-                    outputs,
-                    meta,
-                    display_cell,
-                } => {
-                    for output in outputs {
-                        match output {
-                            CellOutput::Data {
-                                execution_count,
-                                data,
-                                metadata,
-                            } => {
-                                let mut params = Vec::new();
-                                for (key, val) in meta.custom.clone() {
-                                    params.push(Argument::Keyword {
-                                        name: key,
-                                        value: ArgumentValue::Literal(vec![Block::Plain(vec![
-                                            Inline::Text(val),
-                                        ])]),
-                                    });
-                                }
-                                // if let Some(cap) = meta.custom.get("caption") {
-                                //     params.push(Argument::Keyword {
-                                //         name: "caption".to_string(),
-                                //         value: ArgumentValue::Literal(vec![Block::Plain(vec![
-                                //             Inline::Text(cap.clone()),
-                                //         ])]),
-                                //     })
-                                // };
+            if let Block::CodeBlock { outputs, meta, .. } = block {
+                for output in outputs {
+                    match output {
+                        CellOutput::Data { data, .. } => {
+                            let mut params = Vec::new();
+                            for (key, val) in meta.custom.clone() {
+                                params.push(Argument::Keyword {
+                                    name: key,
+                                    value: ArgumentValue::Literal(vec![Block::Plain(vec![
+                                        Inline::Text(val),
+                                    ])]),
+                                });
+                            }
 
-                                let mut create_figure = false;
+                            let mut create_figure = false;
 
-                                for d in data {
-                                    match d {
-                                        OutputValue::Plain(_) => {}
-                                        OutputValue::Image(s) => {
-                                            create_figure = true;
-                                            params.push(Argument::Keyword {
-                                                name: "base64".to_string(),
-                                                value: ArgumentValue::Literal(vec![Block::Plain(
-                                                    vec![Inline::Text(s)],
-                                                )]),
-                                            })
-                                        }
-                                        OutputValue::Svg(s) => {
-                                            create_figure = true;
-                                            params.push(Argument::Keyword {
-                                                name: "svg".to_string(),
-                                                value: ArgumentValue::Literal(vec![Block::Plain(
-                                                    vec![Inline::Text(s)],
-                                                )]),
-                                            })
-                                        }
-                                        OutputValue::Json(_) => {}
-                                        OutputValue::Html(_) => {}
-                                        OutputValue::Javascript(_) => {}
+                            for d in data {
+                                match d {
+                                    OutputValue::Plain(_) => {}
+                                    OutputValue::Image(s) => {
+                                        create_figure = true;
+                                        params.push(Argument::Keyword {
+                                            name: "base64".to_string(),
+                                            value: ArgumentValue::Literal(vec![Block::Plain(
+                                                vec![Inline::Text(s)],
+                                            )]),
+                                        })
                                     }
-                                }
-
-                                if create_figure {
-                                    let sc = Shortcode::Inline(ShortcodeBase {
-                                        name: "figure".to_string(),
-                                        id: meta.custom.get("id").map(String::from),
-                                        // num: 0,
-                                        parameters: params,
-                                        pos: Default::default(),
-                                        cell: 0,
-                                    });
-
-                                    blocks.insert(
-                                        i + offset + 1,
-                                        Block::Plain(vec![Inline::Shortcode(sc)]),
-                                    );
-                                    offset += 1;
+                                    OutputValue::Svg(s) => {
+                                        create_figure = true;
+                                        params.push(Argument::Keyword {
+                                            name: "svg".to_string(),
+                                            value: ArgumentValue::Literal(vec![Block::Plain(
+                                                vec![Inline::Text(s)],
+                                            )]),
+                                        })
+                                    }
+                                    OutputValue::Json(_) => {}
+                                    OutputValue::Html(_) => {}
+                                    OutputValue::Javascript(_) => {}
                                 }
                             }
-                            CellOutput::Stream { name, text } => {
+
+                            if create_figure {
                                 let sc = Shortcode::Inline(ShortcodeBase {
-                                    name: "output_text".to_string(),
-                                    id: None,
-                                    parameters: vec![
-                                        Argument::Keyword {
-                                            name: "stdio".to_string(),
-                                            value: ArgumentValue::Literal(vec![Block::Plain(
-                                                vec![Inline::Text(name.to_string())],
-                                            )]),
-                                        },
-                                        Argument::Keyword {
-                                            name: "value".to_string(),
-                                            value: ArgumentValue::Literal(vec![Block::Plain(
-                                                vec![Inline::Text(text)],
-                                            )]),
-                                        },
-                                    ],
+                                    name: "figure".to_string(),
+                                    id: meta.custom.get("id").map(String::from),
+                                    // num: 0,
+                                    parameters: params,
                                     pos: Default::default(),
                                     cell: 0,
                                 });
@@ -137,11 +87,36 @@ impl AstVisitor for CellProcessor {
                                 );
                                 offset += 1;
                             }
-                            _ => {}
                         }
+                        CellOutput::Stream { name, text } => {
+                            let sc = Shortcode::Inline(ShortcodeBase {
+                                name: "output_text".to_string(),
+                                id: None,
+                                parameters: vec![
+                                    Argument::Keyword {
+                                        name: "stdio".to_string(),
+                                        value: ArgumentValue::Literal(vec![Block::Plain(vec![
+                                            Inline::Text(name.to_string()),
+                                        ])]),
+                                    },
+                                    Argument::Keyword {
+                                        name: "value".to_string(),
+                                        value: ArgumentValue::Literal(vec![Block::Plain(vec![
+                                            Inline::Text(text),
+                                        ])]),
+                                    },
+                                ],
+                                pos: Default::default(),
+                                cell: 0,
+                            });
+
+                            blocks
+                                .insert(i + offset + 1, Block::Plain(vec![Inline::Shortcode(sc)]));
+                            offset += 1;
+                        }
+                        _ => {}
                     }
                 }
-                _ => {}
             }
         }
 

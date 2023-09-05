@@ -17,19 +17,19 @@ pub(crate) struct ScriptCodeBlock {
 
 impl ScriptCodeBlock {
     pub fn new(
-        source: &String,
+        source: &str,
         reference: &Option<String>,
         attr: &CodeAttributes,
         tags: &Option<Vec<String>>,
-        outputs: &Vec<CellOutput>,
+        outputs: &[CellOutput],
         display_cell: bool,
     ) -> Self {
         ScriptCodeBlock {
-            source: source.clone(),
+            source: String::from(source),
             reference: reference.clone(),
             attr: attr.clone(),
             tags: tags.clone(),
-            outputs: outputs.clone().into_iter().map(|c| c.into()).collect(),
+            outputs: outputs.iter().map(|c| c.clone().into()).collect(),
             display_cell,
         }
     }
@@ -77,9 +77,9 @@ pub struct CellOutputError {
     traceback: Vec<String>,
 }
 
-impl Into<Dynamic> for CellOutput {
-    fn into(self) -> Dynamic {
-        match self {
+impl From<CellOutput> for Dynamic {
+    fn from(value: CellOutput) -> Self {
+        match value {
             CellOutput::Stream { name, text } => Dynamic::from(CellOutputStream { name, text }),
             CellOutput::Data {
                 execution_count,
@@ -179,7 +179,7 @@ impl CustomType for ScriptCodeBlock {
             )
             .with_get_set(
                 "display_cell",
-                |s: &mut Self| s.display_cell.clone(),
+                |s: &mut Self| s.display_cell,
                 |s: &mut Self, v: bool| s.display_cell = v,
             );
     }
@@ -208,7 +208,7 @@ impl CustomType for CellOutputData {
             .with_name("Data")
             .with_get_set(
                 "execution_count",
-                |s: &mut Self| s.execution_count.clone(),
+                |s: &mut Self| s.execution_count,
                 |s: &mut Self, v: Option<i64>| s.execution_count = v,
             )
             .with_get_set(
