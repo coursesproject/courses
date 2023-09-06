@@ -25,6 +25,12 @@ custom:
 repository:
   url: "https://github.com/coursesproject/courses"
 
+packages:
+  - name: coursesproject/base
+    version: 0.1
+    features:
+      - html
+
 profiles:
   draft:
     mode: draft

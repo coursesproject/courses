@@ -6,8 +6,8 @@ package:
     - Anton Mølbjerg Eskildsen
 
 dependencies:
-  - base:
-      version: 0.1
+  - name: coursesproject/base
+    version: 0.1
 
 features:
   html:
