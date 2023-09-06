@@ -1,0 +1,11 @@
+name: info
+description: Admonition for info.
+
+type: shortcode
+settings:
+  kind: block
+  parameters:
+    - name: title
+      description: Box header.
+      type: regular
+      optional: true

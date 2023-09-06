@@ -1,0 +1,6 @@
+extends: link
+
+
+templates:
+  nb_formatted: !Derive markdown
+  nb_myst: !Derive markdown

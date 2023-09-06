@@ -1,0 +1,11 @@
+name: ref
+description: Document reference.
+
+type: shortcode
+settings:
+  kind: inline
+  parameters:
+    - name: id
+      description: Reference shortcode id.
+      type: regular
+

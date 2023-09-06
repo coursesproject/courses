@@ -1,5 +1,22 @@
 url_prefix: /courses
 
+plugins:
+  base:
+    version: 0.1
+    features:
+      - html
+      - shortcodes
+  theme_default:
+    version: 0.1
+    features:
+      - html
+      - shortcodes
+  nb_format:
+    version: 0.1
+    features:
+      - html
+      - shortcodes
+
 custom:
   crates:
     cdoc: https://crates.io/crates/cdoc

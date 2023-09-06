@@ -1,0 +1,14 @@
+name: solution
+description: Solution box for exercises. For now this is mainly for easy inclusion of solutions that will be hidden for students.
+
+type: shortcode
+settings:
+  kind: block
+  parameters: []
+
+examples:
+  - title: Generic
+    body: |
+      {% solution %}
+      Inner content
+      {% end_task %}

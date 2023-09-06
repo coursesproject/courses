@@ -1,0 +1,10 @@
+package:
+  name: nb_format
+  description: Creates a new formatted output for Notebooks derived from html.
+  version: 0.1
+  authors:
+    - Anton Mølbjerg Eskildsen
+
+dependencies:
+  - base:
+      version: 0.1

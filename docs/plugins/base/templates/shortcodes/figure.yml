@@ -1,0 +1,35 @@
+name: figure
+description: Figure with caption.
+
+type: shortcode
+settings:
+  kind: inline
+  accept_arbitrary_params: true
+  parameters:
+    - name: caption
+      description: Image caption.
+      type: regular
+    - name: url
+      description: Path to the image relative to the 'resources' directory.
+      type: regular
+      optional: true
+    - name: width
+      description: Image width css property.
+      type: regular
+    - name: alignment
+      description: Image alignment (css class).
+      optional: true
+      type: !choice [ left, centered, right ]
+    - name: base64
+      description: Base 64 encoded image.
+      type: regular
+      optional: true
+    - name: svg
+      description: Svg source.
+      type: regular
+      optional: true
+
+examples:
+  - title: Simple
+    body: | 
+      {{ figure(url=material/W04/affine_overview.svg, width="40%", caption="This is my image") }}

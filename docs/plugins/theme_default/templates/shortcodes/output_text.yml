@@ -1,0 +1,9 @@
+extends: output_text
+
+templates:
+  html: !String |
+    <pre>{{ value }}</pre>
+  markdown: !String |
+    <pre>{{ value }}</pre>
+  latex: !String |
+    \emph{result: {{value}} }
