@@ -59,13 +59,14 @@ pub struct Document<C> {
 }
 
 pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
-    let mut rest = src;
+    let mut rest = src.to_string();
     let mut is_eq = false;
 
     let mut math_blocks = Vec::new();
     let mut res = String::new();
     let mut eq_idx = 0;
-    while let Some(idx) = rest.find('$') {
+
+    while let Some(idx) = rest.chars().position(|c| c == '$') {
         let is_block =
             rest.len() > 2 && rest.chars().nth(idx + 1).map(|c| c == '$').unwrap_or(false);
         let trailing_space =
@@ -80,16 +81,17 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
             });
             eq_idx += 1;
         } else {
-            res.push_str(&rest[..idx]);
+            res.push_str(&rest.chars().take(idx).collect::<String>());
         }
 
         is_eq = !is_eq;
         let offset = if is_block { 2 } else { 1 };
-        rest = &rest[idx + offset..];
+        rest = rest.chars().skip(idx + offset).collect();
+        // rest = &rest[idx + offset..];
     }
 
     if !rest.is_empty() {
-        res.push_str(rest)
+        res.push_str(&rest)
     }
 
     let mut md_blocks = str_to_blocks(&res)?;

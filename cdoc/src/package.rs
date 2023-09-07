@@ -3,14 +3,14 @@ use git2::Repository;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Package {
     package: PackageMeta,
     dependencies: Vec<Dependency>,
     features: Vec<Feature>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PackageMeta {
     name: String,
     description: String,
@@ -18,12 +18,12 @@ pub struct PackageMeta {
     authors: Vec<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Dependency {
     name: String,
     version: String,
     features: Vec<String>,
-    #[serde(default(default_root))]
+    #[serde(default = "default_root")]
     url_root: String,
 }
 
@@ -31,17 +31,17 @@ fn default_root() -> String {
     "https://github.com".to_string()
 }
 
-impl TryFrom<Dependency> for Package {
-    type Error = anyhow::Error;
+// impl TryFrom<Dependency> for Package {
+//     type Error = anyhow::Error;
+//
+//     fn try_from(value: Dependency) -> Result<Self, Self::Error> {
+//         let url = format!("{}/{}", value.url_root, value.name);
+//
+//         Repository::submodule(&url)
+//     }
+// }
 
-    fn try_from(value: Dependency) -> Result<Self, Self::Error> {
-        let url = format!("{}/{}", value.url_root, value.name);
-
-        Repository::submodule(&url)
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Feature {
     include_files: Vec<String>,
     include_template_prefixes: Vec<String>,
@@ -50,7 +50,7 @@ pub struct Feature {
 
 impl Package {}
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtensibleTemplateDefinition {
     pub extends: Option<String>,
     pub name: Option<String>,
