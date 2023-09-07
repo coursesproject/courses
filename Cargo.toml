@@ -1,6 +1,6 @@
 [package]
 name = "courses"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -31,7 +31,7 @@ path = "src/lib.rs"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
-cdoc = { path = "cdoc", version = "0.7.0" }
+cdoc = { path = "cdoc", version = "0.7.1" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }

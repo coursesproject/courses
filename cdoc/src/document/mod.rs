@@ -75,7 +75,7 @@ pub fn split_markdown(src: &str) -> Result<Vec<Block>> {
         if is_eq {
             res.push_str(&format!("**{}**", eq_idx));
             math_blocks.push(Inline::Math {
-                source: rest[..idx].to_string(),
+                source: rest.chars().take(idx).collect(),
                 display_block: is_block,
                 trailing_space,
             });
