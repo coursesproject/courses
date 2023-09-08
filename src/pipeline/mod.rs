@@ -115,6 +115,7 @@ pub fn print_err<T>(res: anyhow::Result<T>) -> Option<T> {
             e.chain()
                 .skip(1)
                 .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+            eprintln!("bt: {}", e.backtrace());
             None
         }
     }
@@ -312,6 +313,7 @@ impl Pipeline {
                 e.chain()
                     .skip(1)
                     .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+                eprintln!("bt: {}", e.backtrace());
             });
             println!("{}", style("-".repeat(60)).blue());
 
@@ -539,6 +541,7 @@ impl Pipeline {
                 e.chain()
                     .skip(1)
                     .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+                eprintln!("bt: {}", e.backtrace());
             });
             println!("{}", style("-".repeat(60)).blue());
 

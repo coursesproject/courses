@@ -34,11 +34,6 @@ pub struct GenericRenderer {
 #[typetag::serde(name = "generic")]
 impl DocumentRenderer for GenericRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
-        // let doc = doc.to_events();
-        // let dd = doc.to_events();
-        //
-        // let mut output = String::new();
-        // html::push_html(&mut output, dd);
         let buf = Vec::new();
         let mut cursor = Cursor::new(buf);
         self.render(&ctx.doc.content.0, ctx, &mut cursor)?;
@@ -175,7 +170,35 @@ impl RenderElement<Inline> for GenericRenderer {
     fn render(&mut self, elem: &Inline, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
         match elem {
             Inline::Text(s) => {
-                let _ = buf.write(s.as_bytes())?;
+                // if let Some(c) = s.chars().last() {
+                //     let len = s.chars().count();
+                //
+                //     match c {
+                //         '\n' => match s.chars().nth(len - 2) {
+                //             None => {
+                //                 buf.write(s.as_bytes())?;
+                //             }
+                //             Some(c2) => match c2 {
+                //                 '.' | ' ' => {
+                //                     buf.write(s.as_bytes())?;
+                //                 }
+                //                 _ => {
+                //                     let corrected = s
+                //                         .chars()
+                //                         .take(len - 2)
+                //                         .chain(" ".chars())
+                //                         .collect::<String>();
+                //
+                //                     buf.write(corrected.as_bytes())?;
+                //                 }
+                //             },
+                //         },
+                //         _ => {
+                //
+                //         }
+                //     }
+                // }
+                buf.write(s.as_bytes())?;
                 Ok(())
             }
             Inline::Emphasis(inner) => render_value_template(
@@ -237,14 +260,16 @@ impl RenderElement<OutputValue> for GenericRenderer {
                 render_value_template("output_text", TemplateType::Builtin, &s.join(""), ctx, buf)
             }
             OutputValue::Image(s) => {
-                render_value_template("output_img", TemplateType::Builtin, s, ctx, buf)
+                render_value_template("output_img", TemplateType::Builtin, &s.join(""), ctx, buf)
             }
             OutputValue::Svg(s) => {
-                render_value_template("output_svg", TemplateType::Builtin, s, ctx, buf)
+                render_value_template("output_svg", TemplateType::Builtin, &s.join(""), ctx, buf)
             }
             OutputValue::Json(s) => write_bytes(&serde_json::to_string(s)?, buf),
             OutputValue::Html(s) => write_bytes(&s.join(""), buf),
-            OutputValue::Javascript(_) => Ok(()),
+            OutputValue::Javascript(s) => {
+                write_bytes(&format!("<script>{}</script>", s.join("")), buf)
+            }
         }
     }
 }

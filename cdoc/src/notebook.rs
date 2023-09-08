@@ -143,10 +143,22 @@ pub enum OutputValue {
     ),
     /// Png image
     #[serde(rename = "image/png")]
-    Image(String),
+    Image(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
     /// Svg image
     #[serde(rename = "image/svg+xml")]
-    Svg(String),
+    Svg(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
     /// Json
     #[serde(rename = "application/json")]
     Json(HashMap<String, Value>),
@@ -161,7 +173,13 @@ pub enum OutputValue {
     ),
     /// Javascript
     #[serde(rename = "application/javascript")]
-    Javascript(String),
+    Javascript(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
 }
 
 type Dict = HashMap<String, Value>;

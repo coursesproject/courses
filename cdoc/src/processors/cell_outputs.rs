@@ -52,7 +52,7 @@ impl AstVisitor for CellProcessor {
                                         params.push(Argument::Keyword {
                                             name: "base64".to_string(),
                                             value: ArgumentValue::Literal(vec![Block::Plain(
-                                                vec![Inline::Text(s)],
+                                                vec![Inline::Text(s.join(""))],
                                             )]),
                                         })
                                     }
@@ -61,13 +61,26 @@ impl AstVisitor for CellProcessor {
                                         params.push(Argument::Keyword {
                                             name: "svg".to_string(),
                                             value: ArgumentValue::Literal(vec![Block::Plain(
-                                                vec![Inline::Text(s)],
+                                                vec![Inline::Text(s.join(""))],
                                             )]),
                                         })
                                     }
                                     OutputValue::Json(_) => {}
-                                    OutputValue::Html(_) => {}
-                                    OutputValue::Javascript(_) => {}
+                                    OutputValue::Html(s) => {
+                                        blocks.insert(
+                                            i + offset + 1,
+                                            Block::Plain(vec![Inline::Html(s.join(""))]),
+                                        );
+                                        offset += 1;
+                                    }
+                                    OutputValue::Javascript(s) => {
+                                        let val = format!("<script>{}</script>", s.join(""));
+                                        blocks.insert(
+                                            i + offset + 1,
+                                            Block::Plain(vec![Inline::Html(val)]),
+                                        );
+                                        offset += 1;
+                                    }
                                 }
                             }
 
