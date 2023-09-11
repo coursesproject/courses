@@ -1,2 +1,4 @@
+* text eol=lf
+
 docs/** linguist-vendored
 resources/** linguist-vendored

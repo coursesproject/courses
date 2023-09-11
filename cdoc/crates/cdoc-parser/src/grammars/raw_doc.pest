@@ -3,7 +3,7 @@ WHITESPACE = _{ (" " | "\t" | "\r") }
 SHORTCODE_SIGIL    = _{ "#" }
 shortcode_disallow = _{ (SHORTCODE_SIGIL ~ (WHITESPACE|"#")) | !SHORTCODE_SIGIL }
 
-BASE_CHARS = _{ ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | "`" | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'" }
+BASE_CHARS = _{ ASCII_ALPHANUMERIC | SYMBOL | NEWLINE | "-" | "/" | " " | "*" | "_" | "." | "," | "`" | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "\t" | "=" | "<" | ">" | "?" | "'" }
 
 string          =  { (!"\\{" ~ !"\\}" ~ !"$" ~ BASE_CHARS)+ }
 md_val          =  { (shortcode | code_def | math_block | verbatim_def | string)* }
@@ -45,7 +45,7 @@ src      = ${ (shortcode_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
 
 element = { shortcode | math_block | code_def | verbatim_def | src }
 
-meta = {(!"\n---" ~ ANY)*}
-meta_def = _{"---\n" ~ meta ~ "\n---"}
+meta = {(!(NEWLINE ~ "---") ~ ANY)*}
+meta_def = _{("---" ~ NEWLINE) ~ meta ~ (NEWLINE ~ "---")}
 
 doc     = { meta_def? ~ element* }
