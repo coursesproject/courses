@@ -1,0 +1,51 @@
+WHITESPACE = _{ (" " | "\t" | "\r") }
+
+SHORTCODE_SIGIL    = _{ "#" }
+shortcode_disallow = _{ (SHORTCODE_SIGIL ~ (WHITESPACE|"#")) | !SHORTCODE_SIGIL }
+
+BASE_CHARS = _{ ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | "`" | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'" }
+
+string          =  { (!"\\{" ~ !"\\}" ~ !"$" ~ BASE_CHARS)+ }
+md_val          =  { (shortcode | code_def | math_block | verbatim_def | string)* }
+string_v        = _{ ("\"" | "“") ~ string ~ ("\"" | "”") }
+markdown_string = _{ "{" ~ md_val ~ "}" }
+basic_val       =  { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | WHITESPACE | " " | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")* }
+
+name = { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+key  = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+
+flag     =  { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+flag_def = _{ ":" ~ flag }
+
+value = _{ basic_val | string_v | markdown_string | flag_def }
+param =  { (key ~ "=" ~ value) | value }
+
+parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
+
+body       =  { (!"}" ~ !"\\{" ~ shortcode_disallow ~ !"´" ~ !"$" ~ ANY)+ }
+body_inner =  { (code_def | math_block | shortcode | verbatim_def | body)* }
+body_def   = ${ "{" ~ body_inner ~ "}" }
+
+id = { name }
+
+shortcode_def = ${ SHORTCODE_SIGIL ~ name }
+shortcode     =  { shortcode_def ~ ("|" ~ id)? ~ parameters? ~ body_def? }
+
+math_block   =  { math_lvl ~ math ~ POP }
+math_lvl     =  { PUSH("$"+) }
+math         =  { (!PEEK ~ ANY)+ }
+verbatim_def = _{ "\\{" ~ verbatim ~ "\\}" }
+
+code_def = { code_lvl ~ code ~ POP }
+code_lvl = { PUSH("`"+) }
+code     = { (!PEEK ~ ANY)+ }
+
+verbatim =  { (!"\\}" ~ ANY)+ }
+src      = ${ (shortcode_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
+
+element = { shortcode | math_block | code_def | verbatim_def | src }
+
+meta = {(!"\n---" ~ ANY)*}
+meta_def = _{"---\n" ~ meta ~ "\n---"}
+
+doc     = { meta_def? ~ element* }

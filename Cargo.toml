@@ -18,7 +18,8 @@ categories = ["command-line-utilities"]
 [workspace]
 
 members = [
-    "cdoc"
+    "cdoc",
+    "cdoc/crates/*"
 ]
 
 [lib]

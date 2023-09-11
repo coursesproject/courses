@@ -1,0 +1,20 @@
+Math Inline
+
+=======
+$inline$$$block$$
+=======
+
+(doc
+    (element
+        (math_block
+            (math_lvl: "$")
+            (math: "inline")
+        )
+    )
+    (element
+        (math_block
+            (math_lvl: "$$")
+            (math: "block")
+        )
+    )
+)
