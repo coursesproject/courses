@@ -1,0 +1,20 @@
+Function call basic
+
+=======
+#cmd(value basic, key=value, :flag, {markdown}){body}
+=======
+
+(doc
+    (command
+        (command_name (ident: "cmd"))
+        (parameters
+            (param (basic_val: "value basic"))
+            (param (key: "key") (basic_val: "value"))
+            (param (flag: "flag"))
+            (param (md_val (string: "markdown")))
+        )
+        (body_def
+            (body: "body")
+        )
+    )
+)

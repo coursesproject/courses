@@ -1,14 +1,13 @@
-pub mod ast;
-pub mod doc;
+pub mod document;
+pub mod raw;
 
 #[cfg(test)]
 use pest_test_gen::pest_tests;
 
 #[pest_tests(
-    crate::doc::RawDocParser,
-    crate::doc::Rule,
+    crate::raw::RawDocParser,
+    crate::raw::Rule,
     "doc",
-    no_eoi = true,
     dir = "tests/pest/doc",
     strict = false,
     lazy_static = true

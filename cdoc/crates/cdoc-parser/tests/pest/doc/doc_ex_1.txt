@@ -49,88 +49,50 @@ When you want to build the static site for deployment, run `courses build` to bu
 
 (doc
     (meta: "title: Getting started")
-    (element
-        (src: "\n\n\n# Getting started\nThis page explains the basics of how ")
+    (src: "\n\n\n# Getting started\nThis page explains the basics of how ")
+    (code_def
+        (code_lvl: "`")
+        (code: "courses")
     )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "courses")
-        )
+    (src: "is used. It covers installation, creating a new project, serving the project locally, and building the project.\n\n\n## Installation\nFor now, you have to compile Courses yourself. However, it only requires a few steps and should work without any tweaks on most setups.\n\n\n1. You need to install rust and cargo to compile the application. Doing so is most easily accomplished by installing *rustup*. Simply follow the instructions on the [installation page](https://rustup.rs/).\n2. Install ")
+    (code_def
+        (code_lvl: "`")
+        (code: "courses")
     )
-    (element
-        (src: "is used. It covers installation, creating a new project, serving the project locally, and building the project.\n\n\n## Installation\nFor now, you have to compile Courses yourself. However, it only requires a few steps and should work without any tweaks on most setups.\n\n\n1. You need to install rust and cargo to compile the application. Doing so is most easily accomplished by installing *rustup*. Simply follow the instructions on the [installation page](https://rustup.rs/).\n2. Install ")
+    (src: "by opening a terminal (or command promt/powershell) and run the command ")
+    (code_def
+        (code_lvl: "`")
+        (code: "cargo install courses")
     )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "courses")
-        )
+    (src: ".\n\n\n## Usage\nCourses is a single *cli* program which provides facilities for creating new projects, serving projects locally, and building projects for distribution. Get an overview of the interface, by running ")
+    (code_def
+        (code_lvl: "`")
+        (code: "courses -h")
     )
-    (element
-        (src: "by opening a terminal (or command promt/powershell) and run the command ")
+    (src: ". You should see something similar to the following:\n\n")
+    (code_def
+        (code_lvl: "```")
+        (code: "text\nUsage: courses [OPTIONS] <COMMAND>\n\nCommands:\n  serve\n  build\n  test\n  publish\n  help     Print this message or the help of the given subcommand(s)\n\nOptions:\n  -p, --path <PATH>\n  -h, --help         Print help information\n  -V, --version      Print version information\n")
     )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "cargo install courses")
-        )
+    (src: "\n\n## Creating a new project\nTo create a new project, use the command ")
+    (code_def
+        (code_lvl: "`")
+        (code: "courses init <NAME>")
     )
-    (element
-        (src: ".\n\n\n## Usage\nCourses is a single *cli* program which provides facilities for creating new projects, serving projects locally, and building projects for distribution. Get an overview of the interface, by running ")
+    (src: "where *NAME* is the name of a new folder the project will be created in. The tool will ask you whether you want to start from a minimal setup (no default theme and templates) or a batteries-included setup similar to this documentation page. The latter is much better if you want to get up and running quickly.\n\n### Local development\nCourses includes a dev-server (bsed on [Penguin](https://crates.io/crates/penguin/0.1.7)) and automatically rebuilds files when changes are detected. Simply run ")
+    (code_def
+        (code_lvl: "`")
+        (code: "courses serve")
     )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "courses -h")
-        )
+    (src: "in the project directory to start.\n\n### Build for deployment\nWhen you want to build the static site for deployment, run ")
+    (code_def
+        (code_lvl: "`")
+        (code: "courses build")
     )
-    (element
-        (src: ". You should see something similar to the following:\n\n")
+    (src: "to build the project with the *release* configuration. The output is placed in the ")
+    (code_def
+        (code_lvl: "`")
+        (code: "build/")
     )
-    (element
-        (code_def
-            (code_lvl: "```")
-            (code: "text\nUsage: courses [OPTIONS] <COMMAND>\n\nCommands:\n  serve\n  build\n  test\n  publish\n  help     Print this message or the help of the given subcommand(s)\n\nOptions:\n  -p, --path <PATH>\n  -h, --help         Print help information\n  -V, --version      Print version information\n")
-        )
-    )
-    (element
-        (src: "\n\n## Creating a new project\nTo create a new project, use the command ")
-    )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "courses init <NAME>")
-        )
-    )
-    (element
-        (src: "where *NAME* is the name of a new folder the project will be created in. The tool will ask you whether you want to start from a minimal setup (no default theme and templates) or a batteries-included setup similar to this documentation page. The latter is much better if you want to get up and running quickly.\n\n### Local development\nCourses includes a dev-server (bsed on [Penguin](https://crates.io/crates/penguin/0.1.7)) and automatically rebuilds files when changes are detected. Simply run ")
-    )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "courses serve")
-        )
-    )
-    (element
-        (src: "in the project directory to start.\n\n### Build for deployment\nWhen you want to build the static site for deployment, run ")
-    )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "courses build")
-        )
-    )
-    (element
-        (src: "to build the project with the *release* configuration. The output is placed in the ")
-    )
-    (element
-        (code_def
-            (code_lvl: "`")
-            (code: "build/")
-        )
-    )
-    (element
-        (src: "folder and is ready for use. Read more about configurations [here](/courses/documentation/02_project_organisation).")
-    )
+    (src: "folder and is ready for use. Read more about configurations [here](/courses/documentation/02_project_organisation).")
 )
