@@ -105,14 +105,14 @@ impl From<Child> for Inline {
                 let parameters = parameters.into_iter().map(|p| p.into()).collect();
                 let body = body.map(|b| ComposedMarkdown::from(b).into());
 
-                Inline::Command {
+                Inline::Command(Command {
                     function,
                     id,
                     parameters,
                     body,
                     pos: value.pos,
                     global_idx: value.identifier,
-                }
+                })
             }
             Extern::Verbatim(s) => Inline::Text(s),
         }
@@ -196,7 +196,8 @@ impl From<ComposedMarkdown> for Vec<Block> {
                                         None
                                     }
                                 })
-                                .and_then(|s| r.captures(s.as_ref()).unwrap().get(1));
+                                .and_then(|s| r.captures(s.as_ref()))
+                                .and_then(|c| c.get(1));
 
                             if let Some(match_) = is_insert {
                                 let idx = usize::from_str(match_.as_str()).unwrap();
@@ -274,14 +275,14 @@ fn heading_to_lvl(value: HeadingLevel) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{Block, Inline};
+    use crate::ast::Block::ListItem;
+    use crate::ast::{Block, Command, Inline, Parameter, Style, Value};
     use crate::common::PosInfo;
-    use crate::document::*;
-    use crate::raw::*;
+    use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Extern};
+    use pulldown_cmark::LinkType;
 
     #[test]
-    fn doc_to_ast() {
-        let input = "regular stuff #func{x}";
+    fn simple_command() {
         let stuff = vec![
             ElementInfo {
                 element: Element::Markdown("regular stuff ".to_string()),
@@ -306,16 +307,248 @@ mod tests {
 
         let expected = vec![Block::Paragraph(vec![
             Inline::Text("regular stuff ".to_string()),
-            Inline::Command {
+            Inline::Command(Command {
                 function: "func".to_string(),
                 id: None,
                 parameters: vec![],
                 body: Some(vec![Block::Paragraph(vec![Inline::Text("x".to_string())])]),
                 pos: PosInfo::new("", 0, 0),
                 global_idx: 0,
-            },
+            }),
         ])];
 
         assert_eq!(expected, doc);
+    }
+
+    #[test]
+    fn markdown_elements() {
+        let input = include_str!("../../resources/tests/markdown_elems.md");
+        let input_doc = parse_to_doc(input).expect("rawdoc parse error");
+        let composed = ComposedMarkdown::from(input_doc.src);
+        let output_doc = Vec::from(composed);
+
+        let expected = vec![
+            Block::Heading {
+                lvl: 1,
+                id: None,
+                classes: vec![],
+                inner: vec![Inline::Text("Heading".to_string())],
+            },
+            Block::Heading {
+                lvl: 2,
+                id: None,
+                classes: vec![],
+                inner: vec![Inline::Text("Subheading".to_string())],
+            },
+            Block::List(
+                None,
+                vec![
+                    ListItem(vec![Block::Plain(vec![Inline::Text(
+                        "unordered list".to_string(),
+                    )])]),
+                    ListItem(vec![Block::Plain(vec![Inline::Text("item 2".to_string())])]),
+                ],
+            ),
+            Block::List(
+                Some(1),
+                vec![
+                    ListItem(vec![Block::Plain(vec![Inline::Text(
+                        "ordered list".to_string(),
+                    )])]),
+                    ListItem(vec![Block::Plain(vec![Inline::Text("item 2".to_string())])]),
+                ],
+            ),
+            Block::Paragraph(vec![
+                Inline::Link(
+                    LinkType::Inline,
+                    "path/is/here".to_string(),
+                    String::new(),
+                    vec![Inline::Text("link".to_string())],
+                ),
+                Inline::SoftBreak,
+                Inline::Image(
+                    LinkType::Inline,
+                    "path/is/here".to_string(),
+                    String::new(),
+                    vec![Inline::Text("image".to_string())],
+                ),
+            ]),
+            Block::Paragraph(vec![
+                Inline::Styled(vec![Inline::Text("emph".to_string())], Style::Emphasis),
+                Inline::SoftBreak,
+                Inline::Styled(vec![Inline::Text("strong".to_string())], Style::Strong),
+            ]),
+            Block::Paragraph(vec![Inline::Code("code inline".to_string())]),
+            Block::Paragraph(vec![Inline::CodeBlock {
+                source: "\ncode block\n".to_string(),
+                tags: None,
+                meta: Default::default(),
+                display_cell: false,
+                global_idx: 0,
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 180,
+                    end: 198,
+                },
+            }]),
+            Block::Paragraph(vec![Inline::Math {
+                source: "math inline".to_string(),
+                display_block: false,
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 200,
+                    end: 213,
+                },
+            }]),
+            Block::Paragraph(vec![Inline::Math {
+                source: "\nmath block\n".to_string(),
+                display_block: true,
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 215,
+                    end: 231,
+                },
+            }]),
+        ];
+
+        assert_eq!(expected, output_doc);
+    }
+
+    #[test]
+    fn commands() {
+        let input = include_str!("../../resources/tests/commands.md");
+        let input_doc = parse_to_doc(input).expect("rawdoc parse error");
+        let composed = ComposedMarkdown::from(input_doc.src);
+        let output_doc = Vec::from(composed);
+
+        let expected = vec![
+            Block::Paragraph(vec![Inline::Command(Command {
+                function: "func".to_string(),
+                id: None,
+                parameters: vec![],
+                body: None,
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 0,
+                    end: 5,
+                },
+                global_idx: 0,
+            })]),
+            Block::Paragraph(vec![Inline::Command(Command {
+                function: "func_param".to_string(),
+                id: None,
+                parameters: vec![
+                    Parameter {
+                        key: None,
+                        value: Value::String("p1".to_string()),
+                        pos: PosInfo {
+                            input: input.to_string(),
+                            start: 19,
+                            end: 21,
+                        },
+                    },
+                    Parameter {
+                        key: Some("x".to_string()),
+                        value: Value::String("p2".to_string()),
+                        pos: PosInfo {
+                            input: input.to_string(),
+                            start: 23,
+                            end: 27,
+                        },
+                    },
+                ],
+                body: None,
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 7,
+                    end: 28,
+                },
+                global_idx: 1,
+            })]),
+            Block::Paragraph(vec![Inline::Command(Command {
+                function: "func_body".to_string(),
+                id: None,
+                parameters: vec![],
+                body: Some(vec![Block::Paragraph(vec![Inline::Text(
+                    "hello there".to_string(),
+                )])]),
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 30,
+                    end: 55,
+                },
+                global_idx: 2,
+            })]),
+            Block::Paragraph(vec![Inline::Command(Command {
+                function: "func_all".to_string(),
+                id: None,
+                parameters: vec![
+                    Parameter {
+                        key: None,
+                        value: Value::String("p1".to_string()),
+                        pos: PosInfo {
+                            input: input.to_string(),
+                            start: 67,
+                            end: 69,
+                        },
+                    },
+                    Parameter {
+                        key: Some("x".to_string()),
+                        value: Value::String("p2".to_string()),
+                        pos: PosInfo {
+                            input: input.to_string(),
+                            start: 71,
+                            end: 75,
+                        },
+                    },
+                ],
+                body: Some(vec![Block::Paragraph(vec![Inline::Text(
+                    "hello there".to_string(),
+                )])]),
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 57,
+                    end: 91,
+                },
+                global_idx: 3,
+            })]),
+            Block::Paragraph(vec![Inline::Command(Command {
+                function: "func_inner".to_string(),
+                id: None,
+                parameters: vec![],
+                body: Some(vec![Block::Paragraph(vec![
+                    Inline::Code("#func".to_string()),
+                    Inline::SoftBreak,
+                    Inline::Command(Command {
+                        function: "inner".to_string(),
+                        id: None,
+                        parameters: vec![],
+                        body: Some(vec![Block::Paragraph(vec![Inline::Math {
+                            source: "math".to_string(),
+                            display_block: false,
+                            pos: PosInfo {
+                                input: input.to_string(),
+                                start: 122,
+                                end: 128,
+                            },
+                        }])]),
+                        pos: PosInfo {
+                            input: input.to_string(),
+                            start: 114,
+                            end: 130,
+                        },
+                        global_idx: 0,
+                    }),
+                ])]),
+                pos: PosInfo {
+                    input: input.to_string(),
+                    start: 93,
+                    end: 132,
+                },
+                global_idx: 4,
+            })]),
+        ];
+
+        assert_eq!(expected, output_doc);
     }
 }

@@ -1,9 +1,20 @@
 pub mod parser;
+pub mod visitor;
 
 use crate::common::PosInfo;
 use pulldown_cmark::{HeadingLevel, LinkType};
 use std::borrow::Cow;
 use std::collections::HashMap;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Command {
+    pub function: String,
+    pub id: Option<String>,
+    pub parameters: Vec<Parameter>,
+    pub body: Option<Vec<Block>>,
+    pub pos: PosInfo,
+    pub global_idx: usize,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Inline {
@@ -43,14 +54,7 @@ pub enum Inline {
         display_block: bool,
         pos: PosInfo,
     },
-    Command {
-        function: String,
-        id: Option<String>,
-        parameters: Vec<Parameter>,
-        body: Option<Vec<Block>>,
-        pos: PosInfo,
-        global_idx: usize,
-    },
+    Command(Command),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,21 +102,3 @@ pub enum Style {
     Strikethrough,
     Underline,
 }
-
-// pub fn vec_inline_to_string<'a>(vec: &'a [Inline<'a>]) -> Cow<'a, str> {
-//     vec.iter().map(|item| item.to_cow_string()).collect()
-// }
-// impl<'a> Inline<'a> {
-//     fn to_cow_string(&self) -> Cow<'a, str> {
-//         match self {
-//             Inline::Text(s) => s.clone(),
-//             Inline::Styled(inner, _) => vec_inline_to_string(inner),
-//             Inline::Code(s) => s.clone(),
-//             Inline::SoftBreak => String::default(),
-//             Inline::HardBreak => String::default(),
-//             Inline::Rule => String::default(),
-//             Inline::Html(s) => s.to_string(),
-//             _ => String::default(),
-//         }
-//     }
-// }

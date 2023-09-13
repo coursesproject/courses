@@ -349,7 +349,7 @@ impl TryFrom<Notebook> for Document {
 mod tests {
     use super::*;
 
-    use crate::ast::Inline;
+    use crate::ast::{Command, Inline};
     use crate::common::PosInfo;
     use std::fs::File;
     use std::io::BufReader;
@@ -403,7 +403,7 @@ mod tests {
                     inner: vec![Inline::Text("Heading".to_string())],
                 },
                 Block::Paragraph(vec![
-                    Inline::Command {
+                    Inline::Command(Command {
                         function: "func".to_string(),
                         id: None,
                         parameters: vec![],
@@ -414,7 +414,7 @@ mod tests {
                             end: 15,
                         },
                         global_idx: 0,
-                    },
+                    }),
                     Inline::SoftBreak,
                     Inline::CodeBlock {
                         source: "\nprint('x')\n".to_string(),
@@ -433,6 +433,7 @@ mod tests {
             code_outputs: vec![CodeOutput {
                 values: vec![Outval::Text("x".to_string())],
             }],
+            references: Default::default(),
         };
 
         let parsed = Document::try_from(nb).expect("parsing errors");

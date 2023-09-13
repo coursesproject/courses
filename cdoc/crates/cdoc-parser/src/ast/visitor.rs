@@ -1,13 +1,12 @@
-use crate::ast::{Ast, Block, CodeAttributes, CodeMeta, Inline, Shortcode, ShortcodeBase};
-use crate::notebook::CellOutput;
+use crate::ast::{Block, CodeMeta, Command, Inline, Parameter, Style};
+use crate::common::PosInfo;
 use anyhow::Result;
-use std::ops::Range;
 
 /// Implements the visitor pattern for the cdoc Ast type. Blanket implementations are provided so
 /// implementors only have to implement the methods they need to modify.
 pub trait AstVisitor {
-    fn walk_ast(&mut self, ast: &mut Ast) -> Result<()> {
-        self.visit_vec_block(&mut ast.0)
+    fn walk_ast(&mut self, ast: &mut Vec<Block>) -> Result<()> {
+        self.visit_vec_block(ast)
     }
 
     fn walk_vec_block(&mut self, blocks: &mut Vec<Block>) -> Result<()> {
@@ -21,15 +20,6 @@ pub trait AstVisitor {
             Block::Paragraph(ref mut is) | Block::BlockQuote(ref mut is) => {
                 self.visit_vec_inline(is)
             }
-            Block::CodeBlock {
-                ref mut source,
-                ref mut reference,
-                ref mut attr,
-                ref mut tags,
-                ref mut meta,
-                ref mut outputs,
-                ref mut display_cell,
-            } => self.visit_code_block(source, reference, attr, tags, meta, outputs, display_cell),
             Block::List(_, ref mut blocks) => self.visit_vec_block(blocks),
             Block::ListItem(ref mut blocks) => self.visit_vec_block(blocks),
         }
@@ -42,9 +32,7 @@ pub trait AstVisitor {
     fn walk_inline(&mut self, inline: &mut Inline) -> Result<()> {
         match inline {
             Inline::Text(_) => Ok(()),
-            Inline::Emphasis(ref mut is)
-            | Inline::Strong(ref mut is)
-            | Inline::Strikethrough(ref mut is) => self.visit_vec_inline(is),
+            Inline::Styled(ref mut is, ref mut style) => self.visit_styled(is, style),
             Inline::Code(s) => self.visit_code(s),
             Inline::SoftBreak => Ok(()),
             Inline::HardBreak => Ok(()),
@@ -55,9 +43,24 @@ pub trait AstVisitor {
             Inline::Math {
                 ref mut source,
                 ref mut display_block,
-                ref mut trailing_space,
-            } => self.visit_math(source, display_block, trailing_space),
-            Inline::Shortcode(ref mut s) => self.visit_shortcode(s),
+                ref mut pos,
+            } => self.visit_math(source, display_block, pos),
+            Inline::Command(Command {
+                function,
+                id,
+                parameters,
+                body,
+                pos,
+                global_idx,
+            }) => self.visit_command(function, id, parameters, body, pos, global_idx),
+            Inline::CodeBlock {
+                source,
+                tags,
+                meta,
+                display_cell,
+                global_idx,
+                pos,
+            } => self.visit_code_block(source, tags, meta, display_cell, global_idx, pos),
         }
     }
 
@@ -78,16 +81,18 @@ pub trait AstVisitor {
         self.walk_inline(inline)
     }
 
+    fn visit_styled(&mut self, inlines: &mut Vec<Inline>, _style: &mut Style) -> Result<()> {
+        self.walk_vec_inline(inlines)
+    }
     #[allow(clippy::too_many_arguments)]
     fn visit_code_block(
         &mut self,
         source: &mut String,
-        _reference: &mut Option<String>,
-        _attr: &mut CodeAttributes,
         _tags: &mut Option<Vec<String>>,
         _meta: &mut CodeMeta,
-        _outputs: &mut Vec<CellOutput>,
         _display_cell: &mut bool,
+        _global_idx: &mut usize,
+        _pos: &mut PosInfo,
     ) -> Result<()> {
         self.visit_code(source)
     }
@@ -100,7 +105,7 @@ pub trait AstVisitor {
         &mut self,
         _source: &mut String,
         _display_block: &mut bool,
-        _trailing_space: &mut bool,
+        _pos: &mut PosInfo,
     ) -> Result<()> {
         Ok(())
     }
@@ -108,25 +113,18 @@ pub trait AstVisitor {
         Ok(())
     }
 
-    fn walk_shortcode(&mut self, shortcode: &mut Shortcode) -> Result<()> {
-        match shortcode {
-            Shortcode::Inline(ref mut s) => self.visit_shortcode_base(s, None),
-            Shortcode::Block(ref mut s, ref mut blocks, ref pos) => {
-                self.visit_shortcode_base(s, Some(pos))?;
-                self.walk_vec_block(blocks)
-            }
-        }
-    }
-
-    fn visit_shortcode_base(
+    fn visit_command(
         &mut self,
-        _shortcode_base: &mut ShortcodeBase,
-        _body_pos: Option<&Range<usize>>,
+        _function: &mut String,
+        _id: &mut Option<String>,
+        _parameters: &mut Vec<Parameter>,
+        body: &mut Option<Vec<Block>>,
+        _pos: &mut PosInfo,
+        _global_idx: &mut usize,
     ) -> Result<()> {
+        if let Some(body) = body {
+            self.walk_vec_block(body)?;
+        }
         Ok(())
-    }
-
-    fn visit_shortcode(&mut self, shortcode: &mut Shortcode) -> Result<()> {
-        self.walk_shortcode(shortcode)
     }
 }

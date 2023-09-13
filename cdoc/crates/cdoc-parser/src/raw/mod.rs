@@ -1,14 +1,23 @@
 mod parser;
 
 pub use parser::*;
+use std::collections::HashMap;
 
 use crate::common::PosInfo;
 use std::io::{BufWriter, Write};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct RawDocument {
     pub(crate) src: Vec<ElementInfo>,
     pub(crate) meta: Option<String>,
+    pub(crate) references: HashMap<String, Reference>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Reference {
+    Math(String),
+    Code(String),
+    Command(String, Vec<Parameter>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -93,6 +102,8 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
 
         let mut code_idx = 0;
         let mut command_idx = 0;
+        let mut math_idx = 0;
+        let mut extra_idx = 0;
 
         for elem in value.into_iter() {
             match elem.element {
@@ -100,19 +111,30 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                     writer.write(s.as_bytes()).unwrap();
                 }
                 Element::Extern(inner) => {
-                    let idx = code_idx + command_idx;
+                    let idx = code_idx + command_idx + math_idx + extra_idx;
 
                     let identifier = match inner {
-                        Extern::Math { .. } => 0,
-                        Extern::Code { .. } => {
-                            code_idx += 1;
-                            code_idx - 1
+                        Extern::Math { .. } => {
+                            math_idx += 1;
+                            math_idx - 1
+                        }
+                        Extern::Code { lvl, .. } => {
+                            if lvl > 1 {
+                                code_idx += 1;
+                                code_idx - 1
+                            } else {
+                                extra_idx += 1;
+                                0
+                            }
                         }
                         Extern::Command { .. } => {
                             command_idx += 1;
                             command_idx - 1
                         }
-                        Extern::Verbatim(_) => 0,
+                        Extern::Verbatim(_) => {
+                            extra_idx += 1;
+                            0
+                        }
                     };
 
                     children.push(Child {

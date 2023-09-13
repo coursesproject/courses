@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::Range;
 
 use anyhow::{Context, Result};
+use cdoc_parser::ast::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -54,8 +55,8 @@ pub struct Document<C> {
     pub content: C,
     pub metadata: DocumentMetadata,
     pub variables: DocumentVariables,
-    pub ids: HashMap<String, (usize, Vec<ShortCodeCall>)>,
-    pub id_map: HashMap<String, (usize, ShortCodeCall)>,
+    pub ids: HashMap<String, (usize, Vec<Command>)>,
+    pub id_map: HashMap<String, (usize, Command)>,
 }
 
 pub fn split_markdown(src: &str) -> Result<Vec<Block>> {

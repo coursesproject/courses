@@ -1,5 +1,5 @@
-use crate::ast::Block;
-use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument};
+use crate::ast::{Block, Command};
+use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Reference};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -10,6 +10,7 @@ pub struct Document {
     pub meta: Metadata,
     pub content: Vec<Block>,
     pub code_outputs: Vec<CodeOutput>,
+    pub references: HashMap<String, Reference>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -75,6 +76,7 @@ fn parse_raw(doc: RawDocument) -> Result<Document> {
             |meta| serde_yaml::from_str(&meta),
         )?,
         code_outputs: Vec::new(),
+        references: Default::default(),
     })
 }
 

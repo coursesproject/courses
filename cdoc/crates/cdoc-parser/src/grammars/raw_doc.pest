@@ -22,7 +22,7 @@ param =  { (key ~ "=" ~ value) | value }
 
 parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
 
-body       =  { (!"}" ~ !"\\{" ~ command_disallow ~ !"´" ~ !"$" ~ ANY)+ }
+body       =  { (!"}" ~ !"\\{" ~ command_disallow ~ !"`" ~ !"$" ~ ANY)+ }
 body_inner = _{ (code_def | math_block | command | verbatim_def | body)* }
 body_def   = ${ "{" ~ body_inner ~ "}" }
 
@@ -43,7 +43,7 @@ code     = { (!PEEK ~ ANY)+ }
 verbatim =  { (!"\\}" ~ ANY)+ }
 src      = ${ (command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
 
-element = _{ command | math_block | code_def | verbatim_def | src }
+element = _{ math_block | code_def | verbatim_def | command | src }
 
 meta     =  { (!(NEWLINE ~ "---") ~ ANY)* }
 meta_def = _{ ("---" ~ NEWLINE) ~ meta ~ (NEWLINE ~ "---") }

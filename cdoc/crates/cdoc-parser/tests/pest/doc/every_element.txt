@@ -1,0 +1,108 @@
+Every element used
+
+=======
+---
+meta: hello
+---
+
+# Heading
+
+## Subheading
+
+- unordered list
+- item 2
+
+1. ordered list
+2. item 2
+
+[link](path/is/here)
+![image](path/is/here)
+
+*emph*
+**strong**
+
+`code inline`
+
+```
+code block
+```
+
+$math inline$
+
+$$
+math block
+$$
+
+#func
+
+#func_param(p1, x=p2)
+
+#func_body{
+hello there
+}
+
+#func_all(p1, x=p2){
+hello there
+}
+
+#func{
+`#func`
+#inner{
+$math$
+}
+}
+=======
+
+(doc
+    (meta: "meta: hello")
+    (src: "\n\n# Heading\n\n## Subheading\n\n- unordered list\n- item 2\n\n1. ordered list\n2. item 2\n\n[link](path/is/here)\n![image](path/is/here)\n\n*emph*\n**strong**\n\n")
+    (code_def (code_lvl: "`") (code: "code inline"))
+    (src: "\n\n")
+    (code_def (code_lvl: "```") (code: "\ncode block\n"))
+    (src: "\n\n")
+    (math_block (math_lvl: "$") (math: "math inline"))
+    (src: "\n\n")
+    (math_block (math_lvl: "$$") (math: "\nmath block\n"))
+    (src: "\n\n")
+    (command (command_name (ident: "func")))
+    (src: "\n\n")
+    (command
+        (command_name (ident: "func_param"))
+        (parameters
+            (param (basic_val: "p1"))
+            (param (key: "x") (basic_val: "p2"))
+        )
+    )
+    (src: "\n\n")
+    (command
+        (command_name (ident: "func_body"))
+        (body_def (body: "\nhello there\n"))
+    )
+    (src: "\n\n")
+    (command
+        (command_name (ident: "func_all"))
+        (parameters
+            (param (basic_val: "p1"))
+            (param (key: "x") (basic_val: "p2"))
+        )
+        (body_def (body: "\nhello there\n"))
+    )
+    (src: "\n\n")
+    (command
+        (command_name (ident: "func"))
+        (body_def
+            (body: "\n")
+            (code_def (code_lvl: "`") (code: "#func"))
+            (body: "\n")
+            (command
+                (command_name (ident: "inner"))
+                (body_def
+                    (body: "\n")
+                    (math_block (math_lvl: "$") (math: "math"))
+                    (body: "\n")
+                )
+            )
+            (body: "\n")
+        )
+    )
+)
