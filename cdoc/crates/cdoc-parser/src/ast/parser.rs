@@ -1,7 +1,7 @@
 use crate::ast::*;
-use crate::common::PosInfo;
+
 use crate::raw;
-use crate::raw::{Child, ComposedMarkdown, Extern, RawDocument};
+use crate::raw::{Child, ComposedMarkdown, Extern};
 use anyhow::{anyhow, Context};
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
@@ -69,7 +69,19 @@ impl From<raw::Parameter> for Parameter {
         Parameter {
             key: value.key,
             value: value.value.into(),
-            pos: value.span.into(),
+            pos: value.pos.into(),
+        }
+    }
+}
+
+impl From<raw::Reference> for Reference {
+    fn from(value: raw::Reference) -> Self {
+        match value {
+            raw::Reference::Math(s) => Reference::Math(s),
+            raw::Reference::Code(s) => Reference::Code(s),
+            raw::Reference::Command(name, val) => {
+                Reference::Command(name, val.into_iter().map(|p| p.into()).collect())
+            }
         }
     }
 }
@@ -82,20 +94,14 @@ impl From<Child> for Inline {
                 display_block: is_block,
                 pos: value.pos,
             },
-            Extern::Code { lvl, inner } => {
-                if lvl == 1 {
-                    Inline::Code(inner)
-                } else {
-                    Inline::CodeBlock {
-                        source: inner,
-                        tags: None,
-                        meta: Default::default(),
-                        display_cell: false,
-                        global_idx: value.identifier,
-                        pos: value.pos,
-                    }
-                }
-            }
+            Extern::CodeBlock { inner, .. } => Inline::CodeBlock {
+                source: inner,
+                tags: None,
+                display_cell: false,
+                global_idx: value.identifier,
+                pos: value.pos,
+            },
+            Extern::CodeInline { inner } => Inline::Code(inner),
             Extern::Command {
                 function,
                 id,
@@ -382,7 +388,6 @@ mod tests {
             Block::Paragraph(vec![Inline::CodeBlock {
                 source: "\ncode block\n".to_string(),
                 tags: None,
-                meta: Default::default(),
                 display_cell: false,
                 global_idx: 0,
                 pos: PosInfo {

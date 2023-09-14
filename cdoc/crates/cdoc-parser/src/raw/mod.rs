@@ -3,6 +3,7 @@ mod parser;
 pub use parser::*;
 use std::collections::HashMap;
 
+use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
 use std::io::{BufWriter, Write};
 
@@ -32,9 +33,12 @@ pub enum Extern {
         inner: String,
         is_block: bool,
     },
-    Code {
-        lvl: usize,
+    CodeInline {
         inner: String,
+    },
+    CodeBlock {
+        lvl: usize,
+        inner: CodeContent,
     },
     Command {
         function: String,
@@ -55,23 +59,23 @@ pub struct ElementInfo {
 pub struct Parameter {
     pub key: Option<String>,
     pub value: Value,
-    pub span: PosInfo,
+    pub pos: PosInfo,
 }
 
 impl Parameter {
-    pub fn with_value(value: Value, span: PosInfo) -> Self {
+    pub fn with_value(value: Value, pos: PosInfo) -> Self {
         Self {
             key: None,
             value,
-            span,
+            pos,
         }
     }
 
-    pub fn with_key<C: Into<String>>(key: C, value: Value, span: PosInfo) -> Self {
+    pub fn with_key<C: Into<String>>(key: C, value: Value, pos: PosInfo) -> Self {
         Self {
             key: Some(key.into()),
             value,
-            span,
+            pos,
         }
     }
 }
@@ -118,7 +122,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                             math_idx += 1;
                             math_idx - 1
                         }
-                        Extern::Code { lvl, .. } => {
+                        Extern::CodeBlock { lvl, .. } => {
                             if lvl > 1 {
                                 code_idx += 1;
                                 code_idx - 1
@@ -132,6 +136,10 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                             command_idx - 1
                         }
                         Extern::Verbatim(_) => {
+                            extra_idx += 1;
+                            0
+                        }
+                        Extern::CodeInline { .. } => {
                             extra_idx += 1;
                             0
                         }

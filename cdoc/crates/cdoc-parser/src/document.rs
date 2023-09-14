@@ -1,14 +1,14 @@
-use crate::ast::{Block, Command};
+use crate::ast::{Ast, Block, Command};
 use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Reference};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
-pub struct Document {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Document<T> {
     pub meta: Metadata,
-    pub content: Vec<Block>,
+    pub content: T,
     pub code_outputs: Vec<CodeOutput>,
     pub references: HashMap<String, Reference>,
 }
@@ -47,12 +47,12 @@ pub struct LayoutSettings {
     pub hide_sidebar: bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CodeOutput {
-    pub(crate) values: Vec<Outval>,
+    pub values: Vec<Outval>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Outval {
     Text(String),
     Image(Image),
@@ -62,15 +62,15 @@ pub enum Outval {
     Error(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Image {
     Png(String),
     Svg(String),
 }
 
-fn parse_raw(doc: RawDocument) -> Result<Document> {
+fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
     Ok(Document {
-        content: ComposedMarkdown::from(doc.src).into(),
+        content: Ast(ComposedMarkdown::from(doc.src).into()),
         meta: doc.meta.map_or(
             Ok::<Metadata, serde_yaml::Error>(Metadata::default()),
             |meta| serde_yaml::from_str(&meta),
@@ -80,11 +80,31 @@ fn parse_raw(doc: RawDocument) -> Result<Document> {
     })
 }
 
-impl TryFrom<&str> for Document {
+impl TryFrom<&str> for Document<Ast> {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let raw = parse_to_doc(value)?;
         parse_raw(raw)
+    }
+}
+
+impl<T> Document<T> {
+    pub fn map<O, F: Fn(T) -> O>(self, f: F) -> Document<O> {
+        Document {
+            content: f(self.content),
+            meta: self.meta,
+            code_outputs: self.code_outputs,
+            references: self.references,
+        }
+    }
+
+    pub fn try_map<O, F: Fn(T) -> Result<O>>(self, f: F) -> Result<Document<O>> {
+        Ok(Document {
+            content: f(self.content)?,
+            meta: self.meta,
+            code_outputs: self.code_outputs,
+            references: self.references,
+        })
     }
 }

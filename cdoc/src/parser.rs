@@ -1,9 +1,9 @@
-use crate::ast::Ast;
+use cdoc_parser::ast::Ast;
+use cdoc_parser::document::Document;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document::Document;
-use crate::processors::exercises::ExercisesConfig;
+use crate::processors::cell_outputs::CellOutputConfig;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -15,7 +15,7 @@ pub struct Parser {
 }
 
 fn default_preprocessors() -> Vec<Box<dyn AstPreprocessorConfig>> {
-    vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>]
+    vec![Box::new(CellOutputConfig) as Box<dyn AstPreprocessorConfig>]
 }
 
 /// Additional parser configuration.
@@ -29,7 +29,7 @@ pub struct ParserSettings {
 impl Parser {
     pub fn parse(
         &self,
-        doc: &Document<Ast>,
+        doc: Document<Ast>,
         ctx: &PreprocessorContext,
     ) -> Result<Document<Ast>, anyhow::Error> {
         let doc_ast = self.run_ast_processors(doc.clone(), ctx)?;

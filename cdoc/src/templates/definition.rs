@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::parsers::shortcodes::{Argument, ArgumentValue};
+use crate::renderers::generic::RenderedParam;
 use crate::templates::precompiled::{PrecompiledFormat, PrecompiledTemplate};
 use thiserror::Error;
 use walkdir::WalkDir;
@@ -225,11 +225,11 @@ pub enum ValidationError {
 }
 
 impl ParameterType {
-    pub fn validate(&self, value: &ArgumentValue<String>) -> Result<(), ValidationError> {
+    pub fn validate(&self, value: &RenderedParam) -> Result<(), ValidationError> {
         match self {
             ParameterType::Regular => Ok(()),
             ParameterType::Choice(choices) => {
-                let v = value.inner();
+                let v = &value.value;
                 choices.contains(v).then_some(()).ok_or_else(|| {
                     ValidationError::InvalidValue(format!(
                         "The provided value {} must be one of {:?}",
@@ -275,29 +275,29 @@ impl TemplateDefinition {
 
     pub fn validate_args(
         &self,
-        args: &[Argument<String>],
+        args: &[RenderedParam],
     ) -> Result<Vec<anyhow::Result<()>>, anyhow::Error> {
         if let TemplateType::Shortcode = &self.type_ {
             let s = self.shortcode.as_ref().unwrap();
             let res: Vec<Result<(), anyhow::Error>> = args
                 .iter()
                 .enumerate()
-                .map(|(i, p)| match p {
-                    Argument::Positional { value } => s
-                        .parameters
-                        .get(i)
-                        .map(|sp| sp.type_.validate(value))
-                        .ok_or(ValidationError::InvalidValue(value.inner().to_string()))?,
-                    Argument::Keyword { name, value } => {
+                .map(|(i, p)| {
+                    if let Some(key) = &p.key {
                         if s.accept_arbitrary_params {
                             Ok(())
                         } else {
                             s.parameters
                                 .iter()
-                                .find(|sp| &sp.name == name)
-                                .map(|sp| sp.type_.validate(value))
-                                .ok_or(ValidationError::InvalidName(name.clone()))?
+                                .find(|sp| &sp.name == key)
+                                .map(|sp| sp.type_.validate(p))
+                                .ok_or(ValidationError::InvalidName(key.clone()))?
                         }
+                    } else {
+                        s.parameters
+                            .get(i)
+                            .map(|sp| sp.type_.validate(p))
+                            .ok_or(ValidationError::InvalidValue(p.value.clone()))?
                     }
                 })
                 .map(|r| r.context(format!("when parsing shortcode '{}'", self.name)))

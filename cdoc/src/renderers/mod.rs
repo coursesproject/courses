@@ -1,4 +1,3 @@
-use crate::ast::Ast;
 use crate::config::Format;
 use anyhow::Result;
 
@@ -7,12 +6,12 @@ use dyn_clone::DynClone;
 use std::fmt::Debug;
 use std::io::Write;
 
+use cdoc_parser::ast::Ast;
+use cdoc_parser::document::Document;
+use cdoc_parser::notebook::NotebookMeta;
 use syntect::highlighting::Theme;
 use syntect::parsing::SyntaxSet;
 use tera::Context;
-
-use crate::document::Document;
-use crate::notebook::NotebookMeta;
 
 use crate::templates::TemplateManager;
 

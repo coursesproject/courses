@@ -1,4 +1,4 @@
-mod types;
+pub mod types;
 
 use crate::code_ast::types::{CodeBlock, CodeContent, Solution};
 use pest::error::ErrorVariant;

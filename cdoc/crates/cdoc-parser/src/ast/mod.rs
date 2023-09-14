@@ -1,12 +1,17 @@
 pub mod parser;
 pub mod visitor;
 
+use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
 use pulldown_cmark::{HeadingLevel, LinkType};
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct Ast(pub Vec<Block>);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Command {
     pub function: String,
     pub id: Option<String>,
@@ -16,7 +21,7 @@ pub struct Command {
     pub global_idx: usize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Inline {
     /// Plain text
     Text(String),
@@ -26,11 +31,9 @@ pub enum Inline {
     /// A code block. May originate from markdown fenced code blocks or notebook code cells.
     CodeBlock {
         /// Code source
-        source: String,
+        source: CodeContent,
         /// Code tags
         tags: Option<Vec<String>>,
-        /// Meta
-        meta: CodeMeta,
         /// Display the block as a cell or listing (only used for notebooks)
         display_cell: bool,
         global_idx: usize,
@@ -57,21 +60,28 @@ pub enum Inline {
     Command(Command),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
     pub key: Option<String>,
     pub value: Value,
     pub pos: PosInfo,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum Reference {
+    Math(String),
+    Code(String),
+    Command(String, Vec<Parameter>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Flag(String),
     Content(Vec<Block>),
     String(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Block {
     Heading {
         lvl: u8,
@@ -87,7 +97,7 @@ pub enum Block {
     ListItem(Vec<Block>),
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CodeMeta {
     pub id: String,
     pub editable: bool,
@@ -95,7 +105,7 @@ pub struct CodeMeta {
     pub custom: HashMap<String, String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Style {
     Emphasis,
     Strong,

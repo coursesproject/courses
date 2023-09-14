@@ -1,5 +1,4 @@
 use crate::raw::{RawDocument, Reference};
-use pest::error::Error;
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -8,12 +7,22 @@ use pest_derive::Parser;
 #[grammar = "grammars/raw_doc.pest"]
 pub struct RawDocParser;
 
+use crate::code_ast::parse_code_string;
 use crate::common::PosInfo;
 use crate::raw::{Element, ElementInfo, Extern, Parameter, Value};
 use pest::iterators::Pairs;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ParserError {
+    #[error("code cell parsing error")]
+    CodeError(#[from] Box<pest::error::Error<crate::code_ast::Rule>>),
+    #[error("document parsing error")]
+    DocError(#[from] pest::error::Error<Rule>),
+}
 
 impl RawDocument {
-    fn parse_doc(&mut self, mut pairs: Pairs<Rule>) -> Result<(), Error<Rule>> {
+    fn parse_doc(&mut self, mut pairs: Pairs<Rule>) -> Result<(), ParserError> {
         let mut elems = pairs.next().expect("no root item").into_inner();
 
         if let Some(p) = elems.next() {
@@ -21,34 +30,34 @@ impl RawDocument {
                 Rule::meta => self.parse_meta(p),
                 _ => {
                     let el = self.parse_element(p);
-                    self.src.push(el)
+                    self.src.push(el?)
                 }
             }
         }
 
-        let elems = self.parse_elements(elems);
+        let elems = self.parse_elements(elems)?;
         self.src.extend(elems);
 
         Ok(())
     }
 
-    fn parse_elements(&mut self, pairs: Pairs<Rule>) -> Vec<ElementInfo> {
+    fn parse_elements(&mut self, pairs: Pairs<Rule>) -> Result<Vec<ElementInfo>, ParserError> {
         pairs.map(|p| self.parse_element(p.clone())).collect()
     }
 
-    fn parse_element(&mut self, pair: Pair<Rule>) -> ElementInfo {
+    fn parse_element(&mut self, pair: Pair<Rule>) -> Result<ElementInfo, ParserError> {
         let span = PosInfo::from(pair.as_span());
 
         let element = match pair.as_rule() {
-            Rule::command => Element::Extern(self.parse_command(pair)),
+            Rule::command => Element::Extern(self.parse_command(pair)?),
             Rule::math_block => Element::Extern(self.parse_math(pair)),
-            Rule::code_def => Element::Extern(self.parse_code(pair)),
+            Rule::code_def => Element::Extern(self.parse_code(pair)?),
             Rule::verbatim => Element::Extern(self.parse_verbatim(pair)),
             Rule::src | Rule::string | Rule::body => self.parse_src(pair),
             _ => unreachable!(),
         };
 
-        ElementInfo { element, pos: span }
+        Ok(ElementInfo { element, pos: span })
     }
 
     fn parse_src(&mut self, pair: Pair<Rule>) -> Element {
@@ -56,7 +65,7 @@ impl RawDocument {
         Element::Markdown(value.into())
     }
 
-    fn parse_command(&mut self, pair: Pair<Rule>) -> Extern {
+    fn parse_command(&mut self, pair: Pair<Rule>) -> Result<Extern, ParserError> {
         let mut inner = pair.into_inner();
         let name = inner
             .next()
@@ -72,8 +81,8 @@ impl RawDocument {
 
         while let Some(elem) = inner.next() {
             match elem.as_rule() {
-                Rule::parameters => parameters = self.parse_parameters(elem.into_inner()),
-                Rule::body_def => body = Some(self.parse_elements(elem.into_inner())),
+                Rule::parameters => parameters = self.parse_parameters(elem.into_inner())?,
+                Rule::body_def => body = Some(self.parse_elements(elem.into_inner())?),
                 Rule::id => id = Some(elem.into_inner().as_str().into()),
                 _ => unreachable!(),
             }
@@ -84,15 +93,15 @@ impl RawDocument {
                 .insert(id, Reference::Command(name.to_string(), parameters.clone()));
         }
 
-        Extern::Command {
+        Ok(Extern::Command {
             function: name.into(),
             id,
             parameters,
             body,
-        }
+        })
     }
 
-    fn parse_parameters(&mut self, pairs: Pairs<Rule>) -> Vec<Parameter> {
+    fn parse_parameters(&mut self, pairs: Pairs<Rule>) -> Result<Vec<Parameter>, ParserError> {
         pairs
             .into_iter()
             .map(|elem| {
@@ -105,26 +114,26 @@ impl RawDocument {
             .collect()
     }
 
-    fn parse_param(&mut self, pair: Pair<Rule>) -> Parameter {
+    fn parse_param(&mut self, pair: Pair<Rule>) -> Result<Parameter, ParserError> {
         let span = PosInfo::from(pair.as_span());
         let mut pairs = pair.into_inner();
         let first = pairs.next().expect("empty param");
 
-        if let Rule::key = first.as_rule() {
+        Ok(if let Rule::key = first.as_rule() {
             let value = pairs.next().expect("no value");
-            Parameter::with_key(first.as_str(), self.parse_value(value), span)
+            Parameter::with_key(first.as_str(), self.parse_value(value)?, span)
         } else {
-            Parameter::with_value(self.parse_value(first), span)
-        }
+            Parameter::with_value(self.parse_value(first)?, span)
+        })
     }
 
-    fn parse_value(&mut self, pair: Pair<Rule>) -> Value {
-        match pair.as_rule() {
+    fn parse_value(&mut self, pair: Pair<Rule>) -> Result<Value, ParserError> {
+        Ok(match pair.as_rule() {
             Rule::basic_val | Rule::string => Value::String(pair.as_str().into()),
-            Rule::md_val => Value::Content(self.parse_elements(pair.into_inner())),
+            Rule::md_val => Value::Content(self.parse_elements(pair.into_inner())?),
             Rule::flag => Value::Flag(pair.as_str().into()),
             _ => unreachable!(),
-        }
+        })
     }
 
     fn block_parser(&mut self, pair: Pair<Rule>) -> (String, String) {
@@ -143,13 +152,18 @@ impl RawDocument {
         }
     }
 
-    fn parse_code(&mut self, pair: Pair<Rule>) -> Extern {
+    fn parse_code(&mut self, pair: Pair<Rule>) -> Result<Extern, ParserError> {
         let (lvl, src) = self.block_parser(pair);
 
-        Extern::Code {
-            lvl: lvl.len(),
-            inner: src.into(),
-        }
+        Ok(if lvl.len() == 1 {
+            Extern::CodeInline { inner: src }
+        } else {
+            let content = parse_code_string(&src)?;
+            Extern::CodeBlock {
+                lvl: lvl.len(),
+                inner: content,
+            }
+        })
     }
 
     fn parse_verbatim(&mut self, pair: Pair<Rule>) -> Extern {
@@ -162,7 +176,7 @@ impl RawDocument {
     }
 }
 
-pub fn parse_to_doc(input: &str) -> Result<RawDocument, Error<Rule>> {
+pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
     let mut doc = RawDocument::default();
     doc.parse_doc(RawDocParser::parse(Rule::top, input)?)?;
     Ok(doc)
@@ -202,7 +216,7 @@ code
 ```"#;
         let expected = RawDocument {
             src: vec![ElementInfo {
-                element: Element::Extern(Extern::Code {
+                element: Element::Extern(Extern::CodeBlock {
                     lvl: 3,
                     inner: "\ncode\n".into(),
                 }),
@@ -316,23 +330,23 @@ code
                     function: "func".into(),
                     id: None,
                     parameters: vec![
-                        Parameter { key: None, value: Value::String("basic".into()), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 6, 11) },
-                        Parameter { key: None, value: Value::String("quoted".into()), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 13, 21) },
+                        Parameter { key: None, value: Value::String("basic".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 6, 11) },
+                        Parameter { key: None, value: Value::String("quoted".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 13, 21) },
                         Parameter { key: None, value: Value::Content(vec![
                             ElementInfo {
                                 element: Element::Markdown("content".into()),
                                 pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 24, 31)
                             }
-                        ]), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 23, 32) },
-                        Parameter { key: Some("key".into()), value: Value::String("basic".into()), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 34, 43) },
-                        Parameter { key: Some("key".into()), value: Value::String("quoted".into()), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 45, 57) },
+                        ]), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 23, 32) },
+                        Parameter { key: Some("key".into()), value: Value::String("basic".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 34, 43) },
+                        Parameter { key: Some("key".into()), value: Value::String("quoted".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 45, 57) },
                         Parameter { key: Some("key".into()), value: Value::Content(vec![
                             ElementInfo {
                                 element: Element::Markdown("content".into()),
                                 pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 64, 71)
                             }
-                        ]), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 59, 72) },
-                        Parameter { key: None, value: Value::Flag("flag".into()), span: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 74, 79) }
+                        ]), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 59, 72) },
+                        Parameter { key: None, value: Value::Flag("flag".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 74, 79) }
                     ],
                     body: None,
                 }),
@@ -345,7 +359,7 @@ code
                     function: "func".into(),
                     id: None,
                     parameters: vec![
-                        Parameter { key: None, value: Value::String("c".to_string()), span: PosInfo::new("#func(c){x}", 6, 7)}
+                        Parameter { key: None, value: Value::String("c".to_string()), pos: PosInfo::new("#func(c){x}", 6, 7)}
                     ],
                     body: Some(vec![
                         ElementInfo {

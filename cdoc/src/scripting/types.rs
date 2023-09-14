@@ -1,4 +1,3 @@
-use crate::document::DocumentMetadata;
 use rhai::plugin::*;
 use rhai::{CustomType, TypeBuilder};
 

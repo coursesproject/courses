@@ -1,5 +1,5 @@
-use crate::document::Document;
 use crate::renderers::{DocumentRenderer, RenderContext, RenderResult};
+use cdoc_parser::document::Document;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]

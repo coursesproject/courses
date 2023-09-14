@@ -1,8 +1,10 @@
 pub mod ast;
-mod code_ast;
+pub mod code_ast;
 mod common;
+
+pub use common::*;
 pub mod document;
-mod notebook;
+pub mod notebook;
 pub mod raw;
 
 #[cfg(test)]

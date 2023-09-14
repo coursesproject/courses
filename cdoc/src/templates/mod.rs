@@ -8,12 +8,14 @@ use rhai::serde::{from_dynamic, to_dynamic};
 use std::io;
 use std::path::PathBuf;
 
+use cdoc_parser::ast::Parameter;
+use cdoc_parser::ast::Reference;
 use tera::{Context, Filter, Function, Tera};
 
 mod definition;
 mod precompiled;
 
-use crate::parsers::shortcodes::{Argument, ShortCodeCall};
+use crate::renderers::generic::RenderedParam;
 pub use definition::*;
 
 fn create_rhai_filter(source: String) -> impl Filter {
@@ -259,7 +261,7 @@ impl TemplateManager {
     pub fn validate_args_for_template(
         &self,
         id: &str,
-        args: &[Argument<String>],
+        args: &[RenderedParam],
     ) -> anyhow::Result<Vec<anyhow::Result<()>>> {
         let tp = self
             .get_template(id, TemplateType::Shortcode)
@@ -267,28 +269,27 @@ impl TemplateManager {
         tp.validate_args(args)
     }
 
-    pub fn shortcode_call_resolve_positionals(
-        &self,
-        call: ShortCodeCall,
-    ) -> anyhow::Result<ShortCodeCall> {
-        let tp = self.get_template(&call.name, TemplateType::Shortcode)?;
-        let params = tp.shortcode.unwrap().parameters;
-        let args = call
-            .arguments
-            .into_iter()
-            .enumerate()
-            .map(|(i, a)| match a {
-                Argument::Keyword { name, value } => Argument::Keyword { name, value },
-                Argument::Positional { value } => Argument::Keyword {
-                    name: params.get(i).unwrap().name.clone(),
-                    value,
-                },
-            })
-            .collect();
-        Ok(ShortCodeCall {
-            name: call.name,
-            id: call.id,
-            arguments: args,
+    pub fn shortcode_call_resolve_positionals(&self, call: Reference) -> anyhow::Result<Reference> {
+        Ok(if let Reference::Command(name, arguments) = call {
+            let tp = self.get_template(&name, TemplateType::Shortcode)?;
+            let params = tp.shortcode.unwrap().parameters;
+
+            let args = arguments
+                .into_iter()
+                .enumerate()
+                .map(|(i, a)| {
+                    let k = a.key.unwrap_or_else(|| params.get(i).unwrap().name.clone());
+                    Parameter {
+                        key: Some(k),
+                        value: a.value,
+                        pos: a.pos,
+                    }
+                })
+                .collect();
+
+            Reference::Command(name, args)
+        } else {
+            call
         })
     }
 }

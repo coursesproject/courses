@@ -1,9 +1,9 @@
-use crate::ast::{Ast, AstVisitor, Block, Inline, Shortcode, ShortcodeBase};
-use crate::document::Document;
-use crate::notebook::{CellOutput, OutputValue};
 use crate::parser::ParserSettings;
-use crate::parsers::shortcodes::{Argument, ArgumentValue};
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
+use cdoc_parser::ast::visitor::AstVisitor;
+use cdoc_parser::ast::{Ast, Block, Command, Inline, Parameter, Value};
+use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
+use cdoc_parser::PosInfo;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -24,103 +24,83 @@ impl AstPreprocessorConfig for CellOutputConfig {
 #[derive(Debug, Default)]
 pub struct CellProcessor;
 
-impl AstVisitor for CellProcessor {
-    fn visit_vec_block(&mut self, blocks: &mut Vec<Block>) -> anyhow::Result<()> {
+pub struct CellVisitor<'a> {
+    outputs: &'a [CodeOutput],
+}
+
+impl AstVisitor for CellVisitor<'_> {
+    fn visit_vec_inline(&mut self, inlines: &mut Vec<Inline>) -> anyhow::Result<()> {
         let mut offset = 0;
-        for (i, block) in blocks.clone().into_iter().enumerate() {
-            if let Block::CodeBlock { outputs, meta, .. } = block {
-                for output in outputs {
+        for (i, inline) in inlines.clone().into_iter().enumerate() {
+            if let Inline::CodeBlock {
+                source, global_idx, ..
+            } = inline
+            {
+                let outputs = &self.outputs[global_idx];
+                for output in &outputs.values {
                     match output {
-                        CellOutput::Data { data, .. } => {
-                            let mut params = Vec::new();
-                            for (key, val) in meta.custom.clone() {
-                                params.push(Argument::Keyword {
-                                    name: key,
-                                    value: ArgumentValue::Literal(vec![Block::Plain(vec![
-                                        Inline::Text(val),
-                                    ])]),
-                                });
-                            }
-
-                            let mut create_figure = false;
-
-                            for d in data {
-                                match d {
-                                    OutputValue::Plain(_) => {}
-                                    OutputValue::Image(s) => {
-                                        create_figure = true;
-                                        params.push(Argument::Keyword {
-                                            name: "base64".to_string(),
-                                            value: ArgumentValue::Literal(vec![Block::Plain(
-                                                vec![Inline::Text(s)],
-                                            )]),
-                                        })
-                                    }
-                                    OutputValue::Svg(s) => {
-                                        create_figure = true;
-                                        params.push(Argument::Keyword {
-                                            name: "svg".to_string(),
-                                            value: ArgumentValue::Literal(vec![Block::Plain(
-                                                vec![Inline::Text(s)],
-                                            )]),
-                                        })
-                                    }
-                                    OutputValue::Json(_) => {}
-                                    OutputValue::Html(_) => {}
-                                    OutputValue::Javascript(_) => {}
-                                }
-                            }
-
-                            if create_figure {
-                                let sc = Shortcode::Inline(ShortcodeBase {
-                                    name: "figure".to_string(),
-                                    id: meta.custom.get("id").map(String::from),
-                                    // num: 0,
-                                    parameters: params,
-                                    pos: Default::default(),
-                                    cell: 0,
-                                });
-
-                                blocks.insert(
-                                    i + offset + 1,
-                                    Block::Plain(vec![Inline::Shortcode(sc)]),
-                                );
-                                offset += 1;
-                            }
-                        }
-                        CellOutput::Stream { name, text } => {
-                            let sc = Shortcode::Inline(ShortcodeBase {
-                                name: "output_text".to_string(),
+                        Outval::Text(s) => {
+                            let command = Command {
+                                function: "output_text".to_string(),
                                 id: None,
-                                parameters: vec![
-                                    Argument::Keyword {
-                                        name: "stdio".to_string(),
-                                        value: ArgumentValue::Literal(vec![Block::Plain(vec![
-                                            Inline::Text(name.to_string()),
-                                        ])]),
-                                    },
-                                    Argument::Keyword {
-                                        name: "value".to_string(),
-                                        value: ArgumentValue::Literal(vec![Block::Plain(vec![
-                                            Inline::Text(text),
-                                        ])]),
-                                    },
-                                ],
+                                parameters: vec![Parameter {
+                                    key: Some("value".to_string()),
+                                    value: Value::String(s.clone()),
+                                    pos: Default::default(),
+                                }],
+                                body: None,
                                 pos: Default::default(),
-                                cell: 0,
-                            });
+                                global_idx: 0,
+                            };
 
-                            blocks
-                                .insert(i + offset + 1, Block::Plain(vec![Inline::Shortcode(sc)]));
+                            inlines.insert(i + offset + 1, Inline::Command(command));
                             offset += 1;
                         }
-                        _ => {}
+                        Outval::Image(img) => {
+                            let mut params = Vec::new();
+                            for (key, val) in source.meta.clone() {
+                                params.push(Parameter {
+                                    key: Some(key),
+                                    value: Value::String(val),
+                                    pos: PosInfo::new("", 0, 0),
+                                });
+                            }
+
+                            match img {
+                                Image::Png(png) => params.push(Parameter {
+                                    key: Some("base64".to_string()),
+                                    value: Value::String(png.clone()),
+                                    pos: PosInfo::new("", 0, 0),
+                                }),
+                                Image::Svg(svg) => params.push(Parameter {
+                                    key: Some("svg".to_string()),
+                                    value: Value::String(svg.clone()),
+                                    pos: PosInfo::new("", 0, 0),
+                                }),
+                            }
+
+                            let command = Command {
+                                function: "figure".to_string(),
+                                id: source.meta.get("id").cloned(),
+                                parameters: params,
+                                body: None,
+                                pos: Default::default(),
+                                global_idx: 0,
+                            };
+
+                            inlines.insert(i + offset + 1, Inline::Command(command));
+                            offset += 1;
+                        }
+                        Outval::Json(_) => {}
+                        Outval::Html(_) => {}
+                        Outval::Javascript(_) => {}
+                        Outval::Error(_) => {}
                     }
                 }
             }
         }
 
-        self.walk_vec_block(blocks)
+        self.walk_vec_inline(inlines)
     }
 }
 
@@ -130,7 +110,10 @@ impl AstPreprocessor for CellProcessor {
     }
 
     fn process(&mut self, mut input: Document<Ast>) -> Result<Document<Ast>, Error> {
-        self.walk_ast(&mut input.content)?;
+        let mut visitor = CellVisitor {
+            outputs: &input.code_outputs,
+        };
+        visitor.walk_ast(&mut input.content.0)?;
         Ok(input)
     }
 }

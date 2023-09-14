@@ -1,14 +1,10 @@
-use crate::ast::{Block, Inline, Shortcode};
-use crate::document::Document;
-use crate::notebook::{CellOutput, OutputValue, StreamType};
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Context as AhContext, Result};
-use pulldown_cmark::HeadingLevel;
-
-use crate::parsers::shortcodes::Argument;
 use serde::{Deserialize, Serialize};
 
+use cdoc_parser::ast::{Block, Command, Inline, Parameter, Style, Value};
+use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tera::Context;
@@ -46,123 +42,92 @@ impl DocumentRenderer for GenericRenderer {
         let content = String::from_utf8(cursor.get_ref().clone())?;
         Ok(Document {
             content,
-            metadata: ctx.doc.metadata.clone(),
-            variables: ctx.doc.variables.clone(),
-            ids: ctx.doc.ids.clone(),
-            id_map: ctx.doc.id_map.clone(),
+            meta: ctx.doc.meta.clone(),
+            references: ctx.doc.references.clone(),
+            code_outputs: ctx.doc.code_outputs.clone(),
         })
     }
+}
+
+pub struct RenderedParam {
+    pub key: Option<String>,
+    pub value: String,
 }
 
 impl GenericRenderer {
     fn render_params(
         &mut self,
-        parameters: Vec<Argument<Vec<Block>>>,
+        parameters: Vec<Parameter>,
         ctx: &RenderContext,
-    ) -> Result<Vec<Argument<String>>> {
+    ) -> Result<Vec<RenderedParam>> {
         parameters
-            .into_iter()
+            .iter()
             .map(|p| {
-                p.clone()
-                    .try_map(|v| v.try_map(|i| self.render_inner(&i, ctx)))
-                    .with_context(|| match p {
-                        Argument::Positional { .. } => "could not render argument".to_string(),
-                        Argument::Keyword { name, .. } => {
-                            format!("Could not render argument `{name}`")
-                        }
-                    })
+                let value: String = match &p.value {
+                    Value::Flag(_) => String::new(),
+                    Value::Content(blocks) => self.render_inner(blocks, ctx)?,
+                    Value::String(s) => s.to_string(),
+                };
+
+                Ok(RenderedParam {
+                    key: p.key.clone(),
+                    value,
+                })
             })
             .collect()
     }
 
-    fn render_shortcode_template(
+    fn render_command_template(
         &mut self,
         ctx: &RenderContext,
-        shortcode: &Shortcode,
+        command: &Command,
         buf: impl Write,
     ) -> Result<()> {
         let mut args = ctx.extra_args.clone();
         args.insert("defs", &ctx.templates.definitions);
 
-        let name = match shortcode {
-            Shortcode::Inline(def) => {
-                let num = if def.id.is_some() {
-                    let num = self.counters.entry(def.name.clone()).or_insert(0);
-                    *num += 1;
-                    *num
-                } else {
-                    0
-                };
-
-                let rendered = self
-                    .render_params(def.parameters.clone(), ctx)
-                    .with_context(|| {
-                        format!(
-                            "error rendering shortcode {} at position {} and cell {}",
-                            def.name, def.pos.start, def.cell
-                        )
-                    })?;
-                let tdef = ctx
-                    .templates
-                    .get_template(&def.name, TemplateType::Shortcode)
-                    .with_context(|| format!("at position {} {}", def.pos.start, def.cell))?;
-                let r: Result<Vec<()>> = ctx
-                    .templates
-                    .validate_args_for_template(&def.name, &rendered)
-                    .with_context(|| {
-                        format!(
-                            "validation error at position {} {}",
-                            def.pos.start, def.cell
-                        )
-                    })?
-                    .into_iter()
-                    .collect();
-                r?;
-
-                add_args(&tdef, &mut args, &def.id, num, rendered)?;
-                def.name.clone()
-            }
-            Shortcode::Block(def, body, _pos) => {
-                let num = if def.id.is_some() {
-                    let num = self.counters.entry(def.name.clone()).or_insert(0);
-                    *num += 1;
-                    *num
-                } else {
-                    0
-                };
-                let rendered = self
-                    .render_params(def.parameters.clone(), ctx)
-                    .with_context(|| {
-                        format!(
-                            "error rendering shortcode {} at position {} and cell {}",
-                            def.name, def.pos.start, def.cell
-                        )
-                    })?;
-                let tdef = ctx
-                    .templates
-                    .get_template(&def.name, TemplateType::Shortcode)
-                    .with_context(|| format!("at position {} {}", def.pos.start, def.cell))?;
-                let r: Result<Vec<()>> = ctx
-                    .templates
-                    .validate_args_for_template(&def.name, &rendered)
-                    .with_context(|| {
-                        format!(
-                            "validation error at position {} {}",
-                            def.pos.start, def.cell
-                        )
-                    })?
-                    .into_iter()
-                    .collect();
-                r?;
-
-                add_args(&tdef, &mut args, &def.id, num, rendered)?;
-                let body = self.render_inner(body, ctx)?;
-                args.insert("body", &body);
-                def.name.clone()
-            }
+        let num = if command.id.is_some() {
+            let num = self.counters.entry(command.function.clone()).or_insert(0);
+            *num += 1;
+            *num
+        } else {
+            0
         };
+        let rendered = self
+            .render_params(command.parameters.clone(), ctx)
+            .with_context(|| {
+                format!(
+                    "error rendering shortcode {} at position {} and global index {}",
+                    command.function, command.pos.start, command.global_idx
+                )
+            })?;
+        let tdef = ctx
+            .templates
+            .get_template(&command.function, TemplateType::Shortcode)
+            .with_context(|| format!("at position {} {}", command.pos.start, command.global_idx))?;
+        let r: Result<Vec<()>> = ctx
+            .templates
+            .validate_args_for_template(&command.function, &rendered)
+            .with_context(|| {
+                format!(
+                    "validation error at position {} {}",
+                    command.pos.start, command.global_idx
+                )
+            })?
+            .into_iter()
+            .collect();
+        r?;
+
+        add_args(&tdef, &mut args, &command.id, num, rendered)?;
+        let body = command
+            .body
+            .as_ref()
+            .map(|b| self.render_inner(b, ctx))
+            .transpose()?;
+        args.insert("body", &body);
+
         ctx.templates.render(
-            &name,
+            &command.function,
             ctx.format.template_prefix(),
             TemplateType::Shortcode,
             &args,
@@ -178,27 +143,71 @@ impl RenderElement<Inline> for GenericRenderer {
                 let _ = buf.write(s.as_bytes())?;
                 Ok(())
             }
-            Inline::Emphasis(inner) => render_value_template(
-                "emphasis",
-                TemplateType::Builtin,
-                &self.render_inner(inner, ctx)?,
-                ctx,
-                buf,
-            ),
-            Inline::Strong(inner) => render_value_template(
-                "strong",
-                TemplateType::Builtin,
-                &self.render_inner(inner, ctx)?,
-                ctx,
-                buf,
-            ),
-            Inline::Strikethrough(inner) => render_value_template(
-                "strikethrough",
-                TemplateType::Builtin,
-                &self.render_inner(inner, ctx)?,
-                ctx,
-                buf,
-            ),
+            Inline::Styled(inner, style) => match style {
+                Style::Emphasis => render_value_template(
+                    "emphasis",
+                    TemplateType::Builtin,
+                    &self.render_inner(inner, ctx)?,
+                    ctx,
+                    buf,
+                ),
+                Style::Strong => render_value_template(
+                    "strong",
+                    TemplateType::Builtin,
+                    &self.render_inner(inner, ctx)?,
+                    ctx,
+                    buf,
+                ),
+                Style::Strikethrough => render_value_template(
+                    "strikethrough",
+                    TemplateType::Builtin,
+                    &self.render_inner(inner, ctx)?,
+                    ctx,
+                    buf,
+                ),
+                Style::Underline => {
+                    todo!()
+                }
+            },
+            Inline::CodeBlock {
+                source,
+                tags,
+                display_cell,
+                global_idx,
+                pos,
+            } => {
+                let id = get_id();
+
+                // TODO: Add code output settings!!
+                let code_rendered = source.to_string(false)?;
+
+                let highlighted = syntect::html::highlighted_html_for_string(
+                    &code_rendered,
+                    ctx.syntax_set,
+                    ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
+                    ctx.theme,
+                )?;
+
+                let mut args = Context::default();
+                args.insert("interactive", &ctx.doc.meta.interactive);
+                args.insert("cell_outputs", &ctx.doc.meta.cell_outputs);
+                args.insert("editable", &ctx.doc.meta.editable);
+                args.insert("source", &source);
+                args.insert("highlighted", &highlighted);
+                args.insert("id", &id);
+                args.insert("tags", &tags);
+                args.insert("meta", &source.meta);
+                // args.insert("outputs", &self.render_inner(outputs, ctx)?);
+                // args.insert("outputs", outputs);
+
+                Ok(ctx.templates.render(
+                    "cell",
+                    ctx.format.template_prefix(),
+                    TemplateType::Builtin,
+                    &args,
+                    buf,
+                )?)
+            }
             Inline::Code(s) => {
                 render_value_template("inline_code", TemplateType::Builtin, s, ctx, buf)
             }
@@ -223,69 +232,72 @@ impl RenderElement<Inline> for GenericRenderer {
             Inline::Math {
                 source,
                 display_block,
-                trailing_space,
-            } => render_math(*display_block, *trailing_space, source, ctx, buf),
-            Inline::Shortcode(s) => Ok(self.render_shortcode_template(ctx, s, buf)?),
+                ..
+            } => render_math(*display_block, source, ctx, buf),
+            Inline::Command(command) => self.render_command_template(ctx, command, buf),
         }
     }
 }
 
-impl RenderElement<OutputValue> for GenericRenderer {
-    fn render(&mut self, elem: &OutputValue, ctx: &RenderContext, buf: impl Write) -> Result<()> {
-        match elem {
-            OutputValue::Plain(s) => {
-                render_value_template("output_text", TemplateType::Builtin, &s.join(""), ctx, buf)
-            }
-            OutputValue::Image(s) => {
-                render_value_template("output_img", TemplateType::Builtin, s, ctx, buf)
-            }
-            OutputValue::Svg(s) => {
-                render_value_template("output_svg", TemplateType::Builtin, s, ctx, buf)
-            }
-            OutputValue::Json(s) => write_bytes(&serde_json::to_string(s)?, buf),
-            OutputValue::Html(s) => write_bytes(&s.join(""), buf),
-            OutputValue::Javascript(_) => Ok(()),
-        }
-    }
-}
-
-impl RenderElement<CellOutput> for GenericRenderer {
+impl RenderElement<CodeOutput> for GenericRenderer {
     fn render(
         &mut self,
-        elem: &CellOutput,
+        elem: &CodeOutput,
         ctx: &RenderContext,
         mut buf: impl Write,
     ) -> Result<()> {
-        match elem {
-            CellOutput::Stream { text, name } => match name {
-                StreamType::StdOut => {
-                    render_value_template("output_text", TemplateType::Builtin, text, ctx, buf)
+        for output in &elem.values {
+            match output {
+                Outval::Text(text) => {
+                    render_value_template(
+                        "output_text",
+                        TemplateType::Builtin,
+                        text,
+                        ctx,
+                        &mut buf,
+                    )?;
                 }
-                StreamType::StdErr => {
-                    render_value_template("output_error", TemplateType::Builtin, text, ctx, buf)
+                Outval::Image(img) => match img {
+                    Image::Png(s) => {
+                        render_value_template(
+                            "output_img",
+                            TemplateType::Builtin,
+                            s,
+                            ctx,
+                            &mut buf,
+                        )?;
+                    }
+                    Image::Svg(s) => {
+                        render_value_template(
+                            "output_svg",
+                            TemplateType::Builtin,
+                            s,
+                            ctx,
+                            &mut buf,
+                        )?;
+                    }
+                },
+                Outval::Json(s) => {
+                    write_bytes(&serde_json::to_string(s)?, &mut buf)?;
                 }
-            },
-            CellOutput::Data { data, .. } => {
-                for v in data {
-                    self.render(v, ctx, &mut buf)?;
+                Outval::Html(s) => {
+                    write_bytes(&s, &mut buf)?;
                 }
-                Ok(())
-            }
-            CellOutput::Error { evalue, .. } => {
-                render_value_template("output_error", TemplateType::Builtin, evalue, ctx, buf)
+                Outval::Javascript(s) => {
+                    write_bytes(&s, &mut buf)?;
+                }
+                Outval::Error(text) => {
+                    render_value_template(
+                        "output_error",
+                        TemplateType::Builtin,
+                        text,
+                        ctx,
+                        &mut buf,
+                    )?;
+                }
             }
         }
-    }
-}
-
-pub fn header_lvl_to_int(lvl: &HeadingLevel) -> usize {
-    match lvl {
-        HeadingLevel::H1 => 1,
-        HeadingLevel::H2 => 2,
-        HeadingLevel::H3 => 3,
-        HeadingLevel::H4 => 4,
-        HeadingLevel::H5 => 5,
-        HeadingLevel::H6 => 6,
+        Ok(())
     }
 }
 
@@ -295,7 +307,7 @@ impl RenderElement<Block> for GenericRenderer {
             Block::Heading { lvl, inner, .. } => {
                 let mut args = Context::default();
                 // println!("{}", );
-                args.insert("level", &header_lvl_to_int(lvl));
+                args.insert("level", &lvl);
                 args.insert("inner", &self.render_inner(inner, ctx)?);
                 Ok(ctx.templates.render(
                     "header",
@@ -313,42 +325,7 @@ impl RenderElement<Block> for GenericRenderer {
                 ctx,
                 buf,
             ),
-            Block::CodeBlock {
-                source,
-                outputs,
-                tags,
-                meta,
-                ..
-            } => {
-                let id = get_id();
 
-                let highlighted = syntect::html::highlighted_html_for_string(
-                    source,
-                    ctx.syntax_set,
-                    ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
-                    ctx.theme,
-                )?;
-
-                let mut args = Context::default();
-                args.insert("interactive", &ctx.doc.metadata.interactive);
-                args.insert("cell_outputs", &ctx.doc.metadata.cell_outputs);
-                args.insert("editable", &ctx.doc.metadata.editable);
-                args.insert("source", &source);
-                args.insert("highlighted", &highlighted);
-                args.insert("id", &id);
-                args.insert("tags", &tags);
-                args.insert("meta", &meta);
-                // args.insert("outputs", &self.render_inner(outputs, ctx)?);
-                args.insert("outputs", outputs);
-
-                Ok(ctx.templates.render(
-                    "cell",
-                    ctx.format.template_prefix(),
-                    TemplateType::Builtin,
-                    &args,
-                    buf,
-                )?)
-            }
             Block::List(idx, items) => {
                 self.list_level += 1;
                 self.current_list_idx.push(*idx);
@@ -441,7 +418,7 @@ fn add_args(
     args: &mut Context,
     id: &Option<String>,
     num: usize,
-    arguments: Vec<Argument<String>>,
+    arguments: Vec<RenderedParam>,
 ) -> Result<()> {
     if let Some(id) = id {
         args.insert("id", &id);
@@ -449,13 +426,13 @@ fn add_args(
     args.insert("num", &num);
 
     for (i, p) in arguments.into_iter().enumerate() {
-        match p {
-            Argument::Positional { value } => args.insert(
-                def.shortcode.as_ref().unwrap().parameters[i].name.clone(),
-                value.inner(),
-            ),
-            Argument::Keyword { name, value } => args.insert(name, value.inner()),
-        }
+        let key = if let Some(key) = p.key {
+            key
+        } else {
+            def.shortcode.as_ref().unwrap().parameters[i].name.clone()
+        };
+
+        args.insert(key, &p.value);
     }
     Ok(())
 }
@@ -502,14 +479,12 @@ fn render_link(
 
 fn render_math(
     display_mode: bool,
-    trailing_space: bool,
     inner: &str,
     ctx: &RenderContext,
     buf: impl Write,
 ) -> Result<()> {
     let mut args = Context::default();
     args.insert("display_mode", &display_mode);
-    args.insert("trailing_space", &trailing_space);
     args.insert("value", inner);
     ctx.templates.render(
         "math",

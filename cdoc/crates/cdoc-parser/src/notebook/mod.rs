@@ -4,7 +4,7 @@ use base64::Engine;
 
 use anyhow::Result;
 
-use crate::ast::Block;
+use crate::ast::{Ast, Block};
 use crate::document::{CodeOutput, Document, Image, Metadata, Outval};
 use crate::raw::{parse_to_doc, RawDocument};
 use pulldown_cmark::{Options, Parser};
@@ -321,7 +321,7 @@ fn write_cell(cell: Cell, mut writer: impl Write) -> Result<Option<CodeOutput>> 
     })
 }
 
-fn notebook_to_doc(nb: Notebook) -> Result<Document> {
+fn notebook_to_doc(nb: Notebook) -> Result<Document<Ast>> {
     let mut writer = BufWriter::new(Vec::new());
 
     let mut outputs = Vec::new();
@@ -337,7 +337,7 @@ fn notebook_to_doc(nb: Notebook) -> Result<Document> {
     Ok(doc)
 }
 
-impl TryFrom<Notebook> for Document {
+impl TryFrom<Notebook> for Document<Ast> {
     type Error = anyhow::Error;
 
     fn try_from(value: Notebook) -> std::result::Result<Self, Self::Error> {

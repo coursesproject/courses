@@ -2,24 +2,22 @@ use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 use std::path::PathBuf;
 
-use crate::ast::Ast;
-
+use cdoc_parser::ast::Ast;
+use cdoc_parser::document::Document;
 use thiserror::Error;
 
 use crate::config::Format;
-use crate::document::Document;
+
 use crate::parser::ParserSettings;
-use crate::parsers::split::Rule;
 use crate::templates::TemplateManager;
 
-mod cell_outputs;
-pub mod exercises;
+pub mod cell_outputs;
 pub mod script;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("code split syntax error at {}", .0)]
-    CodeParseError(#[source] Box<pest::error::Error<Rule>>),
+    // #[error("code split syntax error at {}", .0)]
+    // CodeParseError(#[source] Box<pest::error::Error<Rule>>),
     #[error("could not parse attributes: {}", .0)]
     AttrParseError(#[from] toml::de::Error),
 

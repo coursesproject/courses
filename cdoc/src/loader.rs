@@ -3,12 +3,11 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ast::Ast;
 use anyhow::{anyhow, Context};
+use cdoc_parser::ast::Ast;
+use cdoc_parser::document::{Document, Metadata};
+use cdoc_parser::notebook::Notebook;
 use thiserror::Error;
-
-use crate::document::{split_shortcodes, Document, DocumentMetadata};
-use crate::notebook::Notebook;
 
 #[derive(Error, Debug)]
 pub enum LoaderError {
@@ -46,30 +45,7 @@ pub struct MarkdownLoader;
 #[typetag::serde(name = "markdown_loader")]
 impl Loader for MarkdownLoader {
     fn load(&self, input: &str) -> anyhow::Result<Document<Ast>> {
-        // let yml: yaml_front_matter::Document<DocumentMetadata> =
-        //     // YamlFrontMatter::parse(input).map_err(|_e| anyhow!("Could not parse front matter"))?;
-        //     YamlFrontMatter::parse(input)?;
-        let start = input
-            .find("---")
-            .ok_or_else(|| anyhow!("Missing frontmatter specifier"))?;
-        let end = start
-            + 3
-            + input[start + 3..]
-                .find("---")
-                .ok_or_else(|| anyhow!("Missing frontmatter specifier"))?;
-
-        let meta: DocumentMetadata =
-            serde_yaml::from_str(&input[start + 3..end]).context("Could not parse frontmatter")?;
-        let mut counters = HashMap::new();
-        let elems = split_shortcodes(&input[end + 3..], 0, 0, &mut counters)?;
-        // let elems: Vec<Element> = split_shortcodes_old(&input[end + 3..], &mut counters)?
-        //     .into_iter()
-        //     .flat_map(|e| match e {
-        //         Element::Markdown { content } => split_markdown_old(&content),
-        //         _ => vec![e],
-        //     })
-        //     .collect();
-        Ok(Document::new(Ast(elems), meta, counters))
+        Document::try_from(input)
     }
 }
 

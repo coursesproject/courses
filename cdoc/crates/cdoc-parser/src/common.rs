@@ -1,7 +1,9 @@
-#[derive(Debug, PartialEq, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 pub struct PosInfo {
     pub(crate) input: String,
-    pub(crate) start: usize,
+    pub start: usize,
     pub(crate) end: usize,
 }
 

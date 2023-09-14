@@ -1,4 +1,5 @@
 use crate::ast::{Block, CodeMeta, Command, Inline, Parameter, Style};
+use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
 use anyhow::Result;
 
@@ -56,11 +57,10 @@ pub trait AstVisitor {
             Inline::CodeBlock {
                 source,
                 tags,
-                meta,
                 display_cell,
                 global_idx,
                 pos,
-            } => self.visit_code_block(source, tags, meta, display_cell, global_idx, pos),
+            } => self.visit_code_block(source, tags, display_cell, global_idx, pos),
         }
     }
 
@@ -87,14 +87,13 @@ pub trait AstVisitor {
     #[allow(clippy::too_many_arguments)]
     fn visit_code_block(
         &mut self,
-        source: &mut String,
+        _source: &mut CodeContent,
         _tags: &mut Option<Vec<String>>,
-        _meta: &mut CodeMeta,
         _display_cell: &mut bool,
         _global_idx: &mut usize,
         _pos: &mut PosInfo,
     ) -> Result<()> {
-        self.visit_code(source)
+        Ok(())
     }
 
     fn visit_code(&mut self, _source: &mut String) -> Result<()> {
