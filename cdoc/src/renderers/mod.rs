@@ -1,12 +1,15 @@
 use crate::config::Format;
 use anyhow::Result;
+use std::collections::HashMap;
 
 use dyn_clone::DynClone;
 
 use std::fmt::Debug;
 use std::io::Write;
 
-use cdoc_parser::ast::Ast;
+use crate::renderers::references::ReferenceVisitor;
+use cdoc_parser::ast::visitor::AstVisitor;
+use cdoc_parser::ast::{Ast, Reference};
 use cdoc_parser::document::Document;
 use cdoc_parser::notebook::NotebookMeta;
 use syntect::highlighting::Theme;
@@ -18,6 +21,7 @@ use crate::templates::TemplateManager;
 pub mod generic;
 pub mod json;
 pub mod notebook;
+mod references;
 
 /// Type alias used to specify that the string is a renderer output.
 pub type RenderResult = String;
@@ -31,9 +35,58 @@ pub struct RenderContext<'a> {
     pub extra_args: Context,
     /// For syntax highlighting using Syntect
     pub syntax_set: &'a SyntaxSet,
-    pub theme: &'a Theme,
+    theme: &'a Theme,
     pub notebook_output_meta: &'a NotebookMeta,
     pub format: &'a dyn Format,
+    pub references: HashMap<String, Reference>,
+    pub references_by_type: HashMap<String, Vec<(String, Reference)>>,
+}
+
+impl<'a> RenderContext<'a> {
+    pub fn new(
+        doc: &'a mut Document<Ast>,
+        templates: &'a TemplateManager,
+        extra_args: Context,
+        syntax_set: &'a SyntaxSet,
+        theme: &'a Theme,
+        notebook_output_meta: &'a NotebookMeta,
+        format: &'a dyn Format,
+    ) -> Result<Self> {
+        let mut ref_visit = ReferenceVisitor::new();
+        ref_visit.walk_ast(&mut doc.content.0)?;
+        let rbt = references_by_type(&ref_visit.references);
+
+        Ok(RenderContext {
+            doc,
+            templates,
+            extra_args,
+            syntax_set,
+            theme,
+            notebook_output_meta,
+            format,
+            references: ref_visit.references,
+            references_by_type: rbt,
+        })
+    }
+}
+
+pub fn references_by_type(
+    refs: &HashMap<String, Reference>,
+) -> HashMap<String, Vec<(String, Reference)>> {
+    let mut type_map = HashMap::new();
+    for (id, reference) in refs {
+        let typ = match reference {
+            Reference::Math(_) => "math",
+            Reference::Code(_) => "code",
+            Reference::Command { function, .. } => &function,
+        };
+
+        type_map
+            .entry(typ.to_string())
+            .or_insert(vec![])
+            .push((id.to_string(), reference.clone()));
+    }
+    type_map
 }
 
 /// Trait used for rendering a whole document. The trait is used for configuring custom formats in

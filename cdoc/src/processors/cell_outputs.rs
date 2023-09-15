@@ -1,10 +1,12 @@
 use crate::parser::ParserSettings;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
+use anyhow::anyhow;
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Block, Command, Inline, Parameter, Value};
 use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
 use cdoc_parser::PosInfo;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -25,7 +27,7 @@ impl AstPreprocessorConfig for CellOutputConfig {
 pub struct CellProcessor;
 
 pub struct CellVisitor<'a> {
-    outputs: &'a [CodeOutput],
+    outputs: &'a HashMap<u64, CodeOutput>,
 }
 
 impl AstVisitor for CellVisitor<'_> {
@@ -36,65 +38,66 @@ impl AstVisitor for CellVisitor<'_> {
                 source, global_idx, ..
             } = inline
             {
-                let outputs = &self.outputs[global_idx];
-                for output in &outputs.values {
-                    match output {
-                        Outval::Text(s) => {
-                            let command = Command {
-                                function: "output_text".to_string(),
-                                id: None,
-                                parameters: vec![Parameter {
-                                    key: Some("value".to_string()),
-                                    value: Value::String(s.clone()),
+                if let Some(outputs) = self.outputs.get(&source.hash) {
+                    for output in &outputs.values {
+                        match output {
+                            Outval::Text(s) => {
+                                let command = Command {
+                                    function: "output_text".to_string(),
+                                    id: None,
+                                    parameters: vec![Parameter {
+                                        key: Some("value".to_string()),
+                                        value: Value::String(s.clone()),
+                                        pos: Default::default(),
+                                    }],
+                                    body: None,
                                     pos: Default::default(),
-                                }],
-                                body: None,
-                                pos: Default::default(),
-                                global_idx: 0,
-                            };
+                                    global_idx: 0,
+                                };
 
-                            inlines.insert(i + offset + 1, Inline::Command(command));
-                            offset += 1;
-                        }
-                        Outval::Image(img) => {
-                            let mut params = Vec::new();
-                            for (key, val) in source.meta.clone() {
-                                params.push(Parameter {
-                                    key: Some(key),
-                                    value: Value::String(val),
-                                    pos: PosInfo::new("", 0, 0),
-                                });
+                                inlines.insert(i + offset + 1, Inline::Command(command));
+                                offset += 1;
                             }
+                            Outval::Image(img) => {
+                                let mut params = Vec::new();
+                                for (key, val) in source.meta.clone() {
+                                    params.push(Parameter {
+                                        key: Some(key),
+                                        value: Value::String(val),
+                                        pos: PosInfo::new("", 0, 0),
+                                    });
+                                }
 
-                            match img {
-                                Image::Png(png) => params.push(Parameter {
-                                    key: Some("base64".to_string()),
-                                    value: Value::String(png.clone()),
-                                    pos: PosInfo::new("", 0, 0),
-                                }),
-                                Image::Svg(svg) => params.push(Parameter {
-                                    key: Some("svg".to_string()),
-                                    value: Value::String(svg.clone()),
-                                    pos: PosInfo::new("", 0, 0),
-                                }),
+                                match img {
+                                    Image::Png(png) => params.push(Parameter {
+                                        key: Some("base64".to_string()),
+                                        value: Value::String(png.clone()),
+                                        pos: PosInfo::new("", 0, 0),
+                                    }),
+                                    Image::Svg(svg) => params.push(Parameter {
+                                        key: Some("svg".to_string()),
+                                        value: Value::String(svg.clone()),
+                                        pos: PosInfo::new("", 0, 0),
+                                    }),
+                                }
+
+                                let command = Command {
+                                    function: "figure".to_string(),
+                                    id: source.meta.get("id").cloned(),
+                                    parameters: params,
+                                    body: None,
+                                    pos: Default::default(),
+                                    global_idx: 0,
+                                };
+
+                                inlines.insert(i + offset + 1, Inline::Command(command));
+                                offset += 1;
                             }
-
-                            let command = Command {
-                                function: "figure".to_string(),
-                                id: source.meta.get("id").cloned(),
-                                parameters: params,
-                                body: None,
-                                pos: Default::default(),
-                                global_idx: 0,
-                            };
-
-                            inlines.insert(i + offset + 1, Inline::Command(command));
-                            offset += 1;
+                            Outval::Json(_) => {}
+                            Outval::Html(_) => {}
+                            Outval::Javascript(_) => {}
+                            Outval::Error(_) => {}
                         }
-                        Outval::Json(_) => {}
-                        Outval::Html(_) => {}
-                        Outval::Javascript(_) => {}
-                        Outval::Error(_) => {}
                     }
                 }
             }

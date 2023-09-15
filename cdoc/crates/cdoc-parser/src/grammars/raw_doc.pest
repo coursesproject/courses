@@ -9,7 +9,7 @@ string          =  { (!"\\{" ~ !"\\}" ~ !"$" ~ BASE_CHARS)+ }
 md_val          =  { (command | code_def | math_block | verbatim_def | string)* }
 string_v        = _{ ("\"" | "“") ~ string ~ ("\"" | "”") }
 markdown_string = _{ "{" ~ md_val ~ "}" }
-basic_val       =  { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | WHITESPACE | " " | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")* }
+basic_val       =  { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | WHITESPACE | "#" | " " | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")* }
 
 ident = { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_" | "-")+ }
 key   = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
@@ -20,28 +20,31 @@ flag_def = _{ ":" ~ flag }
 value = _{ basic_val | string_v | markdown_string | flag_def }
 param =  { (key ~ "=" ~ value) | value }
 
-parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
+parameters = { "(" ~ NEWLINE* ~ param ~ ("," ~ NEWLINE* ~ param)* ~ NEWLINE* ~ ")" }
 
 body       =  { (!"}" ~ !"\\{" ~ command_disallow ~ !"`" ~ !"$" ~ ANY)+ }
 body_inner = _{ (code_def | math_block | command | verbatim_def | body)* }
-body_def   = ${ "{" ~ body_inner ~ "}" }
+body_def   = { "{" ~ body_inner ~ "}" }
 
 id = { ident }
 
 command_name = ${ SHORTCODE_SIGIL ~ ident }
-command      =  { command_name ~ ("|" ~ id)? ~ parameters? ~ body_def? ~ !"(" }
+command      =  { command_name ~ !")" ~ ("|" ~ id)? ~ parameters? ~ body_def? ~ !"(" ~ !")" }
 
 math_block   =  { math_lvl ~ math ~ POP }
 math_lvl     =  { PUSH("$"+) }
 math         =  { (!PEEK ~ ANY)+ }
 verbatim_def = _{ "\\{" ~ verbatim ~ "\\}" }
 
-code_def = { code_lvl ~ code ~ POP }
-code_lvl = { PUSH("`"+) }
-code     = { (!PEEK ~ ANY)+ }
+code_param = { (key ~ "=" ~ basic_val) | basic_val }
+
+code_def   = { code_lvl ~ code_params? ~ code ~ POP }
+code_params = { code_param ~ ("," ~ code_param)* ~ NEWLINE }
+code_lvl   = { PUSH("`"+) }
+code       = { (!PEEK ~ ANY)+ }
 
 verbatim =  { (!"\\}" ~ ANY)+ }
-src      = ${ (command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
+src      = ${ ("#"+ ~ WHITESPACE) | (command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
 
 element = _{ math_block | code_def | verbatim_def | command | src }
 

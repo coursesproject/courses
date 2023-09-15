@@ -184,7 +184,7 @@ impl Pipeline {
                     .get("body")
                     .ok_or(tera::Error::msg("missing argument 'body'"))?;
                 if let Value::String(s) = val {
-                    let doc = Document::try_from(s.as_str()).map_err(tera::Error::msg)?;
+                    let mut doc = Document::try_from(s.as_str()).map_err(tera::Error::msg)?;
 
                     let fstring = args
                         .get("format")
@@ -196,7 +196,7 @@ impl Pipeline {
                     ))
                     .expect("problems!");
 
-                    let ctx = self.get_render_context(&doc, format.borrow());
+                    let ctx = self.get_render_context(&mut doc, format.borrow()).unwrap();
                     let mut renderer = GenericRenderer::default();
                     let res = renderer.render_doc(&ctx).map_err(tera::Error::msg)?;
                     let val = res.content;
@@ -210,23 +210,23 @@ impl Pipeline {
 
     fn get_render_context<'a>(
         &'a self,
-        doc: &'a Document<Ast>,
+        doc: &'a mut Document<Ast>,
         format: &'a dyn Format,
-    ) -> RenderContext<'a> {
+    ) -> anyhow::Result<RenderContext<'a>> {
         let mut meta = Context::default();
         meta.insert("config", &self.project_config);
-        meta.insert("references", &doc.references);
+        // meta.insert("references", &doc.references);
         meta.insert("doc_meta", &doc.meta);
         let ts = &DEFAULT_THEME;
-        RenderContext {
-            templates: &self.templates,
-            extra_args: meta,
-            syntax_set: &DEFAULT_SYNTAX,
-            theme: &ts.themes["base16-ocean.light"],
-            notebook_output_meta: self.project_config.notebook_meta.as_ref().unwrap(),
-            format,
+        RenderContext::new(
             doc,
-        }
+            &self.templates,
+            meta,
+            &DEFAULT_SYNTAX,
+            &ts.themes["base16-ocean.light"],
+            self.project_config.notebook_meta.as_ref().unwrap(),
+            format,
+        )
     }
 
     fn get_build_path(&self, format: &dyn Format) -> PathBuf {
@@ -537,6 +537,7 @@ impl Pipeline {
                 e.chain()
                     .skip(1)
                     .for_each(|cause| eprintln!(" {} {}", style("caused by:").bold(), cause));
+                // eprintln!("backtrace {}", e.backtrace());
             });
             println!("{}", style("-".repeat(60)).blue());
 
@@ -631,40 +632,47 @@ impl Pipeline {
         item: &DocumentDescriptor<String>,
         format: &dyn Format,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
-        let doc = item.format.loader().load(&item.content)?;
+        let doc = item
+            .format
+            .loader()
+            .load(&item.content, self.profile.mode == Mode::Draft)?;
 
-        if format.no_parse() {
-            Ok(Some(Document {
-                meta: doc.meta,
-                content: "".to_string(),
-                code_outputs: doc.code_outputs,
-                references: doc.references,
-            }))
-        } else if self.profile.mode != Mode::Draft && doc.meta.draft {
-            Ok(Some(doc.map(|_| String::new())))
-        } else if !doc
-            .meta
-            .exclude_outputs
-            .as_ref()
-            .map(|o| o.contains(&format.name().to_string()))
-            .unwrap_or_default()
-        {
-            let processor_ctx = PreprocessorContext {
-                templates: &self.templates,
-                output_format: format,
-                project_root: self.project_path.clone(),
-            };
+        match doc {
+            None => Ok(None),
+            Some(doc) => {
+                if format.no_parse() {
+                    Ok(Some(Document {
+                        meta: doc.meta,
+                        content: "".to_string(),
+                        code_outputs: doc.code_outputs,
+                    }))
+                } else if self.profile.mode != Mode::Draft && doc.meta.draft {
+                    Ok(Some(doc.map(|_| String::new())))
+                } else if !doc
+                    .meta
+                    .exclude_outputs
+                    .as_ref()
+                    .map(|o| o.contains(&format.name().to_string()))
+                    .unwrap_or_default()
+                {
+                    let processor_ctx = PreprocessorContext {
+                        templates: &self.templates,
+                        output_format: format,
+                        project_root: self.project_path.clone(),
+                    };
 
-            let res = self.profile.parser.parse(doc, &processor_ctx)?;
+                    let mut res = self.profile.parser.parse(doc, &processor_ctx)?;
 
-            // let res = print_err(res)?;
+                    // let res = print_err(res)?;
 
-            let ctx = self.get_render_context(&res, format);
-            let mut renderer = format.renderer();
+                    let ctx = self.get_render_context(&mut res, format)?;
+                    let mut renderer = format.renderer();
 
-            Ok(Some(renderer.render_doc(&ctx)?))
-        } else {
-            Ok(None)
+                    Ok(Some(renderer.render_doc(&ctx)?))
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 }

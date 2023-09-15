@@ -1,3 +1,4 @@
+use crate::ast::visitor::AstVisitor;
 use crate::ast::{Ast, Reference};
 use crate::raw::{parse_to_doc, ComposedMarkdown, Extern, RawDocument};
 use anyhow::{anyhow, Result};
@@ -9,8 +10,9 @@ use std::collections::HashMap;
 pub struct Document<T: Serialize> {
     pub meta: Metadata,
     pub content: T,
-    pub code_outputs: Vec<CodeOutput>,
-    pub references: HashMap<String, Reference>,
+    pub code_outputs: HashMap<u64, CodeOutput>,
+    // pub references: HashMap<String, Reference>,
+    // pub references_by_type: Option<HashMap<String, Vec<Reference>>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -73,21 +75,29 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
     let code_outputs = composed
         .children
         .iter()
-        .filter_map(|c| match c.elem {
-            Extern::CodeBlock { .. } => Some(CodeOutput::default()),
+        .filter_map(|c| match &c.elem {
+            Extern::CodeBlock { inner, .. } => Some((inner.hash, CodeOutput::default())),
             _ => None,
         })
         .collect();
 
-    Ok(Document {
-        content: Ast(composed.into()),
+    let mut ast = composed.into();
+
+    // let mut ref_visit = ReferenceVisitor::new();
+    // ref_visit.walk_ast(&mut ast)?;
+
+    let mut doc = Document {
+        content: Ast(ast),
         meta: doc.meta.map_or(
             Ok::<Metadata, serde_yaml::Error>(Metadata::default()),
             |meta| serde_yaml::from_str(&meta),
         )?,
         code_outputs,
-        references: Default::default(),
-    })
+        // references: ref_visit.references,
+        // references_by_type: None,
+    };
+
+    Ok(doc)
 }
 
 impl TryFrom<&str> for Document<Ast> {
@@ -105,7 +115,8 @@ impl<T: Serialize> Document<T> {
             content: f(self.content),
             meta: self.meta,
             code_outputs: self.code_outputs,
-            references: self.references,
+            // references: self.references,
+            // references_by_type: self.references_by_type,
         }
     }
 
@@ -114,7 +125,8 @@ impl<T: Serialize> Document<T> {
             content: f(self.content)?,
             meta: self.meta,
             code_outputs: self.code_outputs,
-            references: self.references,
+            // references: self.references,
+            // references_by_type: self.references_by_type,
         })
     }
 }

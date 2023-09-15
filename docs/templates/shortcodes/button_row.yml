@@ -9,6 +9,7 @@ shortcode:
 
 templates:
   html: !String |
+    {{ refs_by_type | json_encode }}
     <div class="columns has-text-centered">
       <div class="column">
           <a class="button is-primary" href="{{config.url_prefix}}/documentation">Documentation</a>

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Context};
 use cdoc_parser::ast::Ast;
 use cdoc_parser::document::{Document, Metadata};
-use cdoc_parser::notebook::Notebook;
+use cdoc_parser::notebook::{notebook_to_doc, Notebook};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -23,7 +23,7 @@ pub enum LoaderError {
 #[typetag::serde(tag = "type")]
 pub trait Loader: Debug {
     /// Perform any parsing/conversion necessary.
-    fn load(&self, input: &str) -> anyhow::Result<Document<Ast>>;
+    fn load(&self, input: &str, accept_draft: bool) -> anyhow::Result<Option<Document<Ast>>>;
 }
 
 /// Parses a Jupyter Notebook file (.ipynb).
@@ -32,9 +32,10 @@ pub struct NotebookLoader;
 
 #[typetag::serde(name = "notebook_loader")]
 impl Loader for NotebookLoader {
-    fn load(&self, input: &str) -> anyhow::Result<Document<Ast>> {
-        let nb: Notebook = serde_json::from_str(input)?;
-        nb.try_into()
+    fn load(&self, input: &str, accept_draft: bool) -> anyhow::Result<Option<Document<Ast>>> {
+        let nb: Notebook =
+            serde_json::from_str(input).context(anyhow!("deserializing notebook"))?;
+        notebook_to_doc(nb, accept_draft)
     }
 }
 
@@ -44,8 +45,18 @@ pub struct MarkdownLoader;
 
 #[typetag::serde(name = "markdown_loader")]
 impl Loader for MarkdownLoader {
-    fn load(&self, input: &str) -> anyhow::Result<Document<Ast>> {
-        Document::try_from(input)
+    fn load(&self, input: &str, accept_draft: bool) -> anyhow::Result<Option<Document<Ast>>> {
+        if accept_draft {
+            Some(Document::try_from(input)).transpose()
+        } else {
+            let doc: yaml_front_matter::Document<Metadata> =
+                yaml_front_matter::YamlFrontMatter::parse(input).unwrap();
+            if !doc.metadata.draft {
+                Some(Document::try_from(input)).transpose()
+            } else {
+                Ok(None)
+            }
+        }
     }
 }
 

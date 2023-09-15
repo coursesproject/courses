@@ -8,8 +8,8 @@ pub struct JsonRenderer;
 #[typetag::serde(name = "json")]
 impl DocumentRenderer for JsonRenderer {
     fn render_doc(&mut self, ctx: &RenderContext) -> anyhow::Result<Document<RenderResult>> {
-        ctx.doc
-            .clone()
-            .try_map(|a| Ok(serde_json::to_string_pretty(&a.0)?))
+        let d = ctx.doc.clone();
+        let new_content = serde_json::to_string_pretty(&ctx.doc)?;
+        Ok(d.map(|_| new_content.clone()))
     }
 }

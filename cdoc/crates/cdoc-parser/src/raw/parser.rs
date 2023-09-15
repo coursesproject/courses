@@ -1,4 +1,4 @@
-use crate::raw::{RawDocument, Reference};
+use crate::raw::{CodeAttr, RawDocument, Reference};
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -152,16 +152,60 @@ impl RawDocument {
         }
     }
 
+    fn parse_code_attributes(&mut self, pairs: Pairs<Rule>) -> Vec<CodeAttr> {
+        pairs
+            .into_iter()
+            .map(|elem| {
+                if let Rule::code_param = elem.as_rule() {
+                    self.parse_code_attribute(elem)
+                } else {
+                    unreachable!()
+                }
+            })
+            .collect()
+    }
+
+    fn parse_code_attribute(&mut self, pair: Pair<Rule>) -> CodeAttr {
+        let mut pairs = pair.into_inner();
+        let first = pairs.next().expect("empty param");
+
+        if let Rule::key = first.as_rule() {
+            let value = pairs.next().expect("no value");
+            CodeAttr {
+                key: Some(first.as_str().to_string()),
+                value: value.as_str().to_string(),
+            }
+        } else {
+            CodeAttr {
+                key: None,
+                value: first.as_str().to_string(),
+            }
+        }
+    }
+
     fn parse_code(&mut self, pair: Pair<Rule>) -> Result<Extern, ParserError> {
-        let (lvl, src) = self.block_parser(pair);
+        let mut inner = pair.into_inner();
+        let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
+
+        let maybe_param = inner.next().expect("missing code_src");
+        let (src_pair, params) = if let Rule::code_params = maybe_param.as_rule() {
+            let params = self.parse_code_attributes(maybe_param.into_inner());
+            (inner.next().expect("missing code_src"), Some(params))
+        } else {
+            (maybe_param, None)
+        };
+
+        let src = src_pair.as_str().to_string();
 
         Ok(if lvl.len() == 1 {
             Extern::CodeInline { inner: src }
         } else {
-            let content = parse_code_string(&src)?;
+            let mut content = parse_code_string(&src.trim())?;
+
             Extern::CodeBlock {
                 lvl: lvl.len(),
                 inner: content,
+                params: params.unwrap_or_default(),
             }
         })
     }
@@ -179,6 +223,7 @@ impl RawDocument {
 pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
     let mut doc = RawDocument::default();
     doc.parse_doc(RawDocParser::parse(Rule::top, input)?)?;
+
     Ok(doc)
 }
 
@@ -188,9 +233,11 @@ fn single_child(pair: Pair<Rule>) -> Pair<Rule> {
 
 #[cfg(test)]
 mod tests {
+    use crate::code_ast::types::{CodeBlock, CodeContent};
     use crate::common::PosInfo;
     use crate::raw::{
-        parse_to_doc, Element, ElementInfo, Extern, Parameter, RawDocument, Reference, Value,
+        parse_to_doc, CodeAttr, Element, ElementInfo, Extern, Parameter, RawDocument, Reference,
+        Value,
     };
     use std::collections::HashMap;
 
@@ -202,7 +249,7 @@ mod tests {
             fn [<$prefix _ $name>]() {
                 let (input, expected) = $value;
                 let doc = RawDocument { src: expected, meta: None, references: Default::default() };
-                compare(input, doc);
+                compare(doc, input);
             }
             }
         )*
@@ -218,7 +265,11 @@ code
             src: vec![ElementInfo {
                 element: Element::Extern(Extern::CodeBlock {
                     lvl: 3,
-                    inner: "\ncode\n".into(),
+                    inner: CodeContent {
+                        blocks: vec![CodeBlock::Src("code\n".into())],
+                        meta: Default::default(),
+                    },
+                    params: vec![],
                 }),
                 pos: PosInfo::new(input, 0, 12),
             }],
@@ -226,7 +277,40 @@ code
             references: Default::default(),
         };
 
-        compare(input, expected);
+        compare(expected, input);
+    }
+
+    #[test]
+    fn test_code_param() {
+        let input = r#"```lang, key=val
+code
+```"#;
+        let expected = RawDocument {
+            src: vec![ElementInfo {
+                element: Element::Extern(Extern::CodeBlock {
+                    lvl: 3,
+                    inner: CodeContent {
+                        blocks: vec![CodeBlock::Src("code\n".into())],
+                        meta: Default::default(),
+                    },
+                    params: vec![
+                        CodeAttr {
+                            key: None,
+                            value: "lang".to_string(),
+                        },
+                        CodeAttr {
+                            key: Some("key".to_string()),
+                            value: "val".to_string(),
+                        },
+                    ],
+                }),
+                pos: PosInfo::new(input, 0, 25),
+            }],
+            meta: None,
+            references: Default::default(),
+        };
+
+        compare(expected, input);
     }
 
     #[test]
@@ -244,7 +328,7 @@ code
             references: Default::default(),
         };
 
-        compare(input, expected);
+        compare(expected, input);
     }
 
     #[test]
@@ -259,7 +343,7 @@ code
             references: Default::default(),
         };
 
-        compare(input, expected);
+        compare(expected, input);
     }
 
     #[test]
@@ -274,7 +358,7 @@ code
             references: Default::default(),
         };
 
-        compare(input, expected);
+        compare(expected, input);
     }
 
     #[test]
@@ -297,7 +381,7 @@ code
             )]),
         };
 
-        compare(input, expected);
+        compare(expected, input);
     }
 
     fn make_doc(src: Vec<ElementInfo>) -> RawDocument {
@@ -410,7 +494,7 @@ code
         ]),
     }
 
-    fn compare(input: &str, expected: RawDocument) {
+    fn compare(expected: RawDocument, input: &str) {
         let doc = parse_to_doc(input).expect("Parse error");
 
         assert_eq!(expected, doc);

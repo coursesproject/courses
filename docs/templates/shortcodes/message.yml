@@ -4,9 +4,9 @@ description: A box with a title and message. Useful for drawing attention to som
 examples:
   - title: Generic
     body: |
-      {% message(color=info, title="Optional title") %}
+      #message(color=info, title="Optional title"){
       Message box
-      {% end %}
+      }
 
 type: shortcode
 shortcode:

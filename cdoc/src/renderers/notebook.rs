@@ -6,6 +6,7 @@ use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook
 use pulldown_cmark::HeadingLevel;
 use replace_with::replace_with_or_abort;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::BufWriter;
 
 use crate::renderers::generic::GenericRenderer;
@@ -36,7 +37,6 @@ impl DocumentRenderer for NotebookRenderer {
         Ok(Document {
             content: output,
             meta: ctx.doc.meta.clone(),
-            references: ctx.doc.references.clone(),
             code_outputs: ctx.doc.code_outputs.clone(),
         })
     }
@@ -149,7 +149,7 @@ impl DocumentRenderer for NotebookRenderer {
 
 pub struct NotebookWriter<'a> {
     pub notebook_meta: NotebookMeta,
-    pub outputs: Vec<CodeOutput>,
+    pub outputs: HashMap<u64, CodeOutput>,
     pub code_cells: Vec<Cell>,
     pub ctx: &'a RenderContext<'a>,
     pub renderer: GenericRenderer,

@@ -114,12 +114,13 @@ impl Mover<'_> {
 
                             // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
                             // file.write_all(output.as_bytes())?;
-                            fs::create_dir_all(dest.as_path())?;
 
-                            fs::write(dest, output).with_context(|| {
+                            fs::create_dir_all(dest.as_path().parent().unwrap())?;
+
+                            fs::write(dest.clone(), output).with_context(|| {
                                 format!(
                                     "failed to write python file at {}",
-                                    entry_path.as_path().display()
+                                    dest.as_path().display()
                                 )
                             })?;
                         }

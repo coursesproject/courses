@@ -79,9 +79,10 @@ impl From<raw::Reference> for Reference {
         match value {
             raw::Reference::Math(s) => Reference::Math(s),
             raw::Reference::Code(s) => Reference::Code(s),
-            raw::Reference::Command(name, val) => {
-                Reference::Command(name, val.into_iter().map(|p| p.into()).collect())
-            }
+            raw::Reference::Command(name, val) => Reference::Command {
+                function: name,
+                parameters: val.into_iter().map(|p| p.into()).collect(),
+            },
         }
     }
 }
@@ -190,31 +191,11 @@ impl From<ComposedMarkdown> for Vec<Block> {
                             .push(Block::ListItem(inner.into_blocks())),
                         Tag::Emphasis => {
                             let src = inner.into_inlines();
-                            let r =
-                                Regex::new(r"\+elem-([0-9]+)\+").expect("invalid regex expression");
 
-                            let is_insert = src
-                                .get(0)
-                                .and_then(|elem| {
-                                    if let Inline::Text(s) = elem {
-                                        Some(s)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .and_then(|s| r.captures(s.as_ref()))
-                                .and_then(|c| c.get(1));
-
-                            if let Some(match_) = is_insert {
-                                let idx = usize::from_str(match_.as_str()).unwrap();
-                                let elem = composed.children[idx].clone();
-                                inners.last_mut().unwrap().push_inline(elem.into())
-                            } else {
-                                inners
-                                    .last_mut()
-                                    .unwrap()
-                                    .push_inline(Inline::Styled(src, Style::Emphasis))
-                            }
+                            inners
+                                .last_mut()
+                                .unwrap()
+                                .push_inline(Inline::Styled(src, Style::Emphasis))
                         }
                         Tag::Strong => inners
                             .last_mut()
@@ -239,14 +220,25 @@ impl From<ComposedMarkdown> for Vec<Block> {
                                 inner.into_inlines(),
                             ))
                         }
-                        _ => unreachable!(),
+                        _ => {} // TODO: Implement rest
                     }
                 }
-                Event::Html(s) => {
-                    inners
-                        .last_mut()
-                        .unwrap()
-                        .push_inline(Inline::Html(s.to_string()));
+                Event::Html(src) => {
+                    println!("html: {}", src);
+                    let r = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
+
+                    let is_insert = r.captures(src.as_ref()).and_then(|c| c.get(1));
+
+                    if let Some(match_) = is_insert {
+                        let idx = usize::from_str(match_.as_str()).unwrap();
+                        let elem = composed.children[idx].clone();
+                        inners.last_mut().unwrap().push_inline(elem.into());
+                    } else {
+                        inners
+                            .last_mut()
+                            .unwrap()
+                            .push_inline(Inline::Html(src.to_string()));
+                    }
                 }
                 other => {
                     let inner = match other {
@@ -283,6 +275,7 @@ fn heading_to_lvl(value: HeadingLevel) -> u8 {
 mod tests {
     use crate::ast::Block::ListItem;
     use crate::ast::{Block, Command, Inline, Parameter, Style, Value};
+    use crate::code_ast::types::{CodeBlock, CodeContent};
     use crate::common::PosInfo;
     use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Extern};
     use pulldown_cmark::LinkType;
@@ -384,9 +377,12 @@ mod tests {
                 Inline::SoftBreak,
                 Inline::Styled(vec![Inline::Text("strong".to_string())], Style::Strong),
             ]),
-            Block::Paragraph(vec![Inline::Code("code inline".to_string())]),
-            Block::Paragraph(vec![Inline::CodeBlock {
-                source: "\ncode block\n".to_string(),
+            Block::Plain(vec![Inline::Code("code inline".to_string())]),
+            Block::Plain(vec![Inline::CodeBlock {
+                source: CodeContent {
+                    blocks: vec![CodeBlock::Src("code block\n".to_string())],
+                    meta: Default::default(),
+                },
                 tags: None,
                 display_cell: false,
                 global_idx: 0,
@@ -396,7 +392,7 @@ mod tests {
                     end: 198,
                 },
             }]),
-            Block::Paragraph(vec![Inline::Math {
+            Block::Plain(vec![Inline::Math {
                 source: "math inline".to_string(),
                 display_block: false,
                 pos: PosInfo {
@@ -405,7 +401,7 @@ mod tests {
                     end: 213,
                 },
             }]),
-            Block::Paragraph(vec![Inline::Math {
+            Block::Plain(vec![Inline::Math {
                 source: "\nmath block\n".to_string(),
                 display_block: true,
                 pos: PosInfo {
@@ -427,7 +423,7 @@ mod tests {
         let output_doc = Vec::from(composed);
 
         let expected = vec![
-            Block::Paragraph(vec![Inline::Command(Command {
+            Block::Plain(vec![Inline::Command(Command {
                 function: "func".to_string(),
                 id: None,
                 parameters: vec![],
@@ -439,7 +435,7 @@ mod tests {
                 },
                 global_idx: 0,
             })]),
-            Block::Paragraph(vec![Inline::Command(Command {
+            Block::Plain(vec![Inline::Command(Command {
                 function: "func_param".to_string(),
                 id: None,
                 parameters: vec![
@@ -470,7 +466,7 @@ mod tests {
                 },
                 global_idx: 1,
             })]),
-            Block::Paragraph(vec![Inline::Command(Command {
+            Block::Plain(vec![Inline::Command(Command {
                 function: "func_body".to_string(),
                 id: None,
                 parameters: vec![],
@@ -484,7 +480,7 @@ mod tests {
                 },
                 global_idx: 2,
             })]),
-            Block::Paragraph(vec![Inline::Command(Command {
+            Block::Plain(vec![Inline::Command(Command {
                 function: "func_all".to_string(),
                 id: None,
                 parameters: vec![
@@ -517,18 +513,17 @@ mod tests {
                 },
                 global_idx: 3,
             })]),
-            Block::Paragraph(vec![Inline::Command(Command {
+            Block::Plain(vec![Inline::Command(Command {
                 function: "func_inner".to_string(),
                 id: None,
                 parameters: vec![],
-                body: Some(vec![Block::Paragraph(vec![
-                    Inline::Code("#func".to_string()),
-                    Inline::SoftBreak,
-                    Inline::Command(Command {
+                body: Some(vec![
+                    Block::Plain(vec![Inline::Code("#func".to_string())]),
+                    Block::Plain(vec![Inline::Command(Command {
                         function: "inner".to_string(),
                         id: None,
                         parameters: vec![],
-                        body: Some(vec![Block::Paragraph(vec![Inline::Math {
+                        body: Some(vec![Block::Plain(vec![Inline::Math {
                             source: "math".to_string(),
                             display_block: false,
                             pos: PosInfo {
@@ -543,8 +538,8 @@ mod tests {
                             end: 130,
                         },
                         global_idx: 0,
-                    }),
-                ])]),
+                    })]),
+                ]),
                 pos: PosInfo {
                     input: input.to_string(),
                     start: 93,

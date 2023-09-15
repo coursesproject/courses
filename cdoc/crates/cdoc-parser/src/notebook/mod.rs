@@ -1,6 +1,7 @@
 use anyhow::Context;
 use base64;
 use base64::Engine;
+use std::collections::hash_map::DefaultHasher;
 
 use anyhow::Result;
 
@@ -14,6 +15,7 @@ use serde_json::Value;
 use serde_with::{formats::PreferOne, serde_as, EnumMap, OneOrMany};
 use std::collections::HashMap;
 use std::default::Default;
+use std::hash::{Hash, Hasher};
 use std::io::{BufWriter, Write};
 
 /// Top-level notebook structure (the type is a mostly complete implementation of the official
@@ -146,10 +148,22 @@ pub enum OutputValue {
     ),
     /// Png image
     #[serde(rename = "image/png")]
-    Image(String),
+    Image(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
     /// Svg image
     #[serde(rename = "image/svg+xml")]
-    Svg(String),
+    Svg(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
     /// Json
     #[serde(rename = "application/json")]
     Json(Value),
@@ -276,10 +290,10 @@ impl From<Vec<CellOutput>> for CodeOutput {
                                 outputs.push(Outval::Text(s.join("")));
                             }
                             OutputValue::Image(i) => {
-                                outputs.push(Outval::Image(Image::Png(i)));
+                                outputs.push(Outval::Image(Image::Png(i.join(""))));
                             }
                             OutputValue::Svg(i) => {
-                                outputs.push(Outval::Image(Image::Svg(i)));
+                                outputs.push(Outval::Image(Image::Svg(i.join(""))));
                             }
                             OutputValue::Json(s) => {
                                 outputs.push(Outval::Json(s));
@@ -303,7 +317,7 @@ impl From<Vec<CellOutput>> for CodeOutput {
     }
 }
 
-fn write_cell(cell: Cell, mut writer: impl Write) -> Result<Option<CodeOutput>> {
+fn write_cell(cell: Cell, mut writer: impl Write) -> Result<Option<(u64, CodeOutput)>> {
     Ok(match cell {
         Cell::Markdown { common } => {
             writer.write(common.source.as_bytes())?;
@@ -315,34 +329,56 @@ fn write_cell(cell: Cell, mut writer: impl Write) -> Result<Option<CodeOutput>> 
             outputs,
         } => {
             write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
-            Some(CodeOutput::from(outputs))
+            let mut hasher = DefaultHasher::new();
+            common.source.hash(&mut hasher);
+            Some((hasher.finish(), CodeOutput::from(outputs)))
         }
         Cell::Raw { .. } => None,
     })
 }
 
-fn notebook_to_doc(nb: Notebook) -> Result<Document<Ast>> {
+pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Document<Ast>>> {
     let mut writer = BufWriter::new(Vec::new());
 
-    let mut outputs = Vec::new();
+    let mut output_map = HashMap::new();
+
+    let mut doc_meta = None;
 
     for cell in nb.cells {
+        match &cell {
+            Cell::Markdown { common } => {
+                writer.write(format!("\n\n{}\n", common.source).as_bytes())?;
+            }
+            Cell::Code {
+                common,
+                execution_count,
+                outputs,
+            } => {
+                write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
+                let mut hasher = DefaultHasher::new();
+                common.source.hash(&mut hasher);
+                output_map.insert(hasher.finish(), CodeOutput::from(outputs.clone()));
+            }
+            Cell::Raw { common } => {
+                if let Ok(meta) = serde_yaml::from_str::<Metadata>(&common.source) {
+                    if !accept_draft && meta.draft {
+                        return Ok(None);
+                    } else {
+                        doc_meta = Some(meta);
+                    }
+                }
+            }
+        }
+
         let res = write_cell(cell, &mut writer)?;
-        res.map(|o| outputs.push(o));
+        res.map(|(k, v)| output_map.insert(k, v));
     }
 
     let mut doc = Document::try_from(String::from_utf8(writer.into_inner()?)?.as_str())?;
-    doc.code_outputs = outputs;
+    doc.code_outputs = output_map;
+    doc.meta = doc_meta.unwrap_or_default();
 
-    Ok(doc)
-}
-
-impl TryFrom<Notebook> for Document<Ast> {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Notebook) -> std::result::Result<Self, Self::Error> {
-        notebook_to_doc(value)
-    }
+    Ok(Some(doc))
 }
 
 #[cfg(test)]
@@ -350,6 +386,7 @@ mod tests {
     use super::*;
 
     use crate::ast::{Command, Inline};
+    use crate::code_ast::types::{CodeBlock, CodeContent};
     use crate::common::PosInfo;
     use std::fs::File;
     use std::io::BufReader;
@@ -395,41 +432,40 @@ mod tests {
 
         let expected = Document {
             meta: Default::default(),
-            content: vec![
+            content: Ast(vec![
                 Block::Heading {
                     lvl: 1,
                     id: None,
                     classes: vec![],
                     inner: vec![Inline::Text("Heading".to_string())],
                 },
-                Block::Paragraph(vec![
-                    Inline::Command(Command {
-                        function: "func".to_string(),
-                        id: None,
-                        parameters: vec![],
-                        body: None,
-                        pos: PosInfo {
-                            input: "# Heading\n#func\n```\nprint('x')\n```\n".to_string(),
-                            start: 10,
-                            end: 15,
-                        },
-                        global_idx: 0,
-                    }),
-                    Inline::SoftBreak,
-                    Inline::CodeBlock {
-                        source: "\nprint('x')\n".to_string(),
-                        tags: None,
-                        meta: Default::default(),
-                        display_cell: false,
-                        global_idx: 0,
-                        pos: PosInfo {
-                            input: "# Heading\n#func\n```\nprint('x')\n```\n".to_string(),
-                            start: 16,
-                            end: 34,
-                        },
+                Block::Plain(vec![Inline::Command(Command {
+                    function: "func".to_string(),
+                    id: None,
+                    parameters: vec![],
+                    body: None,
+                    pos: PosInfo {
+                        input: "# Heading\n#func\n```\nprint('x')\n```\n".to_string(),
+                        start: 10,
+                        end: 15,
                     },
-                ]),
-            ],
+                    global_idx: 0,
+                })]),
+                Block::Plain(vec![Inline::CodeBlock {
+                    source: CodeContent {
+                        blocks: vec![CodeBlock::Src("print('x')\n".to_string())],
+                        meta: Default::default(),
+                    },
+                    tags: None,
+                    display_cell: false,
+                    global_idx: 0,
+                    pos: PosInfo {
+                        input: "# Heading\n#func\n```\nprint('x')\n```\n".to_string(),
+                        start: 16,
+                        end: 34,
+                    },
+                }]),
+            ]),
             code_outputs: vec![CodeOutput {
                 values: vec![Outval::Text("x".to_string())],
             }],
