@@ -32,6 +32,7 @@ path = "src/lib.rs"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
+cdoc-parser = { path = "cdoc/crates/cdoc-parser", version = "0.1.0" }
 cdoc = { path = "cdoc", version = "0.7.1" }
 
 # Serialization and templating

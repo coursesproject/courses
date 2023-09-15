@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Ast(pub Vec<Block>);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

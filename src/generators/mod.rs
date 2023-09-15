@@ -1,9 +1,9 @@
 use crate::project::config::Mode;
 use anyhow::{anyhow, Context as AContext};
 use cdoc::config::Format;
-use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 use cdoc::templates::{TemplateManager, TemplateType};
+use cdoc_parser::document::Document;
 use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
 use std::fs;
@@ -112,7 +112,7 @@ impl Generator<'_> {
         doc: &Document<RenderResult>,
         item: &ContentItemDescriptor<T>,
     ) -> anyhow::Result<()> {
-        if !(self.mode == Mode::Release && doc.metadata.draft) {
+        if !(self.mode == Mode::Release && doc.meta.draft) {
             let mut writer = self
                 .get_writer(&item.doc.id, &item.doc.path, item.is_section)
                 .with_context(|| {

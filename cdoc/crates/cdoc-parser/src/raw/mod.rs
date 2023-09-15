@@ -150,7 +150,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                         pos: elem.pos,
                         identifier,
                     });
-                    write!(&mut writer, "_+elem-{}+_", idx).unwrap()
+                    write!(&mut writer, " _+elem-{}+_ ", idx).unwrap()
                 }
             }
         }

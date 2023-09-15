@@ -9,8 +9,8 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::InputFormat;
-use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
+use cdoc_parser::document::Document;
 
 pub mod config;
 

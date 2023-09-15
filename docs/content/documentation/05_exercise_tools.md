@@ -13,7 +13,7 @@ Courses allows you to tag source code blocks using a special syntax hiding in th
 
 hello
 ```
-#| code <<
+#| solution <<
 print("solution")
 #| placeholder
 # print("hello")

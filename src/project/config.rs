@@ -3,11 +3,13 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::Format;
-use cdoc::notebook::NotebookMeta;
+
 use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
-use cdoc::processors::exercises::ExercisesConfig;
+
+use cdoc::processors::cell_outputs::CellOutputConfig;
 use cdoc::processors::AstPreprocessorConfig;
+use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
 
 /// Refers to a configuration.yml file in the project that specifies a variety
@@ -69,7 +71,7 @@ fn default_profiles() -> HashMap<String, Profile> {
         Profile {
             mode: Mode::Draft,
             parser: Parser {
-                preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
+                preprocessors: vec![Box::new(CellOutputConfig) as Box<dyn AstPreprocessorConfig>],
                 settings: ParserSettings { solutions: true },
             },
             formats: vec![],
@@ -82,7 +84,7 @@ fn default_profiles() -> HashMap<String, Profile> {
         Profile {
             mode: Mode::Release,
             parser: Parser {
-                preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
+                preprocessors: vec![Box::new(CellOutputConfig) as Box<dyn AstPreprocessorConfig>],
                 settings: ParserSettings { solutions: false },
             },
             formats: vec![],

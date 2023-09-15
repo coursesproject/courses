@@ -36,9 +36,9 @@ profiles:
     mode: draft
     parser: # Parser settings
       preprocessors:
-        - exercises: null
-        - script:
-            name: "link_checker.rhai"
+        - cells: null
+#        - script:
+#            name: "link_checker.rhai"
       solutions: false # Don't include exercise solutions
     formats:
       - html: {}

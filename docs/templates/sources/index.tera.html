@@ -155,7 +155,7 @@
             href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/default.min.css"
     />
 
-    <title>{{ doc.metadata.title }}</title>
+    <title>{{ doc.meta.title }}</title>
 
     <script
             defer
@@ -165,13 +165,13 @@
 </head>
 <body x-data="{ sidebar_open: {{ not meta.layout.hide_sidebar }} }">
 {% include "bar.tera.html" %}
-{% if not doc.metadata.layout.hide_sidebar %}
+{% if not doc.meta.layout.hide_sidebar %}
     {% include "nav.tera.html" %}
 {% endif %}
 
 <div
-        class="page-container {% if not doc.metadata.layout.hide_sidebar %}sidebar_active{% endif %}"
-        {% if not doc.metadata.layout.hide_sidebar %} :class="{ 'sidebar_active': sidebar_open }"{% endif %}
+        class="page-container {% if not doc.meta.layout.hide_sidebar %}sidebar_active{% endif %}"
+        {% if not doc.meta.layout.hide_sidebar %} :class="{ 'sidebar_active': sidebar_open }"{% endif %}
 >
     <section class="section">
         <div class="container is-max-desktop">

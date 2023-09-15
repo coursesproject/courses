@@ -1,12 +1,12 @@
-use crate::ast::{Ast, Block, Command};
-use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Reference};
+use crate::ast::{Ast, Reference};
+use crate::raw::{parse_to_doc, ComposedMarkdown, Extern, RawDocument};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Document<T> {
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct Document<T: Serialize> {
     pub meta: Metadata,
     pub content: T,
     pub code_outputs: Vec<CodeOutput>,
@@ -47,12 +47,12 @@ pub struct LayoutSettings {
     pub hide_sidebar: bool,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct CodeOutput {
     pub values: Vec<Outval>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Outval {
     Text(String),
     Image(Image),
@@ -62,20 +62,30 @@ pub enum Outval {
     Error(String),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Image {
     Png(String),
     Svg(String),
 }
 
 fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
+    let composed = ComposedMarkdown::from(doc.src);
+    let code_outputs = composed
+        .children
+        .iter()
+        .filter_map(|c| match c.elem {
+            Extern::CodeBlock { .. } => Some(CodeOutput::default()),
+            _ => None,
+        })
+        .collect();
+
     Ok(Document {
-        content: Ast(ComposedMarkdown::from(doc.src).into()),
+        content: Ast(composed.into()),
         meta: doc.meta.map_or(
             Ok::<Metadata, serde_yaml::Error>(Metadata::default()),
             |meta| serde_yaml::from_str(&meta),
         )?,
-        code_outputs: Vec::new(),
+        code_outputs,
         references: Default::default(),
     })
 }
@@ -89,8 +99,8 @@ impl TryFrom<&str> for Document<Ast> {
     }
 }
 
-impl<T> Document<T> {
-    pub fn map<O, F: Fn(T) -> O>(self, f: F) -> Document<O> {
+impl<T: Serialize> Document<T> {
+    pub fn map<O: Serialize, F: Fn(T) -> O>(self, f: F) -> Document<O> {
         Document {
             content: f(self.content),
             meta: self.meta,
@@ -99,7 +109,7 @@ impl<T> Document<T> {
         }
     }
 
-    pub fn try_map<O, F: Fn(T) -> Result<O>>(self, f: F) -> Result<Document<O>> {
+    pub fn try_map<O: Serialize, F: Fn(T) -> Result<O>>(self, f: F) -> Result<Document<O>> {
         Ok(Document {
             content: f(self.content)?,
             meta: self.meta,

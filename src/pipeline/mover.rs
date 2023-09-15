@@ -5,8 +5,7 @@ use std::path::PathBuf;
 use crate::project::config::{Mode, Profile};
 use crate::project::{ContentItem, ContentResultS};
 use cdoc::parser::ParserSettings;
-use cdoc::parsers::split::parse_code_string;
-use cdoc::parsers::split_types::Output;
+use cdoc_parser::code_ast::parse_code_string;
 
 /// Type that implements copying resource files from within a project's content folder to
 /// the build output folder.
@@ -58,7 +57,7 @@ impl Mover<'_> {
                     .content
                     .as_ref()
                     .as_ref()
-                    .map(|c| !c.metadata.draft)
+                    .map(|c| !c.meta.draft)
                     .unwrap_or(true)
             {
                 let dir_path = self.content_path().join(section_path);
@@ -111,7 +110,7 @@ impl Mover<'_> {
                                     )
                                 })?;
                             let parsed = parse_code_string(&input)?;
-                            let output = parsed.write_string(self.settings.solutions);
+                            let output = parsed.to_string(self.settings.solutions)?;
 
                             // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
                             // file.write_all(output.as_bytes())?;

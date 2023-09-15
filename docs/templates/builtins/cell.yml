@@ -15,14 +15,12 @@ templates:
         {% if interactive %}<button class="button is-primary" @click="run_cell(document.getElementById('cell_{{ id }}_in').innerHTML, 'cell_{{ id }}_out')">Run</button>{% endif %}
     {% endif %}
 
-    {% if cell_outputs %}<div id="cell_{{ id }}_out">{{ outputs | safe }}</div>{% endif %}
     {% endif %}
 
   markdown: !String |
     ``` #{{ id }}
     {{source}}
     ```
-    {% if cell_outputs %}{{ outputs | safe }}{% endif %}
   latex: !String |
     \begin{minted}{python}
     {{source | safe }}

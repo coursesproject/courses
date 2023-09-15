@@ -4,20 +4,20 @@
         {% if part.children and current_path[1] == part.id %}
         <ul class="menu-list">
             {% for chapter in part.children %}
-            {% if mode == "draft" or not chapter.content.metadata.draft %}
+            {% if mode == "draft" or not chapter.content.meta.draft %}
             <li>
                 <a href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}{% if chapter.type == 'Section' %}/index{% endif %}.html">{{ loop.index }}. {{
-                    chapter.content.metadata.title }}</a>
+                    chapter.content.meta.title }}</a>
                 <ul class="menu-list">
 
                     {% if chapter.children %}
                     {% for doc in chapter.children %}
-                    {% if mode == "draft" or not doc.content.metadata.draft %}
+                    {% if mode == "draft" or not doc.content.meta.draft %}
                     <li>
                         <a
                                 href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}/{{ doc.id }}.html"
                                 class="{% if doc.id == current_doc %}is-active{% endif %}"
-                        >{{ loop.index }}. {{ doc.content.metadata.title | safe }}</a
+                        >{{ loop.index }}. {{ doc.content.meta.title | safe }}</a
                         >
                     </li>
                     {% endif %}

@@ -16,9 +16,8 @@ use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 use tera::{Context, Filter, Function};
 
-use cdoc::ast::Ast;
 use cdoc::config::Format;
-use cdoc::document::{id_map_from_ids, split_shortcodes, Document, DocumentMetadata};
+
 use cdoc::processors::PreprocessorContext;
 
 use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
@@ -34,7 +33,9 @@ use crate::project::config::{Mode, Profile, ProjectConfig};
 use crate::project::{
     from_vec, ContentItem, ContentItemDescriptor, DocumentDescriptor, ProjectItemVec,
 };
-use cdoc::parsers::shortcodes::ShortCodeCall;
+
+use cdoc_parser::ast::Ast;
+use cdoc_parser::document::Document;
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
 
@@ -179,13 +180,11 @@ impl Pipeline {
     fn create_render_source(self) -> impl Function {
         Box::new(
             move |args: &HashMap<String, Value>| -> tera::Result<Value> {
-                let mut counters = HashMap::new();
                 let val = args
                     .get("body")
                     .ok_or(tera::Error::msg("missing argument 'body'"))?;
                 if let Value::String(s) = val {
-                    let ast = split_shortcodes(s, 0, 0, &mut counters).map_err(tera::Error::msg)?;
-                    let doc = Document::new(Ast(ast), DocumentMetadata::default(), HashMap::new());
+                    let doc = Document::try_from(s.as_str()).map_err(tera::Error::msg)?;
 
                     let fstring = args
                         .get("format")
@@ -216,9 +215,8 @@ impl Pipeline {
     ) -> RenderContext<'a> {
         let mut meta = Context::default();
         meta.insert("config", &self.project_config);
-        meta.insert("ids", &doc.ids);
-        meta.insert("id_map", &doc.id_map);
-        meta.insert("doc_meta", &doc.metadata);
+        meta.insert("references", &doc.references);
+        meta.insert("doc_meta", &doc.meta);
         let ts = &DEFAULT_THEME;
         RenderContext {
             templates: &self.templates,
@@ -635,47 +633,17 @@ impl Pipeline {
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         let doc = item.format.loader().load(&item.content)?;
 
-        let ids: HashMap<String, (usize, Vec<ShortCodeCall>)> = doc
-            .ids
-            .clone()
-            .into_iter()
-            .map(|(s, (i, c))| {
-                Ok((
-                    s,
-                    (
-                        i,
-                        c.into_iter()
-                            .filter_map(|c| {
-                                self.templates.shortcode_call_resolve_positionals(c).ok()
-                            })
-                            .collect::<Vec<ShortCodeCall>>(),
-                    ),
-                ))
-            })
-            .collect::<anyhow::Result<HashMap<String, (usize, Vec<ShortCodeCall>)>>>()?;
-
-        let id_map = id_map_from_ids(&ids);
-
-        let doc = Document {
-            content: doc.content,
-            metadata: doc.metadata,
-            variables: doc.variables,
-            ids,
-            id_map,
-        };
-
         if format.no_parse() {
             Ok(Some(Document {
+                meta: doc.meta,
                 content: "".to_string(),
-                metadata: doc.metadata,
-                variables: doc.variables,
-                ids: doc.ids,
-                id_map: doc.id_map,
+                code_outputs: doc.code_outputs,
+                references: doc.references,
             }))
-        } else if self.profile.mode != Mode::Draft && doc.metadata.draft {
+        } else if self.profile.mode != Mode::Draft && doc.meta.draft {
             Ok(Some(doc.map(|_| String::new())))
         } else if !doc
-            .metadata
+            .meta
             .exclude_outputs
             .as_ref()
             .map(|o| o.contains(&format.name().to_string()))
@@ -687,7 +655,7 @@ impl Pipeline {
                 project_root: self.project_path.clone(),
             };
 
-            let res = self.profile.parser.parse(&doc, &processor_ctx)?;
+            let res = self.profile.parser.parse(doc, &processor_ctx)?;
 
             // let res = print_err(res)?;
 
