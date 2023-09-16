@@ -42,6 +42,12 @@ profiles:
       solutions: false # Don't include exercise solutions
     formats:
       - html: {}
+      - dynamic:
+          name: ast
+          extension: json
+          template_prefix: html
+          renderer:
+            json:
 
 notebook_meta:
   kernelspec:

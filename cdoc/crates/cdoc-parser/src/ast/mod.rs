@@ -68,10 +68,14 @@ pub struct Parameter {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum Reference {
     Math(String),
     Code(String),
-    Command(String, Vec<Parameter>),
+    Command {
+        function: String,
+        parameters: Vec<Parameter>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

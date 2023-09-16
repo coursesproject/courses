@@ -3,6 +3,7 @@
 use crate::ast::CodeMeta;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::{BufWriter, Write};
 
@@ -37,6 +38,7 @@ pub enum CodeBlock {
 pub struct CodeContent {
     pub blocks: Vec<CodeBlock>,
     pub meta: HashMap<String, String>,
+    pub hash: u64,
 }
 
 impl CodeContent {

@@ -11,7 +11,6 @@ Courses allows you to tag source code blocks using a special syntax hiding in th
 
 ## Exercise definitions
 
-hello
 ```
 #| solution <<
 print("solution")
@@ -19,3 +18,4 @@ print("solution")
 # print("hello")
 #| >>
 ```
+

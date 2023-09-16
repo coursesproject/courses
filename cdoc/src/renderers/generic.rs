@@ -43,7 +43,6 @@ impl DocumentRenderer for GenericRenderer {
         Ok(Document {
             content,
             meta: ctx.doc.meta.clone(),
-            references: ctx.doc.references.clone(),
             code_outputs: ctx.doc.code_outputs.clone(),
         })
     }
@@ -85,6 +84,8 @@ impl GenericRenderer {
     ) -> Result<()> {
         let mut args = ctx.extra_args.clone();
         args.insert("defs", &ctx.templates.definitions);
+        args.insert("refs", &ctx.references);
+        args.insert("refs_by_type", &ctx.references_by_type);
 
         let num = if command.id.is_some() {
             let num = self.counters.entry(command.function.clone()).or_insert(0);
@@ -104,7 +105,7 @@ impl GenericRenderer {
         let tdef = ctx
             .templates
             .get_template(&command.function, TemplateType::Shortcode)
-            .with_context(|| format!("at position {} {}", command.pos.start, command.global_idx))?;
+            .with_context(|| format!("at {}", command.pos.get_with_margin(10)))?;
         let r: Result<Vec<()>> = ctx
             .templates
             .validate_args_for_template(&command.function, &rendered)

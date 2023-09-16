@@ -5,7 +5,9 @@ use pest::error::ErrorVariant;
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 /// The parser for exercise placeholders/solutions.
 #[derive(Parser)]
@@ -97,7 +99,13 @@ pub fn parse_code_string(content: &str) -> Result<CodeContent, Box<pest::error::
         .into_iter()
         .filter_map(|v| parse_value(v, &mut meta).transpose())
         .collect::<anyhow::Result<Vec<CodeBlock>, Box<pest::error::Error<Rule>>>>()?;
-    Ok(CodeContent { blocks, meta })
+    let mut hasher = DefaultHasher::new();
+    content.hash(&mut hasher);
+    Ok(CodeContent {
+        blocks,
+        meta,
+        hash: hasher.finish(),
+    })
 }
 
 pub(crate) fn human_errors(error: pest::error::Error<Rule>) -> Box<pest::error::Error<Rule>> {

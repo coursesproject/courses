@@ -39,6 +39,7 @@ pub enum Extern {
     CodeBlock {
         lvl: usize,
         inner: CodeContent,
+        params: Vec<CodeAttr>,
     },
     Command {
         function: String,
@@ -47,6 +48,12 @@ pub enum Extern {
         body: Option<Vec<ElementInfo>>,
     },
     Verbatim(String),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CodeAttr {
+    pub key: Option<String>,
+    pub value: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -85,6 +92,16 @@ pub enum Value {
     Flag(String),
     Content(Vec<ElementInfo>),
     String(String),
+}
+
+impl ToString for Value {
+    fn to_string(&self) -> String {
+        match self {
+            Value::Flag(k) => format!("Flag: {k}"),
+            Value::Content(_) => format!("Content"),
+            Value::String(s) => s.clone(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -150,7 +167,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                         pos: elem.pos,
                         identifier,
                     });
-                    write!(&mut writer, " _+elem-{}+_ ", idx).unwrap()
+                    write!(&mut writer, "<elem-{}>", idx).unwrap()
                 }
             }
         }

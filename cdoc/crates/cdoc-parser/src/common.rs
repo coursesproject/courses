@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
+use std::cmp::{max, min};
 
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 pub struct PosInfo {
-    pub(crate) input: String,
+    pub input: String,
     pub start: usize,
-    pub(crate) end: usize,
+    pub end: usize,
 }
 
 impl PosInfo {
@@ -14,6 +15,10 @@ impl PosInfo {
             start,
             end,
         }
+    }
+
+    pub fn get_with_margin(&self, margin: usize) -> &str {
+        &self.input[max(self.start - margin, 0)..min(self.end + margin, self.input.len())]
     }
 }
 

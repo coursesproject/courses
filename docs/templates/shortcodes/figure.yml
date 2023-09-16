@@ -4,7 +4,7 @@ description: Produces a figure for the webpage and a regular markdown image for 
 examples:
   - title: Simple
     body: | 
-      {{ figure(url=cat.jpg, width="80%", caption="This is my image") }}
+      #figure|id(url=cat.png, width="80%", caption="This is my image")
 
 type: shortcode
 shortcode:
