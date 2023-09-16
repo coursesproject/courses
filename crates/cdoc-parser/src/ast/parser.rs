@@ -2,7 +2,7 @@ use crate::ast::*;
 
 use crate::raw;
 use crate::raw::{Child, ComposedMarkdown, Extern};
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
 use std::str::FromStr;
@@ -69,7 +69,7 @@ impl From<raw::Parameter> for Parameter {
         Parameter {
             key: value.key,
             value: value.value.into(),
-            pos: value.pos.into(),
+            pos: value.pos,
         }
     }
 }
@@ -224,7 +224,6 @@ impl From<ComposedMarkdown> for Vec<Block> {
                     }
                 }
                 Event::Html(src) => {
-                    println!("html: {}", src);
                     let r = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
 
                     let is_insert = r.captures(src.as_ref()).and_then(|c| c.get(1));
@@ -382,6 +381,7 @@ mod tests {
                 source: CodeContent {
                     blocks: vec![CodeBlock::Src("code block\n".to_string())],
                     meta: Default::default(),
+                    hash: 3303757851706689630,
                 },
                 tags: None,
                 display_cell: false,

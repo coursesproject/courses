@@ -1,14 +1,12 @@
-use anyhow::Context;
 use base64;
 use base64::Engine;
 use std::collections::hash_map::DefaultHasher;
 
 use anyhow::Result;
 
-use crate::ast::{Ast, Block};
+use crate::ast::Ast;
 use crate::document::{CodeOutput, Document, Image, Metadata, Outval};
-use crate::raw::{parse_to_doc, RawDocument};
-use pulldown_cmark::{Options, Parser};
+
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -317,26 +315,6 @@ impl From<Vec<CellOutput>> for CodeOutput {
     }
 }
 
-fn write_cell(cell: Cell, mut writer: impl Write) -> Result<Option<(u64, CodeOutput)>> {
-    Ok(match cell {
-        Cell::Markdown { common } => {
-            writer.write(common.source.as_bytes())?;
-            None
-        }
-        Cell::Code {
-            common,
-            execution_count,
-            outputs,
-        } => {
-            write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
-            let mut hasher = DefaultHasher::new();
-            common.source.hash(&mut hasher);
-            Some((hasher.finish(), CodeOutput::from(outputs)))
-        }
-        Cell::Raw { .. } => None,
-    })
-}
-
 pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Document<Ast>>> {
     let mut writer = BufWriter::new(Vec::new());
 
@@ -347,14 +325,12 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
     for cell in nb.cells {
         match &cell {
             Cell::Markdown { common } => {
-                writer.write(format!("\n\n{}\n", common.source).as_bytes())?;
+                writer.write_all(common.source.to_string().as_bytes())?;
             }
             Cell::Code {
-                common,
-                execution_count,
-                outputs,
+                common, outputs, ..
             } => {
-                write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
+                write!(&mut writer, "\n```\n{}\n```\n\n", common.source)?;
                 let mut hasher = DefaultHasher::new();
                 common.source.hash(&mut hasher);
                 output_map.insert(hasher.finish(), CodeOutput::from(outputs.clone()));
@@ -369,12 +345,11 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
                 }
             }
         }
-
-        let res = write_cell(cell, &mut writer)?;
-        res.map(|(k, v)| output_map.insert(k, v));
     }
 
-    let mut doc = Document::try_from(String::from_utf8(writer.into_inner()?)?.as_str())?;
+    let source = String::from_utf8(writer.into_inner()?)?;
+    println!("{source}");
+    let mut doc = Document::try_from(source.as_str())?;
     doc.code_outputs = output_map;
     doc.meta = doc_meta.unwrap_or_default();
 
@@ -385,7 +360,7 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
 mod tests {
     use super::*;
 
-    use crate::ast::{Command, Inline};
+    use crate::ast::{Block, Command, Inline};
     use crate::code_ast::types::{CodeBlock, CodeContent};
     use crate::common::PosInfo;
     use std::fs::File;
@@ -445,7 +420,7 @@ mod tests {
                     parameters: vec![],
                     body: None,
                     pos: PosInfo {
-                        input: "# Heading\n#func\n```\nprint('x')\n```\n".to_string(),
+                        input: "# Heading\n#func\n```\nprint('x')\n```\n\n".to_string(),
                         start: 10,
                         end: 15,
                     },
@@ -455,24 +430,28 @@ mod tests {
                     source: CodeContent {
                         blocks: vec![CodeBlock::Src("print('x')\n".to_string())],
                         meta: Default::default(),
+                        hash: 14255542742518776859,
                     },
                     tags: None,
                     display_cell: false,
                     global_idx: 0,
                     pos: PosInfo {
-                        input: "# Heading\n#func\n```\nprint('x')\n```\n".to_string(),
+                        input: "# Heading\n#func\n```\nprint('x')\n```\n\n".to_string(),
                         start: 16,
                         end: 34,
                     },
                 }]),
             ]),
-            code_outputs: vec![CodeOutput {
-                values: vec![Outval::Text("x".to_string())],
-            }],
-            references: Default::default(),
+            code_outputs: HashMap::from([(
+                14255542742518776859,
+                CodeOutput {
+                    values: vec![Outval::Text("x".to_string())],
+                },
+            )]),
         };
-
-        let parsed = Document::try_from(nb).expect("parsing errors");
+        let parsed = super::notebook_to_doc(nb, true)
+            .expect("parsing errors")
+            .unwrap();
 
         assert_eq!(expected, parsed);
     }

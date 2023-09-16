@@ -1,4 +1,4 @@
-use crate::ast::{Block, CodeMeta, Command, Inline, Parameter, Style};
+use crate::ast::{Block, Command, Inline, Parameter, Style};
 use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
 use anyhow::Result;

@@ -18,8 +18,7 @@ categories = ["command-line-utilities"]
 [workspace]
 
 members = [
-    "cdoc",
-    "cdoc/crates/*"
+    "crates/*",
 ]
 
 [lib]
@@ -32,8 +31,8 @@ path = "src/lib.rs"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
-cdoc-parser = { path = "cdoc/crates/cdoc-parser", version = "0.1.0" }
-cdoc = { path = "cdoc", version = "0.7.1" }
+cdoc-parser = { path = "crates/cdoc-parser", version = "0.1.0" }
+cdoc = { path = "crates/cdoc", version = "0.7.1" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }

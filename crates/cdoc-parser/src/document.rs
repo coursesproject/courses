@@ -1,7 +1,6 @@
-use crate::ast::visitor::AstVisitor;
-use crate::ast::{Ast, Reference};
+use crate::ast::Ast;
 use crate::raw::{parse_to_doc, ComposedMarkdown, Extern, RawDocument};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -81,20 +80,15 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
         })
         .collect();
 
-    let mut ast = composed.into();
+    let ast = composed.into();
 
-    // let mut ref_visit = ReferenceVisitor::new();
-    // ref_visit.walk_ast(&mut ast)?;
-
-    let mut doc = Document {
+    let doc = Document {
         content: Ast(ast),
         meta: doc.meta.map_or(
             Ok::<Metadata, serde_yaml::Error>(Metadata::default()),
             |meta| serde_yaml::from_str(&meta),
         )?,
         code_outputs,
-        // references: ref_visit.references,
-        // references_by_type: None,
     };
 
     Ok(doc)

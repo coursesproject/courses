@@ -1,8 +1,8 @@
 use crate::parser::ParserSettings;
 use crate::processors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
-use anyhow::anyhow;
+
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Block, Command, Inline, Parameter, Value};
+use cdoc_parser::ast::{Ast, Command, Inline, Parameter, Value};
 use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
 use cdoc_parser::PosInfo;
 use serde::{Deserialize, Serialize};
@@ -34,10 +34,7 @@ impl AstVisitor for CellVisitor<'_> {
     fn visit_vec_inline(&mut self, inlines: &mut Vec<Inline>) -> anyhow::Result<()> {
         let mut offset = 0;
         for (i, inline) in inlines.clone().into_iter().enumerate() {
-            if let Inline::CodeBlock {
-                source, global_idx, ..
-            } = inline
-            {
+            if let Inline::CodeBlock { source, .. } = inline {
                 if let Some(outputs) = self.outputs.get(&source.hash) {
                     for output in &outputs.values {
                         match output {

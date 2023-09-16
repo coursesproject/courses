@@ -3,9 +3,9 @@ pub mod visitor;
 
 use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
-use pulldown_cmark::{HeadingLevel, LinkType};
+use pulldown_cmark::LinkType;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

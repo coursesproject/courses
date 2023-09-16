@@ -18,7 +18,7 @@ pub enum ParserError {
     #[error("code cell parsing error")]
     CodeError(#[from] Box<pest::error::Error<crate::code_ast::Rule>>),
     #[error("document parsing error")]
-    DocError(#[from] pest::error::Error<Rule>),
+    DocError(#[from] Box<pest::error::Error<Rule>>),
 }
 
 impl RawDocument {
@@ -79,7 +79,7 @@ impl RawDocument {
         let mut body = None;
         let mut id = None;
 
-        while let Some(elem) = inner.next() {
+        for elem in inner {
             match elem.as_rule() {
                 Rule::parameters => parameters = self.parse_parameters(elem.into_inner())?,
                 Rule::body_def => body = Some(self.parse_elements(elem.into_inner())?),
@@ -147,7 +147,7 @@ impl RawDocument {
         let (lvl, src) = self.block_parser(pair);
 
         Extern::Math {
-            inner: src.into(),
+            inner: src,
             is_block: lvl.len() != 1,
         }
     }
@@ -200,7 +200,7 @@ impl RawDocument {
         Ok(if lvl.len() == 1 {
             Extern::CodeInline { inner: src }
         } else {
-            let mut content = parse_code_string(&src.trim())?;
+            let content = parse_code_string(src.trim())?;
 
             Extern::CodeBlock {
                 lvl: lvl.len(),
@@ -222,13 +222,9 @@ impl RawDocument {
 
 pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
     let mut doc = RawDocument::default();
-    doc.parse_doc(RawDocParser::parse(Rule::top, input)?)?;
+    doc.parse_doc(RawDocParser::parse(Rule::top, input).map_err(Box::new)?)?;
 
     Ok(doc)
-}
-
-fn single_child(pair: Pair<Rule>) -> Pair<Rule> {
-    pair.into_inner().next().expect("missing child")
 }
 
 #[cfg(test)]
@@ -268,6 +264,7 @@ code
                     inner: CodeContent {
                         blocks: vec![CodeBlock::Src("code\n".into())],
                         meta: Default::default(),
+                        hash: 7837613302888775477,
                     },
                     params: vec![],
                 }),
@@ -292,6 +289,7 @@ code
                     inner: CodeContent {
                         blocks: vec![CodeBlock::Src("code\n".into())],
                         meta: Default::default(),
+                        hash: 7837613302888775477,
                     },
                     params: vec![
                         CodeAttr {
@@ -382,14 +380,6 @@ code
         };
 
         compare(expected, input);
-    }
-
-    fn make_doc(src: Vec<ElementInfo>) -> RawDocument {
-        RawDocument {
-            src,
-            meta: None,
-            references: Default::default(),
-        }
     }
 
     const CMD_WITH_PARAMS_NO_BODY: &str =

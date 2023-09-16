@@ -1,5 +1,5 @@
 use crate::templates::{Example, ShortcodeDefinition, TemplateSource, TemplateType};
-use git2::Repository;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

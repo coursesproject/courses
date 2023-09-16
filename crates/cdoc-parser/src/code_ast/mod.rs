@@ -1,7 +1,7 @@
 pub mod types;
 
 use crate::code_ast::types::{CodeBlock, CodeContent, Solution};
-use pest::error::ErrorVariant;
+
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;

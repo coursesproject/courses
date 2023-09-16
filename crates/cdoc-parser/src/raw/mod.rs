@@ -98,7 +98,7 @@ impl ToString for Value {
     fn to_string(&self) -> String {
         match self {
             Value::Flag(k) => format!("Flag: {k}"),
-            Value::Content(_) => format!("Content"),
+            Value::Content(_) => "Content".to_string(),
             Value::String(s) => s.clone(),
         }
     }
@@ -129,7 +129,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
         for elem in value.into_iter() {
             match elem.element {
                 Element::Markdown(s) => {
-                    writer.write(s.as_bytes()).unwrap();
+                    writer.write_all(s.as_bytes()).unwrap();
                 }
                 Element::Extern(inner) => {
                     let idx = code_idx + command_idx + math_idx + extra_idx;

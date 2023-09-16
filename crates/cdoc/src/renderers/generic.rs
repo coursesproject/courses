@@ -173,9 +173,9 @@ impl RenderElement<Inline> for GenericRenderer {
             Inline::CodeBlock {
                 source,
                 tags,
-                display_cell,
-                global_idx,
-                pos,
+                display_cell: _,
+                global_idx: _,
+                pos: _,
             } => {
                 let id = get_id();
 
@@ -282,10 +282,10 @@ impl RenderElement<CodeOutput> for GenericRenderer {
                     write_bytes(&serde_json::to_string(s)?, &mut buf)?;
                 }
                 Outval::Html(s) => {
-                    write_bytes(&s, &mut buf)?;
+                    write_bytes(s, &mut buf)?;
                 }
                 Outval::Javascript(s) => {
-                    write_bytes(&s, &mut buf)?;
+                    write_bytes(s, &mut buf)?;
                 }
                 Outval::Error(text) => {
                     render_value_template(

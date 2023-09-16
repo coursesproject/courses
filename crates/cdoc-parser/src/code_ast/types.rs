@@ -1,10 +1,7 @@
 //! Types for exercise definitions.
 
-use crate::ast::CodeMeta;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-use std::io;
 use std::io::{BufWriter, Write};
 
 pub trait Output {
@@ -48,7 +45,7 @@ impl CodeContent {
             match block {
                 CodeBlock::Solution(s) => {
                     if with_solution {
-                        buf.write(s.solution.as_bytes())?;
+                        buf.write_all(s.solution.as_bytes())?;
                     } else {
                         s.placeholder
                             .as_ref()
@@ -57,7 +54,7 @@ impl CodeContent {
                     }
                 }
                 CodeBlock::Src(s) => {
-                    buf.write(s.as_bytes())?;
+                    buf.write_all(s.as_bytes())?;
                 }
             }
         }

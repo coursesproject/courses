@@ -1,10 +1,9 @@
 use anyhow::Result;
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Block, Inline};
+use cdoc_parser::ast::{Ast, Inline};
 use cdoc_parser::document::{CodeOutput, Document};
 use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
-use pulldown_cmark::HeadingLevel;
-use replace_with::replace_with_or_abort;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufWriter;
@@ -164,35 +163,36 @@ impl NotebookWriter<'_> {
             }),
             ..Default::default()
         };
-        // TODO: Insert this stuff
-        //         self.finished_cells.push(Cell::Code {
-        //             common: CellCommon {
-        //                 metadata: cell_meta,
-        //                 source: r#"import requests
-        // from IPython.core.display import HTML
-        // HTML(f"""
-        // <style>
-        // @import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
-        // </style>
-        // """)"#
-        //                     .to_string(),
-        //             },
-        //             execution_count: None,
-        //             outputs: vec![],
-        //         });
+
+        let import = Cell::Code {
+            common: CellCommon {
+                metadata: cell_meta,
+                source: r#"import requests
+        from IPython.core.display import HTML
+        HTML(f"""
+        <style>
+        @import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+        </style>
+        """)"#
+                    .to_string(),
+            },
+            execution_count: None,
+            outputs: vec![],
+        };
 
         self.walk_ast(&mut ast.0)?;
 
         let mut buf = BufWriter::new(Vec::new());
 
-        self.renderer.render(&ast.0, &self.ctx, &mut buf)?;
+        self.renderer.render(&ast.0, self.ctx, &mut buf)?;
 
         let out_str = String::from_utf8(buf.into_inner()?)?;
 
         let md_cells = out_str.split(CODE_SPLIT);
-        let cells = md_cells
-            .zip(self.code_cells)
-            .flat_map(|(md, code)| {
+
+        let cells = vec![import]
+            .into_iter()
+            .chain(md_cells.zip(self.code_cells).flat_map(|(md, code)| {
                 [
                     Cell::Markdown {
                         common: CellCommon {
@@ -202,7 +202,7 @@ impl NotebookWriter<'_> {
                     },
                     code,
                 ]
-            })
+            }))
             .collect();
 
         Ok(Notebook {
@@ -218,28 +218,20 @@ const CODE_SPLIT: &str = "--+code+--";
 
 impl AstVisitor for NotebookWriter<'_> {
     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        match inline {
-            Inline::CodeBlock {
-                source,
-                tags,
-                display_cell,
-                global_idx,
-                pos,
-            } => {
-                let rendered = source.to_string(true)?; // TODO: fix solution
-                self.code_cells.push(Cell::Code {
-                    common: CellCommon {
-                        metadata: Default::default(),
-                        source: rendered,
-                    },
-                    execution_count: None,
-                    outputs: vec![], // TODO: fix outputs
-                });
+        if let Inline::CodeBlock { source, .. } = inline {
+            let rendered = source.to_string(true)?; // TODO: fix solution
+            self.code_cells.push(Cell::Code {
+                common: CellCommon {
+                    metadata: Default::default(),
+                    source: rendered,
+                },
+                execution_count: None,
+                outputs: vec![], // TODO: fix outputs
+            });
 
-                *inline = Inline::Text(CODE_SPLIT.to_string());
-            }
-            _ => {}
+            *inline = Inline::Text(CODE_SPLIT.to_string());
         }
+
         Ok(())
     }
 }

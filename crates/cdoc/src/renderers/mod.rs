@@ -78,7 +78,7 @@ pub fn references_by_type(
         let typ = match reference {
             Reference::Math(_) => "math",
             Reference::Code(_) => "code",
-            Reference::Command { function, .. } => &function,
+            Reference::Command { function, .. } => function,
         };
 
         type_map
