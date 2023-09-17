@@ -219,7 +219,7 @@ const CODE_SPLIT: &str = "--+code+--";
 impl AstVisitor for NotebookWriter<'_> {
     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
         if let Inline::CodeBlock { source, .. } = inline {
-            let rendered = source.to_string(true)?; // TODO: fix solution
+            let rendered = source.to_string(self.ctx.doc.meta.code_solutions)?;
             self.code_cells.push(Cell::Code {
                 common: CellCommon {
                     metadata: Default::default(),

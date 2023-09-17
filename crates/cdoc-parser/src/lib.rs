@@ -7,6 +7,9 @@ pub mod document;
 pub mod notebook;
 pub mod raw;
 
+#[cfg(feature = "scripting")]
+pub mod scripting;
+
 #[cfg(test)]
 use pest_test_gen::pest_tests;
 

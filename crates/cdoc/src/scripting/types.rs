@@ -1,28 +1,22 @@
+use cdoc_parser::document::Metadata;
 use rhai::plugin::*;
 use rhai::{CustomType, TypeBuilder};
 
 #[allow(non_snake_case, non_upper_case_globals)]
 #[export_module]
 pub(crate) mod rhai_inline_type {
-    use crate::ast::Shortcode;
+    use cdoc_parser::ast::{Command, Style};
+    use cdoc_parser::PosInfo;
     use pulldown_cmark::LinkType;
     use rhai::{Array, Dynamic};
 
-    pub type Inline = crate::ast::Inline;
+    pub type Inline = cdoc_parser::ast::Inline;
 
     pub fn Text(value: String) -> Inline {
         Inline::Text(value)
     }
-    pub fn Emphasis(value: Vec<Inline>) -> Inline {
-        Inline::Emphasis(value)
-    }
-
-    pub fn Strong(value: Vec<Inline>) -> Inline {
-        Inline::Strong(value)
-    }
-
-    pub fn Strikethrough(value: Vec<Inline>) -> Inline {
-        Inline::Strikethrough(value)
+    pub fn Styled(value: Vec<Inline>, style: Style) -> Inline {
+        Inline::Styled(value, style)
     }
 
     pub fn Code(value: String) -> Inline {
@@ -45,16 +39,16 @@ pub(crate) mod rhai_inline_type {
         Inline::Html(value)
     }
 
-    pub fn Math(source: String, display_block: bool, trailing_space: bool) -> Inline {
+    pub fn Math(source: String, display_block: bool, pos: PosInfo) -> Inline {
         Inline::Math {
             source,
             display_block,
-            trailing_space,
+            pos,
         }
     }
 
-    pub fn Shortcode(value: Shortcode) -> Inline {
-        Inline::Shortcode(value)
+    pub fn Shortcode(value: Command) -> Inline {
+        Inline::Command(value)
     }
 
     #[rhai_fn(global, get = "value", pure)]
@@ -62,10 +56,21 @@ pub(crate) mod rhai_inline_type {
     pub fn get_value(value: &mut Inline) -> Array {
         match value {
             Inline::Text(v) => vec![v.clone().into()] as Array,
-            Inline::Emphasis(i) => vec![i.clone().into()] as Array,
-            Inline::Strong(i) => vec![i.clone().into()] as Array,
-            Inline::Strikethrough(i) => vec![i.clone().into()] as Array,
+            Inline::Styled(i, s) => vec![i.clone().into(), Dynamic::from(s.clone())] as Array,
             Inline::Code(v) => vec![v.clone().into()] as Array,
+            Inline::CodeBlock {
+                source,
+                tags,
+                display_cell,
+                global_idx,
+                pos,
+            } => vec![
+                Dynamic::from(source.clone()),
+                Dynamic::from(tags.clone()),
+                Dynamic::from(*display_cell),
+                Dynamic::from(*global_idx),
+                Dynamic::from(pos.clone()),
+            ] as Array,
             Inline::SoftBreak => vec![] as Array,
             Inline::HardBreak => vec![] as Array,
             Inline::Rule => vec![] as Array,
@@ -85,13 +90,9 @@ pub(crate) mod rhai_inline_type {
             Inline::Math {
                 source,
                 display_block,
-                trailing_space,
-            } => vec![
-                source.clone().into(),
-                (*display_block).into(),
-                (*trailing_space).into(),
-            ] as Array,
-            Inline::Shortcode(s) => vec![Dynamic::from(s.clone())] as Array,
+                ..
+            } => vec![source.clone().into(), (*display_block).into()] as Array,
+            Inline::Command(c) => vec![Dynamic::from(c.clone())] as Array,
         }
     }
 
@@ -100,10 +101,9 @@ pub(crate) mod rhai_inline_type {
     pub fn get_type(value: &mut Inline) -> String {
         match value {
             Inline::Text(_) => "Text".to_string(),
-            Inline::Emphasis(_) => "Emphasis".to_string(),
-            Inline::Strong(_) => "Strong".to_string(),
-            Inline::Strikethrough(_) => "Strikethrough".to_string(),
+            Inline::Styled(_, _) => "Styled".to_string(),
             Inline::Code(_) => "Code".to_string(),
+            Inline::CodeBlock { .. } => "CodeBlock".to_string(),
             Inline::SoftBreak => "SoftBreak".to_string(),
             Inline::HardBreak => "HardBreak".to_string(),
             Inline::Rule => "Rule".to_string(),
@@ -111,24 +111,7 @@ pub(crate) mod rhai_inline_type {
             Inline::Link(_, _, _, _) => "Link".to_string(),
             Inline::Html(_) => "Html".to_string(),
             Inline::Math { .. } => "Math".to_string(),
-            Inline::Shortcode(_) => "Shortcode".to_string(),
+            Inline::Command(_) => "Command".to_string(),
         }
-    }
-}
-
-impl CustomType for DocumentMetadata {
-    fn build(mut builder: TypeBuilder<Self>) {
-        builder
-            .with_name("Metadata")
-            .with_get("title", |s: &mut Self| s.title.clone())
-            .with_get("draft", |s: &mut Self| s.draft)
-            .with_get("exercises", |s: &mut Self| s.exercises)
-            .with_get("code_solutions", |s: &mut Self| s.code_solutions)
-            .with_get("cell_outputs", |s: &mut Self| s.cell_outputs)
-            .with_get("interactive", |s: &mut Self| s.interactive)
-            .with_get("editable", |s: &mut Self| s.editable)
-            .with_get("hide_sidebar", |s: &mut Self| s.layout.hide_sidebar)
-            .with_get("exclude_outputs", |s: &mut Self| s.exclude_outputs.clone())
-            .with_get("user_defined", |s: &mut Self| s.user_defined.clone());
     }
 }

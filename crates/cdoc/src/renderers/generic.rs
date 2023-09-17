@@ -166,9 +166,13 @@ impl RenderElement<Inline> for GenericRenderer {
                     ctx,
                     buf,
                 ),
-                Style::Underline => {
-                    todo!()
-                }
+                Style::Underline => render_value_template(
+                    "underline",
+                    TemplateType::Builtin,
+                    &self.render_inner(inner, ctx)?,
+                    ctx,
+                    buf,
+                ),
             },
             Inline::CodeBlock {
                 source,
@@ -179,8 +183,7 @@ impl RenderElement<Inline> for GenericRenderer {
             } => {
                 let id = get_id();
 
-                // TODO: Add code output settings!!
-                let code_rendered = source.to_string(false)?;
+                let code_rendered = source.to_string(ctx.doc.meta.code_solutions)?;
 
                 let highlighted = syntect::html::highlighted_html_for_string(
                     &code_rendered,
