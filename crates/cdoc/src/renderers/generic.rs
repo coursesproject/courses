@@ -196,7 +196,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 args.insert("interactive", &ctx.doc.meta.interactive);
                 args.insert("cell_outputs", &ctx.doc.meta.cell_outputs);
                 args.insert("editable", &ctx.doc.meta.editable);
-                args.insert("source", &source);
+                args.insert("source", &code_rendered);
                 args.insert("highlighted", &highlighted);
                 args.insert("id", &id);
                 args.insert("tags", &tags);

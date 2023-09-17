@@ -9,11 +9,11 @@ shortcode:
 
 templates:
   html: !String |
-    <div class="columns has-text-centered">
-      <div class="column">
-          <a class="btn btn-primary" href="{{config.url_prefix}}/documentation">Documentation</a>
-          <a class="btn btn-warning" href="{{config.custom.crates.courses}}" target="_blank">Crates.io</a>
-          <a class="btn btn-dark" href="{{config.repository.url}}" target="_blank">
+      <div class="not-prose">
+        <div class="flex items-center justify-center">
+          <a class="btn btn-success mx-2" href="{{config.url_prefix}}/documentation">Documentation</a>
+          <a class="btn btn-warning mx-2" href="{{config.custom.crates.courses}}" target="_blank">Crates.io</a>
+          <a class="btn btn-neutral mx-2" href="{{config.repository.url}}" target="_blank">
               <span class="icon-text">
                   <span>GitHub</span>
                   <span class="icon">
@@ -22,4 +22,4 @@ templates:
               </span>
           </a>
       </div>
-    </div>
+      </div>
