@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use cdoc_parser::code_ast::types::CodeContent;
 use cdoc_parser::document::CodeOutput;
 use cdoc_parser::notebook::CellOutput;
+use cdoc_parser::raw::CodeAttr;
 use cdoc_parser::PosInfo;
 use rhai::serde::{from_dynamic, to_dynamic};
 use rhai::{CustomType, Dynamic, TypeBuilder};
@@ -11,7 +12,7 @@ use std::collections::HashMap;
 #[derive(Clone)]
 pub(crate) struct ScriptCodeBlock {
     source: CodeContent,
-    tags: Option<Vec<String>>,
+    tags: Vec<CodeAttr>,
     outputs: Dynamic,
     display_cell: bool,
     global_idx: usize,
@@ -21,7 +22,7 @@ pub(crate) struct ScriptCodeBlock {
 impl ScriptCodeBlock {
     pub fn new(
         source: &CodeContent,
-        tags: &Option<Vec<String>>,
+        tags: &[CodeAttr],
         outputs: &Option<&mut CodeOutput>,
         display_cell: bool,
         global_idx: usize,
@@ -29,7 +30,7 @@ impl ScriptCodeBlock {
     ) -> Self {
         ScriptCodeBlock {
             source: source.clone(),
-            tags: tags.clone(),
+            tags: tags.to_vec(),
             outputs: to_dynamic(outputs).unwrap(),
             display_cell,
             global_idx,
@@ -40,7 +41,7 @@ impl ScriptCodeBlock {
     pub fn apply_changes(
         self,
         source: &mut CodeContent,
-        tags: &mut Option<Vec<String>>,
+        tags: &mut Vec<CodeAttr>,
         outputs: Option<&mut CodeOutput>,
         display_cell: &mut bool,
         global_idx: &mut usize,
@@ -71,7 +72,7 @@ impl CustomType for ScriptCodeBlock {
             .with_get_set(
                 "tags",
                 |s: &mut Self| s.tags.clone(),
-                |s: &mut Self, v: Option<Vec<String>>| s.tags = v,
+                |s: &mut Self, v: Vec<CodeAttr>| s.tags = v,
             )
             .with_get_set(
                 "outputs",

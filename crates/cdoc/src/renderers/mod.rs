@@ -54,7 +54,7 @@ impl<'a> RenderContext<'a> {
     ) -> Result<Self> {
         let mut ref_visit = ReferenceVisitor::new();
         ref_visit.walk_ast(&mut doc.content.0)?;
-        let rbt = references_by_type(&ref_visit.references);
+        let rbt = references_by_type(&mut ref_visit.references);
 
         Ok(RenderContext {
             doc,
@@ -71,20 +71,16 @@ impl<'a> RenderContext<'a> {
 }
 
 pub fn references_by_type(
-    refs: &HashMap<String, Reference>,
+    refs: &mut HashMap<String, Reference>,
 ) -> HashMap<String, Vec<(String, Reference)>> {
     let mut type_map = HashMap::new();
     for (id, reference) in refs {
-        let typ = match reference {
-            Reference::Math(_) => "math",
-            Reference::Code(_) => "code",
-            Reference::Command { function, .. } => function,
-        };
-
         type_map
-            .entry(typ.to_string())
+            .entry(reference.obj_type.to_string())
             .or_insert(vec![])
             .push((id.to_string(), reference.clone()));
+
+        reference.num = type_map.get(&reference.obj_type).unwrap().len();
     }
     type_map
 }

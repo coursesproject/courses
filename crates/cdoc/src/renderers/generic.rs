@@ -85,6 +85,7 @@ impl GenericRenderer {
         let mut args = ctx.extra_args.clone();
         args.insert("defs", &ctx.templates.definitions);
         args.insert("refs", &ctx.references);
+        // println!("{:?}", &ctx.references);
         args.insert("refs_by_type", &ctx.references_by_type);
 
         let num = if command.label.is_some() {

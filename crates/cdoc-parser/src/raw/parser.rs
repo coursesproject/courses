@@ -227,7 +227,7 @@ impl RawDocument {
                 Special::CodeBlock {
                     lvl: lvl.len(),
                     inner: content,
-                    params: params.unwrap_or_default(),
+                    tags: params.unwrap_or_default(),
                 }
             },
         ))
@@ -296,7 +296,7 @@ code
                             meta: Default::default(),
                             hash: 7837613302888775477,
                         },
-                        params: vec![],
+                        tags: vec![],
                     },
                 ),
                 pos: PosInfo::new(input, 0, 12),
@@ -324,7 +324,7 @@ code
                             meta: Default::default(),
                             hash: 7837613302888775477,
                         },
-                        params: vec![
+                        tags: vec![
                             CodeAttr {
                                 key: None,
                                 value: "lang".to_string(),

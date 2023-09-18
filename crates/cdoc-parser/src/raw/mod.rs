@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
+use serde::{Deserialize, Serialize};
 use std::io::{BufWriter, Write};
 
 #[derive(Debug, PartialEq, Default)]
@@ -39,7 +40,7 @@ pub enum Special {
     CodeBlock {
         lvl: usize,
         inner: CodeContent,
-        params: Vec<CodeAttr>,
+        tags: Vec<CodeAttr>,
     },
     Command {
         function: String,
@@ -51,7 +52,7 @@ pub enum Special {
     },
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CodeAttr {
     pub key: Option<String>,
     pub value: String,

@@ -10,6 +10,7 @@ use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Inline};
 use cdoc_parser::code_ast::types::CodeContent;
 use cdoc_parser::document::{CodeOutput, Document, Metadata};
+use cdoc_parser::raw::CodeAttr;
 use cdoc_parser::PosInfo;
 use code_block::ScriptCodeBlock;
 use rhai::{exported_module, CustomType, Engine, EvalAltResult, Scope, TypeBuilder};
@@ -140,7 +141,7 @@ impl AstVisitor for ScriptVisitor<'_> {
         &mut self,
         _label: &mut Option<String>,
         source: &mut CodeContent,
-        tags: &mut Option<Vec<String>>,
+        tags: &mut Vec<CodeAttr>,
         display_cell: &mut bool,
         global_idx: &mut usize,
         pos: &mut PosInfo,

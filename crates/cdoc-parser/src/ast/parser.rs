@@ -74,18 +74,18 @@ impl From<raw::Parameter> for Parameter {
     }
 }
 
-impl From<raw::Reference> for Reference {
-    fn from(value: raw::Reference) -> Self {
-        match value {
-            raw::Reference::Math(s) => Reference::Math(s),
-            raw::Reference::Code(s) => Reference::Code(s),
-            raw::Reference::Command(name, val) => Reference::Command {
-                function: name,
-                parameters: val.into_iter().map(|p| p.into()).collect(),
-            },
-        }
-    }
-}
+// impl From<raw::Reference> for Reference {
+//     fn from(value: raw::Reference) -> Self {
+//         match value {
+//             raw::Reference::Math(s) => Reference::Math(s),
+//             raw::Reference::Code(s) => Reference::Code(s),
+//             raw::Reference::Command(name, val) => Reference::Command {
+//                 function: name,
+//                 parameters: val.into_iter().map(|p| p.into()).collect(),
+//             },
+//         }
+//     }
+// }
 
 impl From<Child> for Inline {
     fn from(value: Child) -> Self {
@@ -96,10 +96,10 @@ impl From<Child> for Inline {
                 display_block: is_block,
                 pos: value.pos,
             },
-            Special::CodeBlock { inner, .. } => Inline::CodeBlock {
+            Special::CodeBlock { inner, tags, .. } => Inline::CodeBlock {
                 label: value.label,
                 source: inner,
-                tags: None,
+                tags,
                 display_cell: false,
                 global_idx: value.identifier,
                 pos: value.pos,
@@ -387,7 +387,7 @@ mod tests {
                     meta: Default::default(),
                     hash: 3303757851706689630,
                 },
-                tags: None,
+                tags: vec![],
                 display_cell: false,
                 global_idx: 0,
                 pos: PosInfo {

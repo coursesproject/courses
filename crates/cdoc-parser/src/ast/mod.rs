@@ -6,6 +6,7 @@ use crate::common::PosInfo;
 use pulldown_cmark::LinkType;
 use serde::{Deserialize, Serialize};
 
+use crate::raw::CodeAttr;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -35,7 +36,7 @@ pub enum Inline {
         /// Code source
         source: CodeContent,
         /// Code tags
-        tags: Option<Vec<String>>,
+        tags: Vec<CodeAttr>,
         /// Display the block as a cell or listing (only used for notebooks)
         display_cell: bool,
         global_idx: usize,
@@ -71,15 +72,26 @@ pub struct Parameter {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum Reference {
-    Math(String),
-    Code(String),
-    Command {
-        function: String,
-        parameters: Vec<Parameter>,
-    },
+pub struct Reference {
+    pub obj_type: String,
+    pub attr: HashMap<String, String>,
+    pub num: usize,
 }
+
+// #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+// #[serde(tag = "type", rename_all = "lowercase")]
+// pub enum Reference {
+//     Math {
+//         display_inline: bool,
+//     },
+//     Code {
+//         tags: Vec<CodeAttr>,
+//     },
+//     Command {
+//         function: String,
+//         parameters: HashMap<String, String>,
+//     },
+// }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {

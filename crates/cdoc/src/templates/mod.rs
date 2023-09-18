@@ -269,36 +269,36 @@ impl TemplateManager {
         tp.validate_args(args)
     }
 
-    pub fn shortcode_call_resolve_positionals(&self, call: Reference) -> anyhow::Result<Reference> {
-        Ok(
-            if let Reference::Command {
-                function,
-                parameters,
-            } = call
-            {
-                let tp = self.get_template(&function, TemplateType::Shortcode)?;
-                let params = tp.shortcode.unwrap().parameters;
-
-                let args = parameters
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, a)| {
-                        let k = a.key.unwrap_or_else(|| params.get(i).unwrap().name.clone());
-                        Parameter {
-                            key: Some(k),
-                            value: a.value,
-                            pos: a.pos,
-                        }
-                    })
-                    .collect();
-
-                Reference::Command {
-                    function,
-                    parameters: args,
-                }
-            } else {
-                call
-            },
-        )
-    }
+    // pub fn shortcode_call_resolve_positionals(&self, call: Reference) -> anyhow::Result<Reference> {
+    //     Ok(
+    //         if let Reference::Command {
+    //             function,
+    //             parameters,
+    //         } = call
+    //         {
+    //             let tp = self.get_template(&function, TemplateType::Shortcode)?;
+    //             let params = tp.shortcode.unwrap().parameters;
+    //
+    //             let args = parameters
+    //                 .into_iter()
+    //                 .enumerate()
+    //                 .map(|(i, a)| {
+    //                     let k = a.key.unwrap_or_else(|| params.get(i).unwrap().name.clone());
+    //                     Parameter {
+    //                         key: Some(k),
+    //                         value: a.value,
+    //                         pos: a.pos,
+    //                     }
+    //                 })
+    //                 .collect();
+    //
+    //             Reference::Command {
+    //                 function,
+    //                 parameters: args,
+    //             }
+    //         } else {
+    //             call
+    //         },
+    //     )
+    // }
 }

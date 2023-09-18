@@ -1,6 +1,7 @@
 use crate::ast::{Block, Command, Inline, Parameter, Style};
 use crate::code_ast::types::CodeContent;
 use crate::common::PosInfo;
+use crate::raw::CodeAttr;
 use anyhow::Result;
 
 /// Implements the visitor pattern for the cdoc Ast type. Blanket implementations are provided so
@@ -91,7 +92,7 @@ pub trait AstVisitor {
         &mut self,
         _label: &mut Option<String>,
         _source: &mut CodeContent,
-        _tags: &mut Option<Vec<String>>,
+        _tags: &mut Vec<CodeAttr>,
         _display_cell: &mut bool,
         _global_idx: &mut usize,
         _pos: &mut PosInfo,
