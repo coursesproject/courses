@@ -41,7 +41,7 @@ impl AstVisitor for CellVisitor<'_> {
                             Outval::Text(s) => {
                                 let command = Command {
                                     function: "output_text".to_string(),
-                                    id: None,
+                                    label: None,
                                     parameters: vec![Parameter {
                                         key: Some("value".to_string()),
                                         value: Value::String(s.clone()),
@@ -80,7 +80,7 @@ impl AstVisitor for CellVisitor<'_> {
 
                                 let command = Command {
                                     function: "figure".to_string(),
-                                    id: source.meta.get("id").cloned(),
+                                    label: source.meta.get("id").cloned(),
                                     parameters: params,
                                     body: None,
                                     pos: Default::default(),

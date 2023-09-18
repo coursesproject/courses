@@ -9,7 +9,7 @@ pub struct RawDocParser;
 
 use crate::code_ast::parse_code_string;
 use crate::common::PosInfo;
-use crate::raw::{Element, ElementInfo, Extern, Parameter, Value};
+use crate::raw::{Element, ElementInfo, Parameter, Special, Value};
 use pest::iterators::Pairs;
 use thiserror::Error;
 
@@ -49,10 +49,10 @@ impl RawDocument {
         let span = PosInfo::from(pair.as_span());
 
         let element = match pair.as_rule() {
-            Rule::command => Element::Extern(self.parse_command(pair)?),
-            Rule::math_block => Element::Extern(self.parse_math(pair)),
-            Rule::code_def => Element::Extern(self.parse_code(pair)?),
-            Rule::verbatim => Element::Extern(self.parse_verbatim(pair)),
+            Rule::command => self.parse_command(pair)?,
+            Rule::math_block => self.parse_math(pair),
+            Rule::code_def => self.parse_code(pair)?,
+            Rule::verbatim => self.parse_verbatim(pair),
             Rule::src | Rule::string | Rule::body => self.parse_src(pair),
             _ => unreachable!(),
         };
@@ -65,7 +65,7 @@ impl RawDocument {
         Element::Markdown(value.into())
     }
 
-    fn parse_command(&mut self, pair: Pair<Rule>) -> Result<Extern, ParserError> {
+    fn parse_command(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
         let mut inner = pair.into_inner();
         let name = inner
             .next()
@@ -77,28 +77,32 @@ impl RawDocument {
 
         let mut parameters = vec![];
         let mut body = None;
-        let mut id = None;
+        let mut label = None;
 
         for elem in inner {
             match elem.as_rule() {
                 Rule::parameters => parameters = self.parse_parameters(elem.into_inner())?,
                 Rule::body_def => body = Some(self.parse_elements(elem.into_inner())?),
-                Rule::id => id = Some(elem.into_inner().as_str().into()),
+                Rule::label => label = Some(elem.into_inner().as_str().to_string()),
                 _ => unreachable!(),
             }
         }
 
-        if let Some(id) = id.clone() {
-            self.references
-                .insert(id, Reference::Command(name.to_string(), parameters.clone()));
+        if let Some(label) = label.clone() {
+            self.references.insert(
+                label,
+                Reference::Command(name.to_string(), parameters.clone()),
+            );
         }
 
-        Ok(Extern::Command {
-            function: name.into(),
-            id,
-            parameters,
-            body,
-        })
+        Ok(Element::Special(
+            label,
+            Special::Command {
+                function: name.into(),
+                parameters,
+                body,
+            },
+        ))
     }
 
     fn parse_parameters(&mut self, pairs: Pairs<Rule>) -> Result<Vec<Parameter>, ParserError> {
@@ -136,20 +140,29 @@ impl RawDocument {
         })
     }
 
-    fn block_parser(&mut self, pair: Pair<Rule>) -> (String, String) {
+    fn block_parser(&mut self, pair: Pair<Rule>) -> (String, String, Option<String>) {
         let mut inner = pair.into_inner();
         let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
         let src = inner.next().expect("missing code_src").as_str().to_string();
-        (lvl, src)
+        let id = inner.next().map(|val| val.as_str().to_string());
+        (lvl, src, id)
     }
 
-    fn parse_math(&mut self, pair: Pair<Rule>) -> Extern {
-        let (lvl, src) = self.block_parser(pair);
+    fn parse_math(&mut self, pair: Pair<Rule>) -> Element {
+        let (lvl, src, label) = self.block_parser(pair);
 
-        Extern::Math {
-            inner: src,
-            is_block: lvl.len() != 1,
+        if let Some(label) = label.clone() {
+            self.references
+                .insert(label, Reference::Math(src.to_string()));
         }
+
+        Element::Special(
+            label,
+            Special::Math {
+                inner: src,
+                is_block: lvl.len() != 1,
+            },
+        )
     }
 
     fn parse_code_attributes(&mut self, pairs: Pairs<Rule>) -> Vec<CodeAttr> {
@@ -183,7 +196,7 @@ impl RawDocument {
         }
     }
 
-    fn parse_code(&mut self, pair: Pair<Rule>) -> Result<Extern, ParserError> {
+    fn parse_code(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
         let mut inner = pair.into_inner();
         let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
 
@@ -197,22 +210,37 @@ impl RawDocument {
 
         let src = src_pair.as_str().to_string();
 
-        Ok(if lvl.len() == 1 {
-            Extern::CodeInline { inner: src }
-        } else {
-            let content = parse_code_string(src.trim())?;
+        let id = inner.next().map(|val| val.as_str().to_string());
 
-            Extern::CodeBlock {
-                lvl: lvl.len(),
-                inner: content,
-                params: params.unwrap_or_default(),
-            }
-        })
+        if let Some(label) = id.clone() {
+            self.references
+                .insert(label, Reference::Code(src.to_string()));
+        }
+
+        Ok(Element::Special(
+            id,
+            if lvl.len() == 1 {
+                Special::CodeInline { inner: src }
+            } else {
+                let content = parse_code_string(src.trim())?;
+
+                Special::CodeBlock {
+                    lvl: lvl.len(),
+                    inner: content,
+                    params: params.unwrap_or_default(),
+                }
+            },
+        ))
     }
 
-    fn parse_verbatim(&mut self, pair: Pair<Rule>) -> Extern {
+    fn parse_verbatim(&mut self, pair: Pair<Rule>) -> Element {
         let value = pair.as_str();
-        Extern::Verbatim(value.into())
+        Element::Special(
+            None,
+            Special::Verbatim {
+                inner: value.into(),
+            },
+        )
     }
 
     fn parse_meta(&mut self, pair: Pair<Rule>) {
@@ -232,7 +260,7 @@ mod tests {
     use crate::code_ast::types::{CodeBlock, CodeContent};
     use crate::common::PosInfo;
     use crate::raw::{
-        parse_to_doc, CodeAttr, Element, ElementInfo, Extern, Parameter, RawDocument, Reference,
+        parse_to_doc, CodeAttr, Element, ElementInfo, Parameter, RawDocument, Reference, Special,
         Value,
     };
     use std::collections::HashMap;
@@ -259,15 +287,18 @@ code
 ```"#;
         let expected = RawDocument {
             src: vec![ElementInfo {
-                element: Element::Extern(Extern::CodeBlock {
-                    lvl: 3,
-                    inner: CodeContent {
-                        blocks: vec![CodeBlock::Src("code\n".into())],
-                        meta: Default::default(),
-                        hash: 7837613302888775477,
+                element: Element::Special(
+                    None,
+                    Special::CodeBlock {
+                        lvl: 3,
+                        inner: CodeContent {
+                            blocks: vec![CodeBlock::Src("code\n".into())],
+                            meta: Default::default(),
+                            hash: 7837613302888775477,
+                        },
+                        params: vec![],
                     },
-                    params: vec![],
-                }),
+                ),
                 pos: PosInfo::new(input, 0, 12),
             }],
             meta: None,
@@ -284,24 +315,27 @@ code
 ```"#;
         let expected = RawDocument {
             src: vec![ElementInfo {
-                element: Element::Extern(Extern::CodeBlock {
-                    lvl: 3,
-                    inner: CodeContent {
-                        blocks: vec![CodeBlock::Src("code\n".into())],
-                        meta: Default::default(),
-                        hash: 7837613302888775477,
+                element: Element::Special(
+                    None,
+                    Special::CodeBlock {
+                        lvl: 3,
+                        inner: CodeContent {
+                            blocks: vec![CodeBlock::Src("code\n".into())],
+                            meta: Default::default(),
+                            hash: 7837613302888775477,
+                        },
+                        params: vec![
+                            CodeAttr {
+                                key: None,
+                                value: "lang".to_string(),
+                            },
+                            CodeAttr {
+                                key: Some("key".to_string()),
+                                value: "val".to_string(),
+                            },
+                        ],
                     },
-                    params: vec![
-                        CodeAttr {
-                            key: None,
-                            value: "lang".to_string(),
-                        },
-                        CodeAttr {
-                            key: Some("key".to_string()),
-                            value: "val".to_string(),
-                        },
-                    ],
-                }),
+                ),
                 pos: PosInfo::new(input, 0, 25),
             }],
             meta: None,
@@ -316,10 +350,13 @@ code
         let input = "$inline$";
         let expected = RawDocument {
             src: vec![ElementInfo {
-                element: Element::Extern(Extern::Math {
-                    is_block: false,
-                    inner: "inline".into(),
-                }),
+                element: Element::Special(
+                    None,
+                    Special::Math {
+                        is_block: false,
+                        inner: "inline".into(),
+                    },
+                ),
                 pos: PosInfo::new(input, 0, 8),
             }],
             meta: None,
@@ -334,7 +371,12 @@ code
         let input = "\\{verbatim\\}";
         let expected = RawDocument {
             src: vec![ElementInfo {
-                element: Element::Extern(Extern::Verbatim("verbatim".into())),
+                element: Element::Special(
+                    None,
+                    Special::Verbatim {
+                        inner: "verbatim".into(),
+                    },
+                ),
                 pos: PosInfo::new(input, 2, 10),
             }],
             meta: None,
@@ -364,12 +406,14 @@ code
         let input = "#call|id";
         let expected = RawDocument {
             src: vec![ElementInfo {
-                element: Element::Extern(Extern::Command {
-                    function: "call".to_string(),
-                    id: Some("id".to_string()),
-                    parameters: vec![],
-                    body: None,
-                }),
+                element: Element::Special(
+                    Some("id".to_string()),
+                    Special::Command {
+                        function: "call".to_string(),
+                        parameters: vec![],
+                        body: None,
+                    },
+                ),
                 pos: PosInfo::new(input, 0, 8),
             }],
             meta: None,
@@ -389,9 +433,8 @@ code
         command
         no_params_no_body: ("#func",  vec![
             ElementInfo {
-                element: Element::Extern(Extern::Command {
+                element: Element::Special(None, Special::Command {
                     function: "func".into(),
-                    id: None,
                     parameters: vec![],
                     body: None,
                 }),
@@ -400,9 +443,8 @@ code
         ]),
         with_params_no_body: (CMD_WITH_PARAMS_NO_BODY,  vec![
             ElementInfo {
-                element: Element::Extern(Extern::Command {
+                element: Element::Special(None, Special::Command {
                     function: "func".into(),
-                    id: None,
                     parameters: vec![
                         Parameter { key: None, value: Value::String("basic".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 6, 11) },
                         Parameter { key: None, value: Value::String("quoted".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 13, 21) },
@@ -429,9 +471,8 @@ code
         ]),
         with_params_with_body: ("#func(c){x}", vec![
             ElementInfo {
-                element: Element::Extern(Extern::Command {
+                element: Element::Special(None, Special::Command {
                     function: "func".into(),
-                    id: None,
                     parameters: vec![
                         Parameter { key: None, value: Value::String("c".to_string()), pos: PosInfo::new("#func(c){x}", 6, 7)}
                     ],
@@ -447,9 +488,8 @@ code
         ]),
         no_params_with_body: ("#func{x}", vec![
             ElementInfo {
-                element: Element::Extern(Extern::Command {
+                element: Element::Special(None, Special::Command {
                     function: "func".into(),
-                    id: None,
                     parameters: vec![],
                     body: Some(vec![
                         ElementInfo {
@@ -463,14 +503,12 @@ code
         ]),
         body_nested: ("#func1{#func2}", vec![
             ElementInfo {
-                element: Element::Extern(Extern::Command {
+                element: Element::Special(None, Special::Command {
                     function: "func1".into(),
-                    id: None,
                     parameters: vec![],
                     body: Some(vec![ElementInfo {
-                            element: Element::Extern(Extern::Command{
+                            element: Element::Special(None, Special::Command{
                                 function: "func2".into(),
-                                id: None,
                                 parameters: vec![],
                                 body: None,
                             }),

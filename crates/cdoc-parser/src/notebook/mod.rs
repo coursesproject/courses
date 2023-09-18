@@ -416,7 +416,7 @@ mod tests {
                 },
                 Block::Plain(vec![Inline::Command(Command {
                     function: "func".to_string(),
-                    id: None,
+                    label: None,
                     parameters: vec![],
                     body: None,
                     pos: PosInfo {
@@ -427,6 +427,7 @@ mod tests {
                     global_idx: 0,
                 })]),
                 Block::Plain(vec![Inline::CodeBlock {
+                    label: None,
                     source: CodeContent {
                         blocks: vec![CodeBlock::Src("print('x')\n".to_string())],
                         meta: Default::default(),

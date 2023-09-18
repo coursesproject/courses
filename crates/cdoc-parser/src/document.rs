@@ -1,5 +1,5 @@
 use crate::ast::Ast;
-use crate::raw::{parse_to_doc, ComposedMarkdown, Extern, RawDocument};
+use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Special};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -75,7 +75,7 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
         .children
         .iter()
         .filter_map(|c| match &c.elem {
-            Extern::CodeBlock { inner, .. } => Some((inner.hash, CodeOutput::default())),
+            Special::CodeBlock { inner, .. } => Some((inner.hash, CodeOutput::default())),
             _ => None,
         })
         .collect();

@@ -42,25 +42,27 @@ pub trait AstVisitor {
             Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Html(h) => self.visit_html_inline(h),
             Inline::Math {
+                ref mut label,
                 ref mut source,
                 ref mut display_block,
                 ref mut pos,
-            } => self.visit_math(source, display_block, pos),
+            } => self.visit_math(label, source, display_block, pos),
             Inline::Command(Command {
                 function,
-                id,
+                label,
                 parameters,
                 body,
                 pos,
                 global_idx,
-            }) => self.visit_command(function, id, parameters, body, pos, global_idx),
+            }) => self.visit_command(function, label, parameters, body, pos, global_idx),
             Inline::CodeBlock {
+                ref mut label,
                 source,
                 tags,
                 display_cell,
                 global_idx,
                 pos,
-            } => self.visit_code_block(source, tags, display_cell, global_idx, pos),
+            } => self.visit_code_block(label, source, tags, display_cell, global_idx, pos),
         }
     }
 
@@ -87,6 +89,7 @@ pub trait AstVisitor {
     #[allow(clippy::too_many_arguments)]
     fn visit_code_block(
         &mut self,
+        _label: &mut Option<String>,
         _source: &mut CodeContent,
         _tags: &mut Option<Vec<String>>,
         _display_cell: &mut bool,
@@ -102,6 +105,7 @@ pub trait AstVisitor {
 
     fn visit_math(
         &mut self,
+        _label: &mut Option<String>,
         _source: &mut String,
         _display_block: &mut bool,
         _pos: &mut PosInfo,

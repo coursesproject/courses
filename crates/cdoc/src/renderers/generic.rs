@@ -87,7 +87,7 @@ impl GenericRenderer {
         args.insert("refs", &ctx.references);
         args.insert("refs_by_type", &ctx.references_by_type);
 
-        let num = if command.id.is_some() {
+        let num = if command.label.is_some() {
             let num = self.counters.entry(command.function.clone()).or_insert(0);
             *num += 1;
             *num
@@ -119,7 +119,7 @@ impl GenericRenderer {
             .collect();
         r?;
 
-        add_args(&tdef, &mut args, &command.id, num, rendered)?;
+        add_args(&tdef, &mut args, &command.label, num, rendered)?;
         let body = command
             .body
             .as_ref()

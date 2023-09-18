@@ -1,7 +1,7 @@
 use crate::ast::*;
 
 use crate::raw;
-use crate::raw::{Child, ComposedMarkdown, Extern};
+use crate::raw::{Child, ComposedMarkdown, Special};
 use anyhow::anyhow;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
@@ -90,22 +90,23 @@ impl From<raw::Reference> for Reference {
 impl From<Child> for Inline {
     fn from(value: Child) -> Self {
         match value.elem {
-            Extern::Math { inner, is_block } => Inline::Math {
+            Special::Math { inner, is_block } => Inline::Math {
+                label: value.label,
                 source: inner,
                 display_block: is_block,
                 pos: value.pos,
             },
-            Extern::CodeBlock { inner, .. } => Inline::CodeBlock {
+            Special::CodeBlock { inner, .. } => Inline::CodeBlock {
+                label: value.label,
                 source: inner,
                 tags: None,
                 display_cell: false,
                 global_idx: value.identifier,
                 pos: value.pos,
             },
-            Extern::CodeInline { inner } => Inline::Code(inner),
-            Extern::Command {
+            Special::CodeInline { inner } => Inline::Code(inner),
+            Special::Command {
                 function,
-                id,
                 parameters,
                 body,
             } => {
@@ -114,14 +115,14 @@ impl From<Child> for Inline {
 
                 Inline::Command(Command {
                     function,
-                    id,
+                    label: value.label,
                     parameters,
                     body,
                     pos: value.pos,
                     global_idx: value.identifier,
                 })
             }
-            Extern::Verbatim(s) => Inline::Text(s),
+            Special::Verbatim { inner } => Inline::Text(inner),
         }
     }
 }
@@ -276,7 +277,7 @@ mod tests {
     use crate::ast::{Block, Command, Inline, Parameter, Style, Value};
     use crate::code_ast::types::{CodeBlock, CodeContent};
     use crate::common::PosInfo;
-    use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Extern};
+    use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Special};
     use pulldown_cmark::LinkType;
 
     #[test]
@@ -287,15 +288,17 @@ mod tests {
                 pos: PosInfo::new("", 0, 0),
             },
             ElementInfo {
-                element: Element::Extern(Extern::Command {
-                    function: "func".into(),
-                    id: None,
-                    parameters: vec![],
-                    body: Some(vec![ElementInfo {
-                        element: Element::Markdown("x".into()),
-                        pos: PosInfo::new("", 0, 0),
-                    }]),
-                }),
+                element: Element::Special(
+                    None,
+                    Special::Command {
+                        function: "func".into(),
+                        parameters: vec![],
+                        body: Some(vec![ElementInfo {
+                            element: Element::Markdown("x".into()),
+                            pos: PosInfo::new("", 0, 0),
+                        }]),
+                    },
+                ),
                 pos: PosInfo::new("", 0, 0),
             },
         ];
@@ -307,7 +310,7 @@ mod tests {
             Inline::Text("regular stuff ".to_string()),
             Inline::Command(Command {
                 function: "func".to_string(),
-                id: None,
+                label: None,
                 parameters: vec![],
                 body: Some(vec![Block::Paragraph(vec![Inline::Text("x".to_string())])]),
                 pos: PosInfo::new("", 0, 0),
@@ -378,6 +381,7 @@ mod tests {
             ]),
             Block::Plain(vec![Inline::Code("code inline".to_string())]),
             Block::Plain(vec![Inline::CodeBlock {
+                label: None,
                 source: CodeContent {
                     blocks: vec![CodeBlock::Src("code block\n".to_string())],
                     meta: Default::default(),
@@ -393,6 +397,7 @@ mod tests {
                 },
             }]),
             Block::Plain(vec![Inline::Math {
+                label: None,
                 source: "math inline".to_string(),
                 display_block: false,
                 pos: PosInfo {
@@ -402,6 +407,7 @@ mod tests {
                 },
             }]),
             Block::Plain(vec![Inline::Math {
+                label: None,
                 source: "\nmath block\n".to_string(),
                 display_block: true,
                 pos: PosInfo {
@@ -425,7 +431,7 @@ mod tests {
         let expected = vec![
             Block::Plain(vec![Inline::Command(Command {
                 function: "func".to_string(),
-                id: None,
+                label: None,
                 parameters: vec![],
                 body: None,
                 pos: PosInfo {
@@ -437,7 +443,7 @@ mod tests {
             })]),
             Block::Plain(vec![Inline::Command(Command {
                 function: "func_param".to_string(),
-                id: None,
+                label: None,
                 parameters: vec![
                     Parameter {
                         key: None,
@@ -468,7 +474,7 @@ mod tests {
             })]),
             Block::Plain(vec![Inline::Command(Command {
                 function: "func_body".to_string(),
-                id: None,
+                label: None,
                 parameters: vec![],
                 body: Some(vec![Block::Paragraph(vec![Inline::Text(
                     "hello there".to_string(),
@@ -482,7 +488,7 @@ mod tests {
             })]),
             Block::Plain(vec![Inline::Command(Command {
                 function: "func_all".to_string(),
-                id: None,
+                label: None,
                 parameters: vec![
                     Parameter {
                         key: None,
@@ -515,15 +521,16 @@ mod tests {
             })]),
             Block::Plain(vec![Inline::Command(Command {
                 function: "func_inner".to_string(),
-                id: None,
+                label: None,
                 parameters: vec![],
                 body: Some(vec![
                     Block::Plain(vec![Inline::Code("#func".to_string())]),
                     Block::Plain(vec![Inline::Command(Command {
                         function: "inner".to_string(),
-                        id: None,
+                        label: None,
                         parameters: vec![],
                         body: Some(vec![Block::Plain(vec![Inline::Math {
+                            label: None,
                             source: "math".to_string(),
                             display_block: false,
                             pos: PosInfo {

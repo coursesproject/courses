@@ -14,7 +14,7 @@ pub struct Ast(pub Vec<Block>);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Command {
     pub function: String,
-    pub id: Option<String>,
+    pub label: Option<String>,
     pub parameters: Vec<Parameter>,
     pub body: Option<Vec<Block>>,
     pub pos: PosInfo,
@@ -30,6 +30,8 @@ pub enum Inline {
     Code(String),
     /// A code block. May originate from markdown fenced code blocks or notebook code cells.
     CodeBlock {
+        /// Label
+        label: Option<String>,
         /// Code source
         source: CodeContent,
         /// Code tags
@@ -54,6 +56,7 @@ pub enum Inline {
     /// pulldown_cmark.
     Math {
         source: String,
+        label: Option<String>,
         display_block: bool,
         pos: PosInfo,
     },

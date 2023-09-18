@@ -24,11 +24,11 @@ pub enum Reference {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Element {
     Markdown(String),
-    Extern(Extern),
+    Special(Option<String>, Special),
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Extern {
+pub enum Special {
     Math {
         inner: String,
         is_block: bool,
@@ -43,11 +43,12 @@ pub enum Extern {
     },
     Command {
         function: String,
-        id: Option<String>,
         parameters: Vec<Parameter>,
         body: Option<Vec<ElementInfo>>,
     },
-    Verbatim(String),
+    Verbatim {
+        inner: String,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -106,8 +107,9 @@ impl ToString for Value {
 
 #[derive(Clone)]
 pub struct Child {
-    pub elem: Extern,
+    pub elem: Special,
     pub pos: PosInfo,
+    pub label: Option<String>,
     pub identifier: usize,
 }
 
@@ -131,15 +133,15 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                 Element::Markdown(s) => {
                     writer.write_all(s.as_bytes()).unwrap();
                 }
-                Element::Extern(inner) => {
+                Element::Special(label, inner) => {
                     let idx = code_idx + command_idx + math_idx + extra_idx;
 
                     let identifier = match inner {
-                        Extern::Math { .. } => {
+                        Special::Math { .. } => {
                             math_idx += 1;
                             math_idx - 1
                         }
-                        Extern::CodeBlock { lvl, .. } => {
+                        Special::CodeBlock { lvl, .. } => {
                             if lvl > 1 {
                                 code_idx += 1;
                                 code_idx - 1
@@ -148,15 +150,15 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                                 0
                             }
                         }
-                        Extern::Command { .. } => {
+                        Special::Command { .. } => {
                             command_idx += 1;
                             command_idx - 1
                         }
-                        Extern::Verbatim(_) => {
+                        Special::Verbatim { .. } => {
                             extra_idx += 1;
                             0
                         }
-                        Extern::CodeInline { .. } => {
+                        Special::CodeInline { .. } => {
                             extra_idx += 1;
                             0
                         }
@@ -165,6 +167,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                     children.push(Child {
                         elem: inner,
                         pos: elem.pos,
+                        label,
                         identifier,
                     });
                     write!(&mut writer, "<elem-{}>", idx).unwrap()
