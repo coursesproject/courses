@@ -348,7 +348,7 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
     }
 
     let source = String::from_utf8(writer.into_inner()?)?;
-    println!("{source}");
+
     let mut doc = Document::try_from(source.as_str())?;
     doc.code_outputs = output_map;
     doc.meta = doc_meta.unwrap_or_default();

@@ -45,7 +45,7 @@ code_lvl    = { PUSH("`"+) }
 code        = { (!PEEK ~ ANY)+ }
 
 verbatim =  { (!"\\}" ~ ANY)+ }
-src      = ${ ("#"+ ~ WHITESPACE) | (command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
+src      = ${ ("#"+ ~ WHITESPACE) | "#" | (command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
 
 element = _{ math_block | code_def | verbatim_def | command | src }
 
