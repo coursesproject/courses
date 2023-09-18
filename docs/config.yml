@@ -1,3 +1,7 @@
+
+courses:
+  version: "0.8.*"
+
 url_prefix: /courses
 
 plugins:

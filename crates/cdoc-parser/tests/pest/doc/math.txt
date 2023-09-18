@@ -1,0 +1,18 @@
+Math Inline
+
+=======
+$inline$|label$$block$$|label
+=======
+
+(doc
+    (math_block
+        (math_lvl: "$")
+        (math: "inline")
+        (label (ident: "label"))
+    )
+    (math_block
+        (math_lvl: "$$")
+        (math: "block")
+        (label (ident: "label"))
+    )
+)

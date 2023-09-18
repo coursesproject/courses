@@ -11,11 +11,14 @@ use cdoc::processors::cell_outputs::CellOutputConfig;
 use cdoc::processors::AstPreprocessorConfig;
 use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
+use semver::VersionReq;
 
 /// Refers to a configuration.yml file in the project that specifies a variety
 /// of options for the project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
+    pub courses: CoursesConfig,
+
     #[serde(default)]
     pub url_prefix: String,
     #[serde(default)]
@@ -34,6 +37,11 @@ pub struct ProjectConfig {
 
     #[serde(default)]
     pub scripts: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoursesConfig {
+    pub version: VersionReq,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

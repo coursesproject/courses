@@ -1,44 +1,61 @@
-<nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
-    <div class="navbar-brand">
-        <a class="navbar-item" href="{{ config.url_prefix }}/">
-            <img src="{{ config.url_prefix }}/resources/logo.svg" height="28" width="28">
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-start">
+    <a href="{{ config.url_prefix }}/">
+      <img src="{{ config.url_prefix }}/resources/logo.svg" height="28" width="28">
+    </a>
+
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+    {% if not doc.meta.layout.hide_sidebar %}
+    <a class="navbar-item" @click="sidebar_open = !sidebar_open"><i class="bi bi-list"></i></a>
+    {% endif %}
+  </div>
+
+
+  <div id="navbarBasicExample" class="navbar-center">
+    <ul class="menu menu-horizontal px-1">
+
+      <li>
+        <a href="{{ config.url_prefix }}/" class="navbar-item">
+          Home
         </a>
+      </li>
 
-        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
-            <span aria-hidden="true"></span>
-            <span aria-hidden="true"></span>
-            <span aria-hidden="true"></span>
-        </a>
-    </div>
+      {% for part in project.children %}
+      {% if mode == "draft" or not part.content.meta.draft %}
+      <li><a href="{{ config.url_prefix }}/{{ part.id }}{% if part.type == 'Section' %}/index{% endif %}.html"
+             class="navbar-item">
+        {{ part.content.meta.title }}
+      </a></li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
 
-    <div id="navbarBasicExample" class="navbar-menu">
-        <div class="navbar-start">
-
-            {% if not doc.meta.layout.hide_sidebar %}
-                <a class="navbar-item" @click="sidebar_open = !sidebar_open"><i class="bi bi-list"></i></a>
-            {% endif %}
-
-            <a href="{{ config.url_prefix }}/" class="navbar-item">
-                Home
-            </a>
-
-            {% for part in project.children %}
-                {% if mode == "draft" or not part.content.meta.draft %}
-                    <a href="{{ config.url_prefix }}/{{ part.id }}{% if part.type == 'Section' %}/index{% endif %}.html" class="navbar-item">
-                        {{ part.content.meta.title }}
-                    </a>
-                {% endif %}
-            {% endfor %}
-        </div>
-
-        <div class="navbar-end">
-            <a class="navbar-item" href="{{ config.repository.url }}">
-                <strong>GitHub</strong>
-                <span class="icon">
+  <div class="navbar-end">
+    <ul class="menu menu-horizontal px-1">
+      <li>
+        <details>
+          <summary>Theme</summary>
+          <ul class="p-2 bg-base-100">
+            <li><a data-set-theme="light" data-act-class="active">Light</a></li>
+            <li><a data-set-theme="dark" data-act-class="active">Dark</a></li>
+            <li><a data-set-theme="retro" data-act-class="active">Retro</a></li>
+          </ul>
+        </details>
+      </li>
+      <li>
+        <a href="{{ config.repository.url }}">
+          <strong>GitHub</strong>
+          <span class="icon">
                 <i class="bi bi-github"></i>
               </span>
 
-            </a>
-        </div>
-    </div>
+        </a>
+      </li>
+    </ul>
+
 </nav>
