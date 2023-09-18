@@ -10,7 +10,6 @@ description = "A markdown-based document parser and processor"
 
 homepage = "https://coursesproject.github.io/courses/"
 repository = "https://github.com/coursesproject/courses/tree/main/cdoc"
-documentation = "https://docs.rs/cdoc/0.1.1/cdoc/"
 readme = "README.md"
 
 keywords = ["generator", "markdown", "notebooks"]
@@ -50,11 +49,8 @@ anyhow = "1.0.66"
 dyn-clone = "1.0.10"
 lazy_static = "1.4.0"
 walkdir = "2.3.3"
-image = "0.24.6"
-replace_with = "0.1.7"
 include_dir = "0.7.3"
 dirs = "5.0.1"
-git2 = "0.17.2"
 
 rhai = { version = "1.13.0", features = ["serde", "metadata", "internals", "sync"] }
 reqwest = { version = "0.11.18", features = ["blocking"] }
