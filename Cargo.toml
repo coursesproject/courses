@@ -15,6 +15,8 @@ readme = "README.md"
 keywords = ["site", "generator", "publishing", "notebooks", "education"]
 categories = ["command-line-utilities"]
 
+build="build.rs"
+
 [workspace]
 
 members = [
@@ -52,6 +54,7 @@ linked-hash-map = {version="0.5.6", features=["serde_impl"]}
 image = "0.24.6"
 base64-simd = "0.8.0"
 lazy_static = "1.4.0"
+semver = { version="1.0.18", features = ["serde"] }
 
 
 # CLI libraries
@@ -72,3 +75,6 @@ zip = "0.6.3"
 rayon = "1.7.0"
 
 tempfile = "3.3.0"
+
+[build-dependencies]
+built = "0.7.0"

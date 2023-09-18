@@ -175,11 +175,10 @@ impl RenderElement<Inline> for GenericRenderer {
                 ),
             },
             Inline::CodeBlock {
+                label,
                 source,
                 tags,
-                display_cell: _,
-                global_idx: _,
-                pos: _,
+                ..
             } => {
                 let id = get_id();
 
@@ -193,6 +192,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 )?;
 
                 let mut args = Context::default();
+                args.insert("label", label);
                 args.insert("interactive", &ctx.doc.meta.interactive);
                 args.insert("cell_outputs", &ctx.doc.meta.cell_outputs);
                 args.insert("editable", &ctx.doc.meta.editable);

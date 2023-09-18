@@ -39,8 +39,14 @@ pub(crate) mod rhai_inline_type {
         Inline::Html(value)
     }
 
-    pub fn Math(source: String, display_block: bool, pos: PosInfo) -> Inline {
+    pub fn Math(
+        label: Option<String>,
+        source: String,
+        display_block: bool,
+        pos: PosInfo,
+    ) -> Inline {
         Inline::Math {
+            label,
             source,
             display_block,
             pos,
@@ -59,12 +65,14 @@ pub(crate) mod rhai_inline_type {
             Inline::Styled(i, s) => vec![i.clone().into(), Dynamic::from(s.clone())] as Array,
             Inline::Code(v) => vec![v.clone().into()] as Array,
             Inline::CodeBlock {
+                label,
                 source,
                 tags,
                 display_cell,
                 global_idx,
                 pos,
             } => vec![
+                Dynamic::from(label.clone()),
                 Dynamic::from(source.clone()),
                 Dynamic::from(tags.clone()),
                 Dynamic::from(*display_cell),

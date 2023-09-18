@@ -138,6 +138,7 @@ impl AstVisitor for ScriptVisitor<'_> {
 
     fn visit_code_block(
         &mut self,
+        _label: &mut Option<String>,
         source: &mut CodeContent,
         tags: &mut Option<Vec<String>>,
         display_cell: &mut bool,
