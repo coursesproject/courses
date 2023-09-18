@@ -1,11 +1,15 @@
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
+#  pull_request:
+#    branches:
+#      - main
+#      - dev
   workflow_dispatch:
+#  push:
+#    branches:
+#      - main
+#      - dev
 
-name: Continuous integration (courses)
+name: Continuous integration (cdoc-parser)
 
 jobs:
   clippy_check:
@@ -20,7 +24,7 @@ jobs:
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --package courses
+          args: --all-features --package cdoc-parser
 
   security_audit:
     runs-on: ubuntu-latest
@@ -31,7 +35,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-    name: Test Suite (courses)
+    name: Test Suite (cdoc-parser)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -43,10 +47,10 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace
+          args: --package cdoc-parser
 
   fmt:
-    name: Rustfmt (courses)
+    name: Rustfmt (cdoc-parser)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -59,7 +63,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --package courses -- --check
+          args: --package cdoc-parser --all -- --check
 
   coverage:
     name: Test code coverage
@@ -78,7 +82,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.15.0'
-          args: '--packages courses -- --test-threads 1'
+          args: '--packages cdoc-parser -- --test-threads 1'
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2

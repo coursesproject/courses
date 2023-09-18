@@ -4,6 +4,13 @@ version = "0.1.0-alpha1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
+authors = ["Anton Mølbjerg Eskildsen"]
+
+description = "A markdown-based document parser with custom syntax"
+
+homepage = "https://coursesproject.github.io/courses/"
+repository = "https://github.com/coursesproject/courses/"
+readme = "README.md"
 
 [dependencies]
 pest = "2.7.3"
