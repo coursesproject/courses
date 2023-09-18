@@ -4,10 +4,6 @@ on:
       - main
       - dev
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - dev
 
 name: Continuous integration (courses)
 
@@ -24,7 +20,7 @@ jobs:
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+          args: --all-features --package courses
 
   security_audit:
     runs-on: ubuntu-latest
@@ -63,7 +59,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: --package courses -- --check
 
   coverage:
     name: Test code coverage
@@ -82,7 +78,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.15.0'
-          args: '--workspace -- --test-threads 1'
+          args: '--packages courses -- --test-threads 1'
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
