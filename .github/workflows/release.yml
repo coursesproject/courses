@@ -3,7 +3,8 @@ name: Release
 
 on:
   release:
-    types: [created]
+    types: [created, prereleased]
+  workflow_dispatch:
 
 jobs:
   release:
