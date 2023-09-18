@@ -31,6 +31,13 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
           TOOLCHAIN_VERSION: 1.72.0
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Binary
+          path: |
+            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
+            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
   windows-msvc-release:
     name: release windows msvc
     runs-on: windows-latest
@@ -44,7 +51,7 @@ jobs:
       - name: upload
         run: |
           $id = gh api -H "Accept: application/vnd.github+json" /repos/coursesproject/courses/releases/tags/${{ github.ref_name }} --jq .id
-          curl --fail-with-body -sS  -X POST --data-binary "@archive.tar.gz" -H 'Content-Type: application/octet-stream' -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' "https://uploads.github.com/repos/coursesproject/courses/releases/$id/assets?name=nitrogen_${{ github.ref_name }}_x86_64-pc-windows-msvc.tar.gz"
+          curl --fail-with-body -sS  -X POST --data-binary "@archive.tar.gz" -H 'Content-Type: application/octet-stream' -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' "https://uploads.github.com/repos/coursesproject/courses/releases/$id/assets?name=courses_${{ github.ref_name }}_x86_64-pc-windows-msvc.tar.gz"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   macos-arm-release:
@@ -64,6 +71,6 @@ jobs:
       - name: upload
         run: |
           id=$(gh api -H "Accept: application/vnd.github+json" /repos/coursesproject/courses/releases/tags/${{ github.ref_name }} --jq .id)
-          curl --fail-with-body -sS  -X POST --data-binary @"archive.tar.gz" -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://uploads.github.com/repos/coursesproject/courses/releases/$id/assets?name=nitrogen_${{ github.ref_name }}_aarch64-apple-darwin.tar.gz"
+          curl --fail-with-body -sS  -X POST --data-binary @"archive.tar.gz" -H 'Content-Type: application/octet-stream' -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://uploads.github.com/repos/coursesproject/courses/releases/$id/assets?name=courses_${{ github.ref_name }}_aarch64-apple-darwin.tar.gz"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
