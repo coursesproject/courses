@@ -15,6 +15,13 @@ readme = "README.md"
 keywords = ["site", "generator", "publishing", "notebooks", "education"]
 categories = ["command-line-utilities"]
 
+exclude = [
+    "docs",
+    "applications",
+    ".github",
+    "crates",
+]
+
 [workspace]
 
 members = [
