@@ -18,6 +18,28 @@ impl ReferenceVisitor {
 }
 
 impl AstVisitor for ReferenceVisitor {
+    fn visit_code_block(
+        &mut self,
+        label: &mut Option<String>,
+        _source: &mut CodeContent,
+        tags: &mut Vec<CodeAttr>,
+        _display_cell: &mut bool,
+        _global_idx: &mut usize,
+        _pos: &mut PosInfo,
+    ) -> anyhow::Result<()> {
+        if let Some(label) = label {
+            self.references.insert(
+                label.to_string(),
+                Reference {
+                    obj_type: "code".to_string(),
+                    attr: Default::default(), // TODO: Attrs
+                    num: 0,
+                },
+            );
+        }
+        Ok(())
+    }
+
     fn visit_command(
         &mut self,
         function: &mut String,
@@ -48,28 +70,6 @@ impl AstVisitor for ReferenceVisitor {
         }
         if let Some(body) = body {
             self.walk_vec_block(body)?;
-        }
-        Ok(())
-    }
-
-    fn visit_code_block(
-        &mut self,
-        label: &mut Option<String>,
-        _source: &mut CodeContent,
-        tags: &mut Vec<CodeAttr>,
-        _display_cell: &mut bool,
-        _global_idx: &mut usize,
-        _pos: &mut PosInfo,
-    ) -> anyhow::Result<()> {
-        if let Some(label) = label {
-            self.references.insert(
-                label.to_string(),
-                Reference {
-                    obj_type: "code".to_string(),
-                    attr: Default::default(), // TODO: Attrs
-                    num: 0,
-                },
-            );
         }
         Ok(())
     }

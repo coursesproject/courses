@@ -11,7 +11,7 @@ string_v        = _{ ("\"" | "“") ~ string ~ ("\"" | "”") }
 markdown_string = _{ "{" ~ md_val ~ "}" }
 basic_val       =  { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | WHITESPACE | "#" | " " | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")* }
 
-ident = { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_" | "-" | ":")+ }
+ident = { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_" | "-" | ":")* }
 key   = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 
 flag     =  { (ASCII_ALPHANUMERIC | "_" | "-")+ }
@@ -20,27 +20,30 @@ flag_def = _{ ":" ~ flag }
 value = _{ basic_val | string_v | markdown_string | flag_def }
 param =  { (key ~ "=" ~ value) | value }
 
-parameters = { "(" ~ NEWLINE* ~ param ~ ("," ~ NEWLINE* ~ param)* ~ NEWLINE* ~ ")" }
+parameters = !{ "(" ~ NEWLINE* ~ param ~ ("," ~ NEWLINE* ~ param)* ~ NEWLINE* ~ ")" }
 
-body       =  { (!"}" ~ !"\\{" ~ command_disallow ~ !"`" ~ !"$" ~ ANY)+ }
+body       =  ${ "#" | (!"}" ~ !"\\{" ~ command_disallow ~ !"`" ~ !"$" ~ ANY)+ }
 body_inner = _{ (code_def | math_block | command | verbatim_def | body)* }
-body_def   =  { "{" ~ body_inner ~ "}" }
+body_def   =  { "{" ~ body_inner ~ "}" ~ (POP ~ SHORTCODE_SIGIL | DROP) }
 
 label_def = _{ "|" ~ label }
 label     = ${ ident }
 
-command_name = ${ SHORTCODE_SIGIL ~ ident }
-command      =  { command_name ~ !")" ~ label_def? ~ parameters? ~ body_def? ~ !"(" ~ !")" }
+command_name = ${ SHORTCODE_SIGIL ~ PUSH(ident) }
+command      = { command_name ~ !")" ~ label_def? ~ parameters? ~ body_def? ~ !"(" ~ !")" }
 
 math_block   =  { math_lvl ~ math ~ POP ~ label_def? }
 math_lvl     =  { PUSH("$"+) }
-math         =  { (!PEEK ~ ANY)+ }
+
+
+math_char = _{!PEEK ~ !"}" ~ ANY}
+math         =  @{ ("{" ~ math ~ "}" | math_char)* }
 verbatim_def = _{ "\\{" ~ verbatim ~ "\\}" }
 
 code_param = { (key ~ "=" ~ basic_val) | basic_val }
 
 code_def    = { code_lvl ~ code_params? ~ code ~ POP ~ label_def? }
-code_params = { code_param ~ ("," ~ code_param)* ~ NEWLINE }
+code_params = !{ code_param ~ ("," ~ code_param)* ~ NEWLINE }
 code_lvl    = { PUSH("`"+) }
 code        = { (!PEEK ~ ANY)+ }
 
@@ -52,5 +55,5 @@ element = _{ math_block | code_def | verbatim_def | command | src }
 meta     =  { (!(NEWLINE ~ "---") ~ ANY)* }
 meta_def = _{ ("---" ~ NEWLINE) ~ meta ~ (NEWLINE ~ "---") }
 
-doc =  { meta_def? ~ element* }
+doc =  ${ meta_def? ~ element* }
 top = _{ doc ~ EOI }

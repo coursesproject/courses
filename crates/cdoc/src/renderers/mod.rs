@@ -7,6 +7,7 @@ use dyn_clone::DynClone;
 use std::fmt::Debug;
 use std::io::Write;
 
+use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Reference};
@@ -21,6 +22,7 @@ use crate::templates::TemplateManager;
 pub mod generic;
 pub mod json;
 pub mod notebook;
+mod parameter_resolution;
 mod references;
 
 /// Type alias used to specify that the string is a renderer output.
@@ -52,6 +54,9 @@ impl<'a> RenderContext<'a> {
         notebook_output_meta: &'a NotebookMeta,
         format: &'a dyn Format,
     ) -> Result<Self> {
+        let mut parameter_resolution = ParameterResolution { templates };
+        parameter_resolution.walk_ast(&mut doc.content.0)?;
+
         let mut ref_visit = ReferenceVisitor::new();
         ref_visit.walk_ast(&mut doc.content.0)?;
         let rbt = references_by_type(&mut ref_visit.references);

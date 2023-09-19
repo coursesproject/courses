@@ -171,7 +171,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                         label,
                         identifier,
                     });
-                    write!(&mut writer, "<elem-{}>", idx).unwrap()
+                    write!(&mut writer, "<elem-{}>", idx).unwrap() // Important: Trailing space is necessary as it is eaten by the parser
                 }
             }
         }

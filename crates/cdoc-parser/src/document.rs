@@ -10,8 +10,6 @@ pub struct Document<T: Serialize> {
     pub meta: Metadata,
     pub content: T,
     pub code_outputs: HashMap<u64, CodeOutput>,
-    // pub references: HashMap<String, Reference>,
-    // pub references_by_type: Option<HashMap<String, Vec<Reference>>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

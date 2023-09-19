@@ -325,12 +325,12 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
     for cell in nb.cells {
         match &cell {
             Cell::Markdown { common } => {
-                writer.write_all(common.source.to_string().as_bytes())?;
+                write!(&mut writer, "\n{}\n", common.source)?;
             }
             Cell::Code {
                 common, outputs, ..
             } => {
-                write!(&mut writer, "\n```\n{}\n```\n\n", common.source)?;
+                write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
                 let mut hasher = DefaultHasher::new();
                 common.source.hash(&mut hasher);
                 output_map.insert(hasher.finish(), CodeOutput::from(outputs.clone()));
@@ -348,6 +348,8 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
     }
 
     let source = String::from_utf8(writer.into_inner()?)?;
+
+    println!("{source}");
 
     let mut doc = Document::try_from(source.as_str())?;
     doc.code_outputs = output_map;
@@ -420,9 +422,9 @@ mod tests {
                     parameters: vec![],
                     body: None,
                     pos: PosInfo {
-                        input: "# Heading\n#func\n```\nprint('x')\n```\n\n".to_string(),
-                        start: 10,
-                        end: 15,
+                        input: "\n# Heading\n#func\n\n```\nprint('x')\n```\n".to_string(),
+                        start: 11,
+                        end: 16,
                     },
                     global_idx: 0,
                 })]),
@@ -433,13 +435,13 @@ mod tests {
                         meta: Default::default(),
                         hash: 14255542742518776859,
                     },
-                    tags: None,
+                    tags: vec![],
                     display_cell: false,
                     global_idx: 0,
                     pos: PosInfo {
-                        input: "# Heading\n#func\n```\nprint('x')\n```\n\n".to_string(),
-                        start: 16,
-                        end: 34,
+                        input: "\n# Heading\n#func\n\n```\nprint('x')\n```\n".to_string(),
+                        start: 18,
+                        end: 36,
                     },
                 }]),
             ]),

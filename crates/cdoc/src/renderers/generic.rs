@@ -106,7 +106,7 @@ impl GenericRenderer {
         let tdef = ctx
             .templates
             .get_template(&command.function, TemplateType::Shortcode)
-            .with_context(|| format!("at {}", command.pos.get_with_margin(10)))?;
+            .with_context(|| format!("at {}", command.pos.get_with_margin(100)))?;
         let r: Result<Vec<()>> = ctx
             .templates
             .validate_args_for_template(&command.function, &rendered)
