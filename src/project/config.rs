@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use cdoc::config::Format;
 use cdoc::notebook::NotebookMeta;
+use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
 use cdoc::processors::exercises::ExercisesConfig;
 use cdoc::processors::AstPreprocessorConfig;
@@ -21,6 +22,9 @@ pub struct ProjectConfig {
     pub outputs: Vec<Box<dyn Format>>,
     #[serde(default = "default_profiles")]
     pub profiles: HashMap<String, Profile>,
+
+    #[serde(default)]
+    pub packages: Vec<Dependency>,
 
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,

@@ -1,0 +1,5 @@
+extends: output_text
+
+templates:
+  nb_formatted: !Derive markdown
+  nb_myst: !Derive markdown

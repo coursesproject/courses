@@ -1,0 +1,14 @@
+name: link
+description: A basic link.
+
+type: shortcode
+settings:
+  kind: inline
+  parameters:
+    - name: text
+      description: Link text.
+      type: regular
+    - name: url
+      description: Path to the resource.
+      type: regular
+

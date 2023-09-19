@@ -1,0 +1,5 @@
+extends: tip
+
+templates:
+  nb_formatted: !Derive html
+  nb_myst: !Derive markdown

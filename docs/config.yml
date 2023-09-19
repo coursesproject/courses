@@ -1,5 +1,22 @@
 url_prefix: /courses
 
+plugins:
+  base:
+    version: 0.1
+    features:
+      - html
+      - shortcodes
+  theme_default:
+    version: 0.1
+    features:
+      - html
+      - shortcodes
+  nb_format:
+    version: 0.1
+    features:
+      - html
+      - shortcodes
+
 custom:
   crates:
     cdoc: https://crates.io/crates/cdoc
@@ -8,17 +25,29 @@ custom:
 repository:
   url: "https://github.com/coursesproject/courses"
 
+packages:
+  - name: coursesproject/base
+    version: 0.1
+    features:
+      - html
+
 profiles:
   draft:
     mode: draft
     parser: # Parser settings
       preprocessors:
         - exercises: null
-        - script:
-            name: "link_checker.rhai"
+#        - script:
+#            name: "link_checker.rhai"
       solutions: false # Don't include exercise solutions
     formats:
       - html: {}
+      - dynamic:
+          name: ast
+          extension: json
+          template_prefix: html
+          renderer:
+            json:
 
 notebook_meta:
   kernelspec:

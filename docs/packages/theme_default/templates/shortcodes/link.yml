@@ -1,0 +1,10 @@
+extends: link
+
+
+templates:
+  html: !String |
+    <a href="{{ config.url_prefix }}/{{ url | safe }}.html">{{ text }}</a>
+  markdown: !String |
+    {{ text }}
+  latex: !String |
+    {{ text }}

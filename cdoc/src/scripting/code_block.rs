@@ -1,9 +1,9 @@
 use crate::ast::CodeAttributes;
 use crate::notebook::{CellOutput, OutputValue, StreamType};
 use anyhow::anyhow;
+use linked_hash_map::LinkedHashMap;
 use rhai::{CustomType, Dynamic, TypeBuilder};
 use serde_json::Value;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub(crate) struct ScriptCodeBlock {
@@ -67,7 +67,7 @@ pub struct CellOutputStream {
 pub struct CellOutputData {
     execution_count: Option<i64>,
     data: Vec<OutputValue>,
-    metadata: HashMap<String, Value>,
+    metadata: LinkedHashMap<String, Value>,
 }
 
 #[derive(Clone)]
@@ -219,7 +219,7 @@ impl CustomType for CellOutputData {
             .with_get_set(
                 "metadata",
                 |s: &mut Self| s.metadata.clone(),
-                |s: &mut Self, v: HashMap<String, Value>| s.metadata = v,
+                |s: &mut Self, v: LinkedHashMap<String, Value>| s.metadata = v,
             );
     }
 }

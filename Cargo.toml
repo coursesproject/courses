@@ -1,6 +1,6 @@
 [package]
 name = "courses"
-version = "0.8.0"
+version = "0.8.2"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -14,6 +14,13 @@ readme = "README.md"
 
 keywords = ["site", "generator", "publishing", "notebooks", "education"]
 categories = ["command-line-utilities"]
+
+exclude = [
+    "docs",
+    "applications",
+    ".github",
+    "crates",
+]
 
 [workspace]
 
@@ -31,7 +38,7 @@ path = "src/lib.rs"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
-cdoc = { path = "cdoc", version = "0.7.0" }
+cdoc = { path = "cdoc", version = "0.7.2" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }

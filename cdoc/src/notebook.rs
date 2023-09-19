@@ -5,12 +5,12 @@ use anyhow::Context;
 use base64;
 use base64::Engine;
 
+use linked_hash_map::LinkedHashMap;
 use pulldown_cmark::{Options, Parser};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::{formats::PreferOne, serde_as, EnumMap, OneOrMany};
-use std::collections::HashMap;
 use std::default::Default;
 
 /// Top-level notebook structure (the type is a mostly complete implementation of the official
@@ -117,7 +117,7 @@ pub enum CellOutput {
         /// The content of the output (may be multiple)
         #[serde_as(as = "EnumMap")]
         data: Vec<OutputValue>,
-        metadata: HashMap<String, Value>,
+        metadata: LinkedHashMap<String, Value>,
     },
     #[serde(rename = "error")]
     Error {
@@ -143,13 +143,25 @@ pub enum OutputValue {
     ),
     /// Png image
     #[serde(rename = "image/png")]
-    Image(String),
+    Image(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
     /// Svg image
     #[serde(rename = "image/svg+xml")]
-    Svg(String),
+    Svg(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
     /// Json
     #[serde(rename = "application/json")]
-    Json(HashMap<String, Value>),
+    Json(LinkedHashMap<String, Value>),
     /// Html
     #[serde(rename = "text/html")]
     Html(
@@ -161,16 +173,22 @@ pub enum OutputValue {
     ),
     /// Javascript
     #[serde(rename = "application/javascript")]
-    Javascript(String),
+    Javascript(
+        #[serde_as(
+            deserialize_as = "OneOrMany<_, PreferOne>",
+            serialize_as = "OneOrMany<_, PreferOne>"
+        )]
+        Vec<String>,
+    ),
 }
 
-type Dict = HashMap<String, Value>;
+type Dict = LinkedHashMap<String, Value>;
 
 /// Notebook metadata. Currently not precisely specified.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NotebookMeta {
     /// Kernel specification
-    pub kernelspec: Option<HashMap<String, Value>>,
+    pub kernelspec: Option<LinkedHashMap<String, Value>>,
     #[serde(flatten)]
     pub optional: Dict,
 }

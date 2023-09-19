@@ -1,0 +1,35 @@
+extends: content
+
+templates:
+  html: !String |
+    <article class="message">
+        <div class="message-body">
+            <strong>{{ title }}</strong>
+            <ul style="list-style: none;">
+                {% for info in ids[type][1] %}
+                <li>
+                {% for p in info.arguments %}
+                  {% if p.name %}
+                    {% if p.name == param %}
+                     {% set_global pt = p.value.value %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+                <a href="#{{ info.id }}">{{ label }} {{ loop.index }}{% if pt %}: {{ pt | truncate(length=30) }}{% endif %}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </article>
+  markdown: !String >-
+    <article class="message">
+        <div class="message-body">
+            <strong>{{ title }}</strong>
+            <ul style="list-style: none;">
+                {% for info in ids[type][1] %}<li>{% for p in info.arguments %}{% if p.name %}{% if p.name == param %}{% set_global pt = p.value.value %}{% endif %}{% endif %}{% endfor %}
+                <a href="#{{ info.id }}">{{ label }} {{ loop.index }}{% if pt %}: {{ pt | truncate(length=30) }}{% endif %}</a>
+                </li>{% endfor %}
+            </ul>
+        </div>
+    </article>
+  latex: !String ""

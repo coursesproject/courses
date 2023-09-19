@@ -5,6 +5,6 @@ type: builtin
 
 
 templates:
-  html: !String ""
+  html: !String " "
   markdown: !String ""
   latex: !String ""

@@ -1,0 +1,17 @@
+name: message
+description: A message box.
+
+type: shortcode
+settings:
+  kind: block
+  parameters:
+    - name: title
+      description: Box header.
+      type: regular
+    - name: color
+      description: Message color.
+      type: !choice [primary, success, warning, info, danger]
+    - name: type
+      description: Message type (for notebook).
+      type: !choice [ note, important, hint, seealso, tip, attention, caution, warning, danger, error ]
+

@@ -1,0 +1,11 @@
+name: emphasis
+description: Text emphasis.
+
+type: builtin
+
+
+templates:
+  html: !Precompiled [emphasis, html]
+  markdown: !Precompiled [emphasis, markdown]
+  latex: !String |
+    \emph{ {{value | safe }} }

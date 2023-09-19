@@ -1,0 +1,23 @@
+<div hidden id="cell_{{ id }}_in">{{ source }}</div>
+
+{% if meta.collapsible %}
+<div class="card is-fullwidth" x-data="{ open: false }">
+    <header class="card-header">
+        <p class="card-header-title" style="margin-bottom: 0">Code</p>
+        <a class="card-header-icon card-toggle" @click="open = !open">
+            <span class="icon">
+                <i class="bi" :class="{ 'bi-chevron-down': open, 'bi-chevron-compact-right': !open }"></i>
+            </span>
+        </a>
+    </header>
+    <div class="card-content" x-show="open">
+        <div class="collapsible" id="cell_{{ id }}_code">{{ highlighted | safe }}</div>
+    </div>
+</div>
+{% else %}
+    <div id="cell_{{ id }}_code">{{ highlighted | safe }}</div>
+{% endif %}
+
+
+{% if cell_outputs %}
+    <div id="cell_{{ id }}_out">{{ outputs | safe }}</div>{% endif %}

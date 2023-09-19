@@ -1,0 +1,19 @@
+extends: solution
+
+templates:
+  nb_formatted: !String >-
+    {% if settings.solutions %}<article {% if id %}id="{{ id }}"{% endif %} class="message task">
+        <div class="message-header">
+            <span>Solution</span>
+        </div>
+        <div class="message-body">
+            {{ body | safe }}
+        </div>
+    </article>{%endif%}
+  nb_myst: !String |
+    {% if config.settings.solutions %}{% if id %}({{ id }})={% endif %}
+    :::{info} Solution
+    :icon: false
+    {{ body | safe }}{%endif%}
+    
+    :::

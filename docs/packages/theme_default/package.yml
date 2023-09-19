@@ -1,0 +1,38 @@
+package:
+  name: theme_default
+  description: The default theme (uses Bulma CSS). Provides layouts for both HTML and LaTeX.
+  version: 0.1
+  authors:
+    - Anton Mølbjerg Eskildsen
+
+dependencies:
+  - name: coursesproject/base
+    version: 0.1
+
+features:
+  html:
+    include_files:
+      - templates/layouts/section.yml
+      - templates/layouts/src/*.tera.html
+    template_prefixes:
+      - html
+    dependency_features:
+      - base:html
+  tex:
+    include_files:
+      - templates/layouts/*
+      - templates/layouts/src/*.tera.tex
+    template_prefixes:
+      - tex
+    dependency_features:
+      - base:tex
+  markdown:
+    template_prefixes:
+      - markdown
+    dependency_features:
+      - base:markdown
+  shortcodes:
+    include_files:
+      - templates/shortcodes/*
+    dependency_features:
+      - base:shortcodes

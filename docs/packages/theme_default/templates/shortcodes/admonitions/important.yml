@@ -1,0 +1,17 @@
+extends: important
+
+templates:
+  html: !String |
+    <article class="message is-danger">
+      <div class="message-header">{{ title | default(value="Important") | capitalize }}</div>
+      <div class="message-body">{{ body|safe }}</div>
+    </article>
+  markdown: !String |
+    {% if id %}({{ id }})={%endif%}
+    **{{ title | default(value="Important") | capitalize }}**
+    {{ body|safe }}
+  nb_formatted: !Derive html
+  nb_myst: !Derive markdown
+  latex: !String |
+    \paragraph{ {{ title | default(value="Important") | capitalize }} }
+    {{ body|safe }}

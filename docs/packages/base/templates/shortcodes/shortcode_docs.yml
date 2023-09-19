@@ -1,0 +1,8 @@
+name: shortcode_docs
+description: Creates the documentation page for all templates.
+private: true
+
+type: shortcode
+settings:
+  kind: inline
+

@@ -426,10 +426,10 @@ fn err_print(res: anyhow::Result<()>) {
             eprintln!("{} {:?}", style("Error:").red().bold(), e);
             e.chain().skip(1).for_each(|cause| {
                 eprintln!(
-                    " {} {}",
+                    " {} {} bt: {}",
                     style("caused by:").bold(),
                     cause,
-                    // e.backtrace()
+                    e.backtrace()
                 )
             });
             // eprintln!("{}", e.backtrace());

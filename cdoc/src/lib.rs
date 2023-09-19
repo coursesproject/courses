@@ -28,6 +28,7 @@ pub mod processors;
 /// Contains renderer types that can be used for raw outputs and notebook-based outputs. Can be extended.
 pub mod renderers;
 
+pub mod package;
 mod scripting;
 /// Provides a template manager for easily rendering the different types of templates supported by cdoc.
 pub mod templates;
