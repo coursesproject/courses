@@ -1,6 +1,6 @@
 [package]
 name = "cdoc"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -31,6 +31,7 @@ serde_yaml = "0.9.14"
 serde_with = "3.0.0"
 toml = "0.7.2"
 typetag = "0.2.3"
+linked-hash-map = "0.5.6"
 
 # Parsing / formatting
 tera = "1.17.1"

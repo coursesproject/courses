@@ -198,7 +198,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 //         }
                 //     }
                 // }
-                buf.write(s.as_bytes())?;
+                buf.write_all(s.as_bytes())?;
                 Ok(())
             }
             Inline::Emphasis(inner) => render_value_template(
