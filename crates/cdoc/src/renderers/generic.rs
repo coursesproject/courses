@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Context as AhContext, Result};
 use serde::{Deserialize, Serialize};
 
-use cdoc_parser::ast::{Block, Command, Inline, Parameter, Style, Value};
+use cdoc_parser::ast::{Block, CodeBlock, Command, Inline, Math, Parameter, Style, Value};
 use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -88,13 +88,7 @@ impl GenericRenderer {
         // println!("{:?}", &ctx.references);
         args.insert("refs_by_type", &ctx.references_by_type);
 
-        let num = if command.label.is_some() {
-            let num = self.counters.entry(command.function.clone()).or_insert(0);
-            *num += 1;
-            *num
-        } else {
-            0
-        };
+        let num = self.fetch_and_inc_num(command.function.clone(), &command.label);
         let rendered = self
             .render_params(command.parameters.clone(), ctx)
             .with_context(|| {
@@ -132,6 +126,43 @@ impl GenericRenderer {
             &command.function,
             ctx.format.template_prefix(),
             TemplateType::Shortcode,
+            &args,
+            buf,
+        )
+    }
+
+    fn fetch_and_inc_num(&mut self, typ: String, label: &Option<String>) -> usize {
+        let num = if label.is_some() {
+            let num = self.counters.entry(typ).or_insert(0);
+            *num += 1;
+            *num
+        } else {
+            0
+        };
+        num
+    }
+
+    fn render_math(
+        &mut self,
+        display_mode: bool,
+        inner: &str,
+        label: &Option<String>,
+        ctx: &RenderContext,
+        buf: impl Write,
+    ) -> Result<()> {
+        let mut args = Context::default();
+
+        args.insert("label", label);
+        args.insert("display_mode", &display_mode);
+        if display_mode && label.is_some() {
+            let num = self.fetch_and_inc_num("equation".to_string(), &label);
+            args.insert("num", &num);
+        }
+        args.insert("value", inner);
+        ctx.templates.render(
+            "math",
+            ctx.format.template_prefix(),
+            TemplateType::Builtin,
             &args,
             buf,
         )
@@ -175,12 +206,12 @@ impl RenderElement<Inline> for GenericRenderer {
                     buf,
                 ),
             },
-            Inline::CodeBlock {
+            Inline::CodeBlock(CodeBlock {
                 label,
                 source,
-                tags,
+                attributes,
                 ..
-            } => {
+            }) => {
                 let id = get_id();
 
                 let code_rendered = source.to_string(ctx.doc.meta.code_solutions)?;
@@ -192,6 +223,8 @@ impl RenderElement<Inline> for GenericRenderer {
                     ctx.theme,
                 )?;
 
+                let num = self.fetch_and_inc_num("code".to_string(), &label);
+
                 let mut args = Context::default();
                 args.insert("label", label);
                 args.insert("interactive", &ctx.doc.meta.interactive);
@@ -200,8 +233,9 @@ impl RenderElement<Inline> for GenericRenderer {
                 args.insert("source", &code_rendered);
                 args.insert("highlighted", &highlighted);
                 args.insert("id", &id);
-                args.insert("tags", &tags);
+                args.insert("attr", &attributes);
                 args.insert("meta", &source.meta);
+                args.insert("num", &num);
                 // args.insert("outputs", &self.render_inner(outputs, ctx)?);
                 // args.insert("outputs", outputs);
 
@@ -234,11 +268,12 @@ impl RenderElement<Inline> for GenericRenderer {
                 render_link(url, alt, &inner, ctx, buf)
             }
             Inline::Html(s) => write_bytes(s, buf),
-            Inline::Math {
+            Inline::Math(Math {
                 source,
                 display_block,
+                label,
                 ..
-            } => render_math(*display_block, source, ctx, buf),
+            }) => self.render_math(*display_block, source, label, ctx, buf),
             Inline::Command(command) => self.render_command_template(ctx, command, buf),
         }
     }
@@ -475,24 +510,6 @@ fn render_link(
     args.insert("inner", inner);
     ctx.templates.render(
         "link",
-        ctx.format.template_prefix(),
-        TemplateType::Builtin,
-        &args,
-        buf,
-    )
-}
-
-fn render_math(
-    display_mode: bool,
-    inner: &str,
-    ctx: &RenderContext,
-    buf: impl Write,
-) -> Result<()> {
-    let mut args = Context::default();
-    args.insert("display_mode", &display_mode);
-    args.insert("value", inner);
-    ctx.templates.render(
-        "math",
         ctx.format.template_prefix(),
         TemplateType::Builtin,
         &args,

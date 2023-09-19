@@ -5,10 +5,11 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
+use linked_hash_map::LinkedHashMap;
 
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Inline};
-use cdoc_parser::code_ast::types::CodeContent;
+use cdoc_parser::ast::{Ast, CodeBlock, Inline};
+use cdoc_parser::code_ast::types::{CodeContent, CodeElem};
 use cdoc_parser::document::{CodeOutput, Document, Metadata};
 use cdoc_parser::raw::CodeAttr;
 use cdoc_parser::PosInfo;
@@ -137,25 +138,30 @@ impl AstVisitor for ScriptVisitor<'_> {
         self.walk_inline(inline)
     }
 
-    fn visit_code_block(
-        &mut self,
-        _label: &mut Option<String>,
-        source: &mut CodeContent,
-        tags: &mut Vec<CodeAttr>,
-        display_cell: &mut bool,
-        global_idx: &mut usize,
-        pos: &mut PosInfo,
-    ) -> Result<()> {
-        let outputs = self.code_outputs.get_mut(&source.hash);
-        let block = ScriptCodeBlock::new(source, tags, &outputs, *display_cell, *global_idx, pos);
+    fn visit_code_block(&mut self, block: &mut CodeBlock) -> Result<()> {
+        let outputs = self.code_outputs.get_mut(&block.source.hash);
+        let cblock = ScriptCodeBlock::new(
+            &block.source,
+            &block.attributes,
+            &outputs,
+            block.display_cell,
+            block.global_idx,
+            &block.pos,
+        );
 
         match self.base.engine.call_fn::<ScriptCodeBlock>(
             &mut self.state,
             &self.base.ast,
             "visit_code_block",
-            (block,),
+            (cblock,),
         ) {
-            Ok(v) => v.apply_changes(source, tags, outputs, display_cell, global_idx),
+            Ok(v) => v.apply_changes(
+                &mut block.source,
+                &mut block.attributes,
+                outputs,
+                &mut block.display_cell,
+                &mut block.global_idx,
+            ),
             Err(e) => match *e {
                 EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
                 EvalAltResult::ErrorRuntime(value, _) => Err(anyhow!(format!("{}", value))),

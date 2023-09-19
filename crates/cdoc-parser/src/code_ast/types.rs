@@ -1,5 +1,6 @@
 //! Types for exercise definitions.
 
+use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufWriter, Write};
@@ -26,15 +27,15 @@ pub struct Solution {
 /// Top-level structure. A code file is split into these types.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename = "value", untagged)]
-pub enum CodeBlock {
+pub enum CodeElem {
     Solution(Solution),
     Src(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 pub struct CodeContent {
-    pub blocks: Vec<CodeBlock>,
-    pub meta: HashMap<String, String>,
+    pub blocks: Vec<CodeElem>,
+    pub meta: LinkedHashMap<String, String>,
     pub hash: u64,
 }
 
@@ -43,7 +44,7 @@ impl CodeContent {
         let mut buf = BufWriter::new(Vec::new());
         for block in &self.blocks {
             match block {
-                CodeBlock::Solution(s) => {
+                CodeElem::Solution(s) => {
                     if with_solution {
                         buf.write_all(s.solution.as_bytes())?;
                     } else {
@@ -53,7 +54,7 @@ impl CodeContent {
                             .transpose()?;
                     }
                 }
-                CodeBlock::Src(s) => {
+                CodeElem::Src(s) => {
                     buf.write_all(s.as_bytes())?;
                 }
             }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Inline};
+use cdoc_parser::ast::{Ast, CodeBlock, Inline};
 use cdoc_parser::document::{CodeOutput, Document};
 use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
 
@@ -218,7 +218,7 @@ const CODE_SPLIT: &str = "--+code+--";
 
 impl AstVisitor for NotebookWriter<'_> {
     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        if let Inline::CodeBlock { source, .. } = inline {
+        if let Inline::CodeBlock(CodeBlock { source, .. }) = inline {
             let rendered = source.to_string(self.ctx.doc.meta.code_solutions)?;
             self.code_cells.push(Cell::Code {
                 common: CellCommon {

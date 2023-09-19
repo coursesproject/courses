@@ -7,6 +7,7 @@ use anyhow::Result;
 use crate::ast::Ast;
 use crate::document::{CodeOutput, Document, Image, Metadata, Outval};
 
+use linked_hash_map::LinkedHashMap;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -120,7 +121,7 @@ pub enum CellOutput {
         /// The content of the output (may be multiple)
         #[serde_as(as = "EnumMap")]
         data: Vec<OutputValue>,
-        metadata: HashMap<String, Value>,
+        metadata: LinkedHashMap<String, Value>,
     },
     #[serde(rename = "error")]
     Error {
@@ -185,7 +186,7 @@ type Dict = HashMap<String, Value>;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NotebookMeta {
     /// Kernel specification
-    pub kernelspec: Option<HashMap<String, Value>>,
+    pub kernelspec: Option<LinkedHashMap<String, Value>>,
     #[serde(flatten)]
     pub optional: Dict,
 }
@@ -330,7 +331,13 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
             Cell::Code {
                 common, outputs, ..
             } => {
-                write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
+                let attr = common.metadata.tags.as_ref().map(|tags| tags.join(", "));
+                if let Some(attr) = attr {
+                    write!(&mut writer, "\n```{}\n{}\n```\n", attr, common.source)?;
+                } else {
+                    write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
+                }
+
                 let mut hasher = DefaultHasher::new();
                 common.source.hash(&mut hasher);
                 output_map.insert(hasher.finish(), CodeOutput::from(outputs.clone()));
@@ -349,8 +356,6 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
 
     let source = String::from_utf8(writer.into_inner()?)?;
 
-    println!("{source}");
-
     let mut doc = Document::try_from(source.as_str())?;
     doc.code_outputs = output_map;
     doc.meta = doc_meta.unwrap_or_default();
@@ -362,8 +367,9 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
 mod tests {
     use super::*;
 
+    use crate::ast;
     use crate::ast::{Block, Command, Inline};
-    use crate::code_ast::types::{CodeBlock, CodeContent};
+    use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::PosInfo;
     use std::fs::File;
     use std::io::BufReader;
@@ -428,14 +434,14 @@ mod tests {
                     },
                     global_idx: 0,
                 })]),
-                Block::Plain(vec![Inline::CodeBlock {
+                Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
                     label: None,
                     source: CodeContent {
-                        blocks: vec![CodeBlock::Src("print('x')\n".to_string())],
+                        blocks: vec![CodeElem::Src("print('x')\n".to_string())],
                         meta: Default::default(),
                         hash: 14255542742518776859,
                     },
-                    tags: vec![],
+                    attributes: vec![],
                     display_cell: false,
                     global_idx: 0,
                     pos: PosInfo {
@@ -443,7 +449,7 @@ mod tests {
                         start: 18,
                         end: 36,
                     },
-                }]),
+                })]),
             ]),
             code_outputs: HashMap::from([(
                 14255542742518776859,

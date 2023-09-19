@@ -1,9 +1,10 @@
 use anyhow::anyhow;
-use cdoc_parser::code_ast::types::CodeContent;
+use cdoc_parser::code_ast::types::{CodeContent, CodeElem};
 use cdoc_parser::document::CodeOutput;
 use cdoc_parser::notebook::CellOutput;
 use cdoc_parser::raw::CodeAttr;
 use cdoc_parser::PosInfo;
+use linked_hash_map::LinkedHashMap;
 use rhai::serde::{from_dynamic, to_dynamic};
 use rhai::{CustomType, Dynamic, TypeBuilder};
 use serde_json::Value;
@@ -12,7 +13,7 @@ use std::collections::HashMap;
 #[derive(Clone)]
 pub(crate) struct ScriptCodeBlock {
     source: CodeContent,
-    tags: Vec<CodeAttr>,
+    attributes: Vec<String>,
     outputs: Dynamic,
     display_cell: bool,
     global_idx: usize,
@@ -22,7 +23,7 @@ pub(crate) struct ScriptCodeBlock {
 impl ScriptCodeBlock {
     pub fn new(
         source: &CodeContent,
-        tags: &[CodeAttr],
+        attributes: &[String],
         outputs: &Option<&mut CodeOutput>,
         display_cell: bool,
         global_idx: usize,
@@ -30,7 +31,7 @@ impl ScriptCodeBlock {
     ) -> Self {
         ScriptCodeBlock {
             source: source.clone(),
-            tags: tags.to_vec(),
+            attributes: attributes.to_vec(),
             outputs: to_dynamic(outputs).unwrap(),
             display_cell,
             global_idx,
@@ -41,14 +42,14 @@ impl ScriptCodeBlock {
     pub fn apply_changes(
         self,
         source: &mut CodeContent,
-        tags: &mut Vec<CodeAttr>,
+        tags: &mut Vec<String>,
         outputs: Option<&mut CodeOutput>,
         display_cell: &mut bool,
         global_idx: &mut usize,
     ) -> anyhow::Result<()> {
         *source = self.source;
 
-        *tags = self.tags;
+        *tags = self.attributes;
         *display_cell = self.display_cell;
         *global_idx = self.global_idx;
 
@@ -71,8 +72,8 @@ impl CustomType for ScriptCodeBlock {
             )
             .with_get_set(
                 "tags",
-                |s: &mut Self| s.tags.clone(),
-                |s: &mut Self, v: Vec<CodeAttr>| s.tags = v,
+                |s: &mut Self| s.attributes.clone(),
+                |s: &mut Self, v: Vec<String>| s.attributes = v,
             )
             .with_get_set(
                 "outputs",

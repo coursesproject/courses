@@ -40,7 +40,7 @@ pub enum Special {
     CodeBlock {
         lvl: usize,
         inner: CodeContent,
-        tags: Vec<CodeAttr>,
+        attributes: Vec<String>,
     },
     Command {
         function: String,

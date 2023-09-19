@@ -90,20 +90,22 @@ impl From<raw::Parameter> for Parameter {
 impl From<Child> for Inline {
     fn from(value: Child) -> Self {
         match value.elem {
-            Special::Math { inner, is_block } => Inline::Math {
+            Special::Math { inner, is_block } => Inline::Math(Math {
                 label: value.label,
                 source: inner,
                 display_block: is_block,
                 pos: value.pos,
-            },
-            Special::CodeBlock { inner, tags, .. } => Inline::CodeBlock {
+            }),
+            Special::CodeBlock {
+                inner, attributes, ..
+            } => Inline::CodeBlock(CodeBlock {
                 label: value.label,
                 source: inner,
-                tags,
+                attributes,
                 display_cell: false,
                 global_idx: value.identifier,
                 pos: value.pos,
-            },
+            }),
             Special::CodeInline { inner } => Inline::Code(inner),
             Special::Command {
                 function,
@@ -273,10 +275,12 @@ fn heading_to_lvl(value: HeadingLevel) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast;
     use crate::ast::Block::ListItem;
-    use crate::ast::{Block, Command, Inline, Parameter, Style, Value};
-    use crate::code_ast::types::{CodeBlock, CodeContent};
+    use crate::ast::{Block, Command, Inline, Math, Parameter, Style, Value};
+    use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::PosInfo;
+    use crate::raw::Special::CodeBlock;
     use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Special};
     use pulldown_cmark::LinkType;
 
@@ -380,14 +384,14 @@ mod tests {
                 Inline::Styled(vec![Inline::Text("strong".to_string())], Style::Strong),
             ]),
             Block::Plain(vec![Inline::Code("code inline".to_string())]),
-            Block::Plain(vec![Inline::CodeBlock {
+            Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
                 label: None,
                 source: CodeContent {
-                    blocks: vec![CodeBlock::Src("code block\n".to_string())],
+                    blocks: vec![CodeElem::Src("code block\n".to_string())],
                     meta: Default::default(),
                     hash: 3303757851706689630,
                 },
-                tags: vec![],
+
                 display_cell: false,
                 global_idx: 0,
                 pos: PosInfo {
@@ -395,8 +399,9 @@ mod tests {
                     start: 180,
                     end: 198,
                 },
-            }]),
-            Block::Plain(vec![Inline::Math {
+                attributes: vec![],
+            })]),
+            Block::Plain(vec![Inline::Math(Math {
                 label: None,
                 source: "math inline".to_string(),
                 display_block: false,
@@ -405,8 +410,8 @@ mod tests {
                     start: 200,
                     end: 213,
                 },
-            }]),
-            Block::Plain(vec![Inline::Math {
+            })]),
+            Block::Plain(vec![Inline::Math(Math {
                 label: None,
                 source: "\nmath block\n".to_string(),
                 display_block: true,
@@ -415,7 +420,7 @@ mod tests {
                     start: 215,
                     end: 231,
                 },
-            }]),
+            })]),
         ];
 
         assert_eq!(expected, output_doc);
@@ -529,7 +534,7 @@ mod tests {
                         function: "inner".to_string(),
                         label: None,
                         parameters: vec![],
-                        body: Some(vec![Block::Plain(vec![Inline::Math {
+                        body: Some(vec![Block::Plain(vec![Inline::Math(Math {
                             label: None,
                             source: "math".to_string(),
                             display_block: false,
@@ -538,7 +543,7 @@ mod tests {
                                 start: 122,
                                 end: 128,
                             },
-                        }])]),
+                        })])]),
                         pos: PosInfo {
                             input: input.to_string(),
                             start: 114,

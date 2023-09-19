@@ -1,8 +1,9 @@
-use crate::ast::{Block, Command, Inline, Parameter, Style};
-use crate::code_ast::types::CodeContent;
+use crate::ast::{Block, CodeBlock, Command, Inline, Math, Parameter, Style};
+use crate::code_ast::types::{CodeContent, CodeElem};
 use crate::common::PosInfo;
 use crate::raw::CodeAttr;
 use anyhow::Result;
+use linked_hash_map::LinkedHashMap;
 
 /// Implements the visitor pattern for the cdoc Ast type. Blanket implementations are provided so
 /// implementors only have to implement the methods they need to modify.
@@ -42,28 +43,9 @@ pub trait AstVisitor {
             Inline::Image(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Link(_tp, _url, _alt, _inner) => Ok(()),
             Inline::Html(h) => self.visit_html_inline(h),
-            Inline::Math {
-                ref mut label,
-                ref mut source,
-                ref mut display_block,
-                ref mut pos,
-            } => self.visit_math(label, source, display_block, pos),
-            Inline::Command(Command {
-                function,
-                label,
-                parameters,
-                body,
-                pos,
-                global_idx,
-            }) => self.visit_command(function, label, parameters, body, pos, global_idx),
-            Inline::CodeBlock {
-                ref mut label,
-                source,
-                tags,
-                display_cell,
-                global_idx,
-                pos,
-            } => self.visit_code_block(label, source, tags, display_cell, global_idx, pos),
+            Inline::Math(math) => self.visit_math(math),
+            Inline::Command(cmd) => self.visit_command(cmd),
+            Inline::CodeBlock(block) => self.visit_code_block(block),
         }
     }
 
@@ -88,15 +70,7 @@ pub trait AstVisitor {
         self.walk_vec_inline(inlines)
     }
     #[allow(clippy::too_many_arguments)]
-    fn visit_code_block(
-        &mut self,
-        _label: &mut Option<String>,
-        _source: &mut CodeContent,
-        _tags: &mut Vec<CodeAttr>,
-        _display_cell: &mut bool,
-        _global_idx: &mut usize,
-        _pos: &mut PosInfo,
-    ) -> Result<()> {
+    fn visit_code_block(&mut self, _block: &mut CodeBlock) -> Result<()> {
         Ok(())
     }
 
@@ -104,29 +78,15 @@ pub trait AstVisitor {
         Ok(())
     }
 
-    fn visit_math(
-        &mut self,
-        _label: &mut Option<String>,
-        _source: &mut String,
-        _display_block: &mut bool,
-        _pos: &mut PosInfo,
-    ) -> Result<()> {
+    fn visit_math(&mut self, _math: &mut Math) -> Result<()> {
         Ok(())
     }
     fn visit_math_inline(&mut self, _source: &mut String) -> Result<()> {
         Ok(())
     }
 
-    fn visit_command(
-        &mut self,
-        _function: &mut String,
-        _id: &mut Option<String>,
-        _parameters: &mut Vec<Parameter>,
-        body: &mut Option<Vec<Block>>,
-        _pos: &mut PosInfo,
-        _global_idx: &mut usize,
-    ) -> Result<()> {
-        if let Some(body) = body {
+    fn visit_command(&mut self, cmd: &mut Command) -> Result<()> {
+        if let Some(body) = &mut cmd.body {
             self.walk_vec_block(body)?;
         }
         Ok(())

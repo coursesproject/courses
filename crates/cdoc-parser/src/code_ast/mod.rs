@@ -1,7 +1,8 @@
 pub mod types;
 
-use crate::code_ast::types::{CodeBlock, CodeContent, Solution};
+use crate::code_ast::types::{CodeContent, CodeElem, Solution};
 
+use linked_hash_map::LinkedHashMap;
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -44,10 +45,10 @@ fn parse_source_comment(pair: Pair<Rule>) -> Result<String, Box<pest::error::Err
 
 pub(crate) fn parse_value(
     pair: Pair<Rule>,
-    meta: &mut HashMap<String, String>,
-) -> Result<Option<CodeBlock>, Box<pest::error::Error<Rule>>> {
+    meta: &mut LinkedHashMap<String, String>,
+) -> Result<Option<CodeElem>, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
-        Rule::source_code_block => Some(CodeBlock::Src(pair.as_str().to_string())),
+        Rule::source_code_block => Some(CodeElem::Src(pair.as_str().to_string())),
 
         Rule::code_block => {
             let mut block_segments = pair.into_inner();
@@ -67,7 +68,7 @@ pub(crate) fn parse_value(
                 None
             };
 
-            Some(CodeBlock::Solution(Solution {
+            Some(CodeElem::Solution(Solution {
                 placeholder,
                 solution,
             }))
@@ -94,11 +95,11 @@ pub fn parse_code_string(content: &str) -> Result<CodeContent, Box<pest::error::
     padded.push('\n');
     let mut p = TaskParser::parse(Rule::doc, &padded)?;
     let p = p.next().expect("no top level").into_inner();
-    let mut meta = HashMap::new();
+    let mut meta = LinkedHashMap::new();
     let blocks = p
         .into_iter()
         .filter_map(|v| parse_value(v, &mut meta).transpose())
-        .collect::<anyhow::Result<Vec<CodeBlock>, Box<pest::error::Error<Rule>>>>()?;
+        .collect::<anyhow::Result<Vec<CodeElem>, Box<pest::error::Error<Rule>>>>()?;
     let mut hasher = DefaultHasher::new();
     content.hash(&mut hasher);
     Ok(CodeContent {

@@ -7,6 +7,7 @@ use pulldown_cmark::LinkType;
 use serde::{Deserialize, Serialize};
 
 use crate::raw::CodeAttr;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -23,6 +24,28 @@ pub struct Command {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CodeBlock {
+    /// Label
+    pub label: Option<String>,
+    /// Code source
+    pub source: CodeContent,
+    /// Code tags
+    pub attributes: Vec<String>,
+    /// Display the block as a cell or listing (only used for notebooks)
+    pub display_cell: bool,
+    pub global_idx: usize,
+    pub pos: PosInfo,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Math {
+    pub source: String,
+    pub label: Option<String>,
+    pub display_block: bool,
+    pub pos: PosInfo,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Inline {
     /// Plain text
     Text(String),
@@ -30,18 +53,7 @@ pub enum Inline {
     /// Inline code
     Code(String),
     /// A code block. May originate from markdown fenced code blocks or notebook code cells.
-    CodeBlock {
-        /// Label
-        label: Option<String>,
-        /// Code source
-        source: CodeContent,
-        /// Code tags
-        tags: Vec<CodeAttr>,
-        /// Display the block as a cell or listing (only used for notebooks)
-        display_cell: bool,
-        global_idx: usize,
-        pos: PosInfo,
-    },
+    CodeBlock(CodeBlock),
     SoftBreak,
     HardBreak,
     /// Horizontal rule
@@ -55,12 +67,7 @@ pub enum Inline {
     /// Math element (may be inline or display)
     /// The trailing space element is necessary due to the way parsing currently works with
     /// pulldown_cmark.
-    Math {
-        source: String,
-        label: Option<String>,
-        display_block: bool,
-        pos: PosInfo,
-    },
+    Math(Math),
     Command(Command),
 }
 
@@ -74,7 +81,7 @@ pub struct Parameter {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Reference {
     pub obj_type: String,
-    pub attr: HashMap<String, String>,
+    pub attr: LinkedHashMap<String, String>,
     pub num: usize,
 }
 
@@ -121,7 +128,7 @@ pub struct CodeMeta {
     pub id: String,
     pub editable: bool,
     pub folded: bool,
-    pub custom: HashMap<String, String>,
+    pub custom: LinkedHashMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

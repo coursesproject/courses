@@ -1,12 +1,13 @@
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Block, Parameter, Reference, Value};
-use cdoc_parser::code_ast::types::CodeContent;
+use cdoc_parser::ast::{Block, CodeBlock, Command, Math, Parameter, Reference, Value};
+use cdoc_parser::code_ast::types::{CodeContent, CodeElem};
 use cdoc_parser::raw::CodeAttr;
 use cdoc_parser::PosInfo;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 
 pub struct ReferenceVisitor {
-    pub(crate) references: HashMap<String, Reference>,
+    pub(crate) references: LinkedHashMap<String, Reference>,
 }
 
 impl ReferenceVisitor {
@@ -18,16 +19,8 @@ impl ReferenceVisitor {
 }
 
 impl AstVisitor for ReferenceVisitor {
-    fn visit_code_block(
-        &mut self,
-        label: &mut Option<String>,
-        _source: &mut CodeContent,
-        tags: &mut Vec<CodeAttr>,
-        _display_cell: &mut bool,
-        _global_idx: &mut usize,
-        _pos: &mut PosInfo,
-    ) -> anyhow::Result<()> {
-        if let Some(label) = label {
+    fn visit_code_block(&mut self, block: &mut CodeBlock) -> anyhow::Result<()> {
+        if let Some(label) = &block.label {
             self.references.insert(
                 label.to_string(),
                 Reference {
@@ -40,16 +33,23 @@ impl AstVisitor for ReferenceVisitor {
         Ok(())
     }
 
-    fn visit_command(
-        &mut self,
-        function: &mut String,
-        id: &mut Option<String>,
-        parameters: &mut Vec<Parameter>,
-        body: &mut Option<Vec<Block>>,
-        _pos: &mut PosInfo,
-        _global_idx: &mut usize,
-    ) -> anyhow::Result<()> {
-        let params = parameters
+    fn visit_math(&mut self, math: &mut Math) -> anyhow::Result<()> {
+        if let Some(label) = &math.label {
+            self.references.insert(
+                label.to_string(),
+                Reference {
+                    obj_type: "equation".to_string(),
+                    attr: Default::default(),
+                    num: 0,
+                },
+            );
+        }
+        Ok(())
+    }
+
+    fn visit_command(&mut self, cmd: &mut Command) -> anyhow::Result<()> {
+        let params = cmd
+            .parameters
             .iter()
             .filter_map(|p| {
                 p.key.as_ref().and_then(|k| match &p.value {
@@ -58,17 +58,17 @@ impl AstVisitor for ReferenceVisitor {
                 })
             })
             .collect();
-        if let Some(id) = id {
+        if let Some(id) = &cmd.label {
             self.references.insert(
                 id.to_string(),
                 Reference {
-                    obj_type: function.to_string(),
+                    obj_type: cmd.function.to_string(),
                     attr: params,
                     num: 0,
                 },
             );
         }
-        if let Some(body) = body {
+        if let Some(body) = &mut cmd.body {
             self.walk_vec_block(body)?;
         }
         Ok(())

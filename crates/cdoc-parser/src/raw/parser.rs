@@ -165,7 +165,7 @@ impl RawDocument {
         )
     }
 
-    fn parse_code_attributes(&mut self, pairs: Pairs<Rule>) -> Vec<CodeAttr> {
+    fn parse_code_attributes(&mut self, pairs: Pairs<Rule>) -> Vec<String> {
         pairs
             .into_iter()
             .map(|elem| {
@@ -178,21 +178,23 @@ impl RawDocument {
             .collect()
     }
 
-    fn parse_code_attribute(&mut self, pair: Pair<Rule>) -> CodeAttr {
+    fn parse_code_attribute(&mut self, pair: Pair<Rule>) -> String {
         let mut pairs = pair.into_inner();
         let first = pairs.next().expect("empty param");
 
         if let Rule::key = first.as_rule() {
             let value = pairs.next().expect("no value");
-            CodeAttr {
-                key: Some(first.as_str().to_string()),
-                value: value.as_str().to_string(),
-            }
+            // CodeAttr {
+            //     key: Some(first.as_str().to_string()),
+            //     value: value.as_str().to_string(),
+            // }
+            value.as_str().to_string()
         } else {
-            CodeAttr {
-                key: None,
-                value: first.as_str().to_string(),
-            }
+            // CodeAttr {
+            //     key: None,
+            //     value: first.as_str().to_string(),
+            // }
+            first.as_str().to_string()
         }
     }
 
@@ -227,7 +229,7 @@ impl RawDocument {
                 Special::CodeBlock {
                     lvl: lvl.len(),
                     inner: content,
-                    tags: params.unwrap_or_default(),
+                    attributes: params.unwrap_or_default(),
                 }
             },
         ))
@@ -257,7 +259,7 @@ pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::code_ast::types::{CodeBlock, CodeContent};
+    use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::PosInfo;
     use crate::raw::{
         parse_to_doc, CodeAttr, Element, ElementInfo, Parameter, RawDocument, Reference, Special,
@@ -292,11 +294,11 @@ code
                     Special::CodeBlock {
                         lvl: 3,
                         inner: CodeContent {
-                            blocks: vec![CodeBlock::Src("code\n".into())],
+                            blocks: vec![CodeElem::Src("code\n".into())],
                             meta: Default::default(),
                             hash: 7837613302888775477,
                         },
-                        tags: vec![],
+                        attributes: vec![],
                     },
                 ),
                 pos: PosInfo::new(input, 0, 12),
@@ -310,7 +312,7 @@ code
 
     #[test]
     fn test_code_param() {
-        let input = r#"```lang, key=val
+        let input = r#"```lang, val
 code
 ```"#;
         let expected = RawDocument {
@@ -320,23 +322,14 @@ code
                     Special::CodeBlock {
                         lvl: 3,
                         inner: CodeContent {
-                            blocks: vec![CodeBlock::Src("code\n".into())],
+                            blocks: vec![CodeElem::Src("code\n".into())],
                             meta: Default::default(),
                             hash: 7837613302888775477,
                         },
-                        tags: vec![
-                            CodeAttr {
-                                key: None,
-                                value: "lang".to_string(),
-                            },
-                            CodeAttr {
-                                key: Some("key".to_string()),
-                                value: "val".to_string(),
-                            },
-                        ],
+                        attributes: vec!["lang".to_string(), "val".to_string()],
                     },
                 ),
-                pos: PosInfo::new(input, 0, 25),
+                pos: PosInfo::new(input, 0, 21),
             }],
             meta: None,
             references: Default::default(),

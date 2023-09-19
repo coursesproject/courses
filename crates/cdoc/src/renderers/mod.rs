@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use dyn_clone::DynClone;
 
+use linked_hash_map::LinkedHashMap;
 use std::fmt::Debug;
 use std::io::Write;
 
@@ -40,7 +41,7 @@ pub struct RenderContext<'a> {
     theme: &'a Theme,
     pub notebook_output_meta: &'a NotebookMeta,
     pub format: &'a dyn Format,
-    pub references: HashMap<String, Reference>,
+    pub references: LinkedHashMap<String, Reference>,
     pub references_by_type: HashMap<String, Vec<(String, Reference)>>,
 }
 
@@ -76,7 +77,7 @@ impl<'a> RenderContext<'a> {
 }
 
 pub fn references_by_type(
-    refs: &mut HashMap<String, Reference>,
+    refs: &mut LinkedHashMap<String, Reference>,
 ) -> HashMap<String, Vec<(String, Reference)>> {
     let mut type_map = HashMap::new();
     for (id, reference) in refs {

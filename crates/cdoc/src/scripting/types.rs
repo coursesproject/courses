@@ -5,7 +5,7 @@ use rhai::{CustomType, TypeBuilder};
 #[allow(non_snake_case, non_upper_case_globals)]
 #[export_module]
 pub(crate) mod rhai_inline_type {
-    use cdoc_parser::ast::{Command, Style};
+    use cdoc_parser::ast::{CodeBlock, Command, Math, Style};
     use cdoc_parser::PosInfo;
     use pulldown_cmark::LinkType;
     use rhai::{Array, Dynamic};
@@ -45,12 +45,12 @@ pub(crate) mod rhai_inline_type {
         display_block: bool,
         pos: PosInfo,
     ) -> Inline {
-        Inline::Math {
+        Inline::Math(Math {
             label,
             source,
             display_block,
             pos,
-        }
+        })
     }
 
     pub fn Shortcode(value: Command) -> Inline {
@@ -64,14 +64,14 @@ pub(crate) mod rhai_inline_type {
             Inline::Text(v) => vec![v.clone().into()] as Array,
             Inline::Styled(i, s) => vec![i.clone().into(), Dynamic::from(s.clone())] as Array,
             Inline::Code(v) => vec![v.clone().into()] as Array,
-            Inline::CodeBlock {
+            Inline::CodeBlock(CodeBlock {
                 label,
                 source,
-                tags,
+                attributes: tags,
                 display_cell,
                 global_idx,
                 pos,
-            } => vec![
+            }) => vec![
                 Dynamic::from(label.clone()),
                 Dynamic::from(source.clone()),
                 Dynamic::from(tags.clone()),
@@ -95,11 +95,11 @@ pub(crate) mod rhai_inline_type {
                 i.clone().into(),
             ] as Array,
             Inline::Html(v) => vec![v.clone().into()] as Array,
-            Inline::Math {
+            Inline::Math(Math {
                 source,
                 display_block,
                 ..
-            } => vec![source.clone().into(), (*display_block).into()] as Array,
+            }) => vec![source.clone().into(), (*display_block).into()] as Array,
             Inline::Command(c) => vec![Dynamic::from(c.clone())] as Array,
         }
     }
@@ -111,14 +111,14 @@ pub(crate) mod rhai_inline_type {
             Inline::Text(_) => "Text".to_string(),
             Inline::Styled(_, _) => "Styled".to_string(),
             Inline::Code(_) => "Code".to_string(),
-            Inline::CodeBlock { .. } => "CodeBlock".to_string(),
+            Inline::CodeBlock(CodeBlock { .. }) => "CodeBlock".to_string(),
             Inline::SoftBreak => "SoftBreak".to_string(),
             Inline::HardBreak => "HardBreak".to_string(),
             Inline::Rule => "Rule".to_string(),
             Inline::Image(_, _, _, _) => "Image".to_string(),
             Inline::Link(_, _, _, _) => "Link".to_string(),
             Inline::Html(_) => "Html".to_string(),
-            Inline::Math { .. } => "Math".to_string(),
+            Inline::Math(Math { .. }) => "Math".to_string(),
             Inline::Command(_) => "Command".to_string(),
         }
     }

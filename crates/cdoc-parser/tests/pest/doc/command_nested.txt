@@ -1,0 +1,18 @@
+Nested commands (tagged and untagged)
+
+=======
+#t{#ref}
+#t{#ref}t#
+=======
+
+(doc
+    (command
+        (command_name (ident: "t"))
+        (body_def (command (command_name (ident: "ref"))))
+    )
+    (src: "\n")
+    (command
+        (command_name (ident: "t"))
+        (body_def (command (command_name (ident: "ref"))))
+    )
+)
