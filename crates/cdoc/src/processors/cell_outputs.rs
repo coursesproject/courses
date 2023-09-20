@@ -110,10 +110,13 @@ impl AstPreprocessor for CellProcessor {
     }
 
     fn process(&mut self, mut input: Document<Ast>) -> Result<Document<Ast>, Error> {
-        let mut visitor = CellVisitor {
-            outputs: &input.code_outputs,
-        };
-        visitor.walk_ast(&mut input.content.0)?;
+        if input.meta.cell_outputs {
+            // Only run if outputs should be included
+            let mut visitor = CellVisitor {
+                outputs: &input.code_outputs,
+            };
+            visitor.walk_ast(&mut input.content.0)?;
+        }
         Ok(input)
     }
 }
