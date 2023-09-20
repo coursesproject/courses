@@ -17,6 +17,11 @@ categories = ["command-line-utilities"]
 
 build="build.rs"
 
+exclude = [
+    "applications/*",
+    "docs/*"
+]
+
 [workspace]
 
 members = [
