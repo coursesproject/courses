@@ -38,8 +38,8 @@ path = "src/lib.rs"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
-cdoc-parser = { path = "crates/cdoc-parser", version = "0.1.0-alpha.2" }
-cdoc = { path = "crates/cdoc", version = "0.8.0-alpha.2" }
+cdoc-parser = { path = "crates/cdoc-parser", version = "=0.1.0-alpha.2" }
+cdoc = { path = "crates/cdoc", version = "=0.8.0-alpha.2" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }

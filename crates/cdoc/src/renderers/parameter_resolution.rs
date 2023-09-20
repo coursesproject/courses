@@ -1,8 +1,7 @@
 use crate::templates::{TemplateManager, TemplateType};
 use anyhow::anyhow;
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Block, Command, Parameter};
-use cdoc_parser::PosInfo;
+use cdoc_parser::ast::Command;
 
 pub struct ParameterResolution<'a> {
     pub templates: &'a TemplateManager,
