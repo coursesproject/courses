@@ -1,18 +1,37 @@
 Math Inline
 
 =======
-$inline$|label$$block$$|label
+$inline$|label$$block$$|label$a(b{c[d]})$
 =======
 
 (doc
     (math_block
         (math_lvl: "$")
-        (math: "inline")
+        (math_body
+            (math_chars: "inline")
+        )
         (label (ident: "label"))
     )
     (math_block
         (math_lvl: "$$")
-        (math: "block")
+        (math_body
+            (math_chars: "block")
+        )
         (label (ident: "label"))
+    )
+    (math_block
+        (math_lvl: "$")
+        (math_body
+            (math_chars: "a")
+            (math_block_paren
+                (math_chars: "b")
+                (math_block_curly
+                    (math_chars: "c")
+                    (math_block_bracket
+                        (math_chars: "d")
+                    )
+                )
+            )
+        )
     )
 )

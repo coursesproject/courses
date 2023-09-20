@@ -35,11 +35,15 @@ label     = ${ ident }
 command_name = ${ SHORTCODE_SIGIL ~ PUSH(ident) }
 command      =  { command_name ~ !")" ~ label_def? ~ parameters? ~ (body_def | DROP) ~ !"(" ~ !")" }
 
-math_block = { math_lvl ~ math ~ POP ~ label_def? }
+math_block = { math_lvl ~ math_body ~ POP ~ label_def? }
+math_body  = { math }
 math_lvl   = { PUSH("$"+) }
 
-math_char    = _{ !PEEK ~ !"}" ~ ANY }
-math         = @{ ("{" ~ math ~ "}" | math_char)* }
+math_chars       = { (!PEEK ~ !"{" ~ !"}" ~ ("\\{" | "\\}" | ANY))+ }
+math_block_curly = { "{" ~ math ~ "}" }
+// math_block_bracket =  { "[" ~ math ~ "]" }
+// math_block_paren   =  { "(" ~ math ~ ")" }
+math         = _{ (math_chars | math_block_curly)* }
 verbatim_def = _{ "\\{" ~ verbatim ~ "\\}" }
 
 code_param = { (key ~ "=" ~ basic_val) | basic_val }

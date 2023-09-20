@@ -50,7 +50,7 @@ impl RawDocument {
 
         let element = match pair.as_rule() {
             Rule::command => self.parse_command(pair)?,
-            Rule::math_block => self.parse_math(pair),
+            Rule::math_block => self.parse_math_block(pair),
             Rule::code_def => self.parse_code(pair)?,
             Rule::verbatim => self.parse_verbatim(pair),
             Rule::src | Rule::string | Rule::body => self.parse_src(pair),
@@ -140,16 +140,10 @@ impl RawDocument {
         })
     }
 
-    fn block_parser(&mut self, pair: Pair<Rule>) -> (String, String, Option<String>) {
-        let mut inner = pair.into_inner();
-        let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
-        let src = inner.next().expect("missing code_src").as_str().to_string();
-        let id = inner.next().map(|val| val.as_str().to_string());
-        (lvl, src, id)
-    }
+    fn parse_math_block(&mut self, pair: Pair<Rule>) -> Element {
+        let (lvl, src, label) = block_parser(pair);
 
-    fn parse_math(&mut self, pair: Pair<Rule>) -> Element {
-        let (lvl, src, label) = self.block_parser(pair);
+        let src = parse_math(src);
 
         if let Some(label) = label.clone() {
             self.references
@@ -248,6 +242,28 @@ impl RawDocument {
     fn parse_meta(&mut self, pair: Pair<Rule>) {
         self.meta = Some(pair.as_str().to_string());
     }
+}
+
+fn parse_math(pair: Pair<Rule>) -> String {
+    match pair.as_rule() {
+        Rule::math_chars => pair.as_str().to_string(),
+        Rule::math_block_curly => format!(
+            "{{{}}}",
+            pair.into_inner().map(parse_math).collect::<String>()
+        ),
+        // | Rule::math_block_bracket
+        // | Rule::math_block_paren
+        Rule::math_body => pair.into_inner().map(parse_math).collect(),
+        _ => unreachable!(),
+    }
+}
+
+fn block_parser(pair: Pair<Rule>) -> (String, Pair<Rule>, Option<String>) {
+    let mut inner = pair.into_inner();
+    let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
+    let src = inner.next().expect("missing code_src");
+    let id = inner.next().map(|val| val.as_str().to_string());
+    (lvl, src, id)
 }
 
 pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
