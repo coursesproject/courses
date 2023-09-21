@@ -170,7 +170,7 @@ async fn cli_run() -> anyhow::Result<()> {
             }
 
             let mut res = cmd.spawn()?;
-            let status = res.wait()?;
+            let _status = res.wait()?;
             Ok(())
         }
         Commands::Build { path, profile } => {
