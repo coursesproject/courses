@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::renderers::generic::RenderedParam;
+use crate::renderers::RenderedParam;
 use crate::templates::precompiled::{PrecompiledFormat, PrecompiledTemplate};
 use thiserror::Error;
 use walkdir::WalkDir;

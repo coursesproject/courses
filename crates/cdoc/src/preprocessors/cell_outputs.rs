@@ -1,5 +1,5 @@
 use crate::parser::ParserSettings;
-use crate::processors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
+use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
 
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, CodeBlock, Command, Inline, Parameter, Value};

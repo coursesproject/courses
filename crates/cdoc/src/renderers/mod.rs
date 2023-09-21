@@ -9,18 +9,20 @@ use std::fmt::Debug;
 use std::io::Write;
 
 use crate::parser::ParserSettings;
+use crate::renderers::extensions::RenderExtension;
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Reference};
+use cdoc_parser::ast::{Ast, Block, Inline, Parameter, Reference, Value};
 use cdoc_parser::document::Document;
 use cdoc_parser::notebook::NotebookMeta;
 use syntect::highlighting::Theme;
 use syntect::parsing::SyntaxSet;
 use tera::Context;
 
-use crate::templates::TemplateManager;
+use crate::templates::{TemplateManager, TemplateType};
 
+pub mod extensions;
 pub mod generic;
 pub mod json;
 pub mod notebook;
@@ -33,7 +35,7 @@ pub type RenderResult = String;
 /// Context that is passed to the render functions.
 pub struct RenderContext<'a> {
     /// The document that is being rendered
-    pub doc: &'a Document<Ast>,
+    pub doc: &'a mut Document<Ast>,
     pub templates: &'a TemplateManager,
     /// Extra arguments (this type is essentially a wrapped HashMap)
     pub extra_args: Context,
@@ -99,7 +101,11 @@ pub fn references_by_type(
 /// the courses project.
 #[typetag::serde]
 pub trait DocumentRenderer: DynClone + Debug + Send + Sync {
-    fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>>;
+    fn render_doc(
+        &mut self,
+        ctx: &mut RenderContext,
+        extensions: Vec<Box<dyn RenderExtension>>,
+    ) -> Result<Document<RenderResult>>;
 }
 
 dyn_clone::clone_trait_object!(DocumentRenderer);
@@ -125,4 +131,9 @@ impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
     fn render(&mut self, elem: &Vec<R>, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
         elem.iter().try_for_each(|e| self.render(e, ctx, &mut buf))
     }
+}
+
+pub struct RenderedParam {
+    pub key: Option<String>,
+    pub value: String,
 }

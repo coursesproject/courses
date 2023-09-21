@@ -18,7 +18,7 @@ use tera::{Context, Filter, Function};
 
 use cdoc::config::Format;
 
-use cdoc::processors::PreprocessorContext;
+use cdoc::preprocessors::PreprocessorContext;
 
 use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
 use cdoc::templates::TemplateManager;
@@ -34,6 +34,7 @@ use crate::project::{
     from_vec, ContentItem, ContentItemDescriptor, DocumentDescriptor, ProjectItemVec,
 };
 
+use cdoc::renderers::extensions::build_extensions;
 use cdoc_parser::ast::Ast;
 use cdoc_parser::document::Document;
 use lazy_static::lazy_static;
@@ -196,9 +197,15 @@ impl Pipeline {
                     ))
                     .expect("problems!");
 
-                    let ctx = self.get_render_context(&mut doc, format.borrow()).unwrap();
+                    let mut ctx = self.get_render_context(&mut doc, format.borrow()).unwrap();
                     let mut renderer = GenericRenderer::default();
-                    let res = renderer.render_doc(&ctx).map_err(tera::Error::msg)?;
+                    let res = renderer
+                        .render_doc(
+                            &mut ctx,
+                            build_extensions(&self.profile.render_extensions)
+                                .map_err(tera::Error::msg)?,
+                        )
+                        .map_err(tera::Error::msg)?;
                     let val = res.content;
                     Ok(Value::String(val))
                 } else {
@@ -666,10 +673,13 @@ impl Pipeline {
 
                     // let res = print_err(res)?;
 
-                    let ctx = self.get_render_context(&mut res, format)?;
+                    let mut ctx = self.get_render_context(&mut res, format)?;
                     let mut renderer = format.renderer();
 
-                    Ok(Some(renderer.render_doc(&ctx)?))
+                    Ok(Some(renderer.render_doc(
+                        &mut ctx,
+                        build_extensions(&self.profile.render_extensions)?,
+                    )?))
                 } else {
                     Ok(None)
                 }

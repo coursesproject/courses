@@ -3,8 +3,8 @@ use cdoc_parser::document::Document;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::processors::cell_outputs::CellOutputConfig;
-use crate::processors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
+use crate::preprocessors::cell_outputs::CellOutputConfig;
+use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Parser {
@@ -21,7 +21,7 @@ fn default_preprocessors() -> Vec<Box<dyn AstPreprocessorConfig>> {
 /// Additional parser configuration.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ParserSettings {
-    /// Include solutions for the [crate::processors::exercises::Exercises] preprocessor.
+    /// Include solutions for the [crate::preprocessors::exercises::Exercises] preprocessor.
     #[serde(default)]
     pub solutions: bool,
 }
@@ -77,7 +77,7 @@ pub enum ParserError {
     FrontMatter(#[from] serde_yaml::Error),
 
     #[error(transparent)]
-    ExtensionError(#[from] crate::processors::Error),
+    ExtensionError(#[from] crate::preprocessors::Error),
 
     #[cfg(feature = "katex")]
     #[error(transparent)]

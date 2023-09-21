@@ -9,7 +9,10 @@ use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tera::Context;
 
-use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderResult};
+use crate::renderers::extensions::RenderExtension;
+use crate::renderers::{
+    DocumentRenderer, RenderContext, RenderElement, RenderResult, RenderedParam,
+};
 use crate::templates::{TemplateDefinition, TemplateType};
 
 fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
@@ -29,12 +32,15 @@ pub struct GenericRenderer {
 
 #[typetag::serde(name = "generic")]
 impl DocumentRenderer for GenericRenderer {
-    fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
-        // let doc = doc.to_events();
-        // let dd = doc.to_events();
-        //
-        // let mut output = String::new();
-        // html::push_html(&mut output, dd);
+    fn render_doc(
+        &mut self,
+        ctx: &mut RenderContext,
+        mut extensions: Vec<Box<dyn RenderExtension>>,
+    ) -> Result<Document<RenderResult>> {
+        for mut ext in extensions {
+            ext.process(ctx, self.clone())?;
+        }
+
         let buf = Vec::new();
         let mut cursor = Cursor::new(buf);
         self.render(&ctx.doc.content.0, ctx, &mut cursor)?;
@@ -48,13 +54,8 @@ impl DocumentRenderer for GenericRenderer {
     }
 }
 
-pub struct RenderedParam {
-    pub key: Option<String>,
-    pub value: String,
-}
-
 impl GenericRenderer {
-    fn render_params(
+    pub(crate) fn render_params(
         &mut self,
         parameters: Vec<Parameter>,
         ctx: &RenderContext,
@@ -76,6 +77,31 @@ impl GenericRenderer {
             .collect()
     }
 
+    fn render_math(
+        &mut self,
+        display_mode: bool,
+        inner: &str,
+        label: &Option<String>,
+        ctx: &RenderContext,
+        buf: impl Write,
+    ) -> Result<()> {
+        let mut args = Context::default();
+
+        args.insert("label", label);
+        args.insert("display_mode", &display_mode);
+        if display_mode && label.is_some() {
+            let num = self.fetch_and_inc_num("equation".to_string(), &label);
+            args.insert("num", &num);
+        }
+        args.insert("value", inner);
+        ctx.templates.render(
+            "math",
+            ctx.format.template_prefix(),
+            TemplateType::Builtin,
+            &args,
+            buf,
+        )
+    }
     fn render_command_template(
         &mut self,
         ctx: &RenderContext,
@@ -140,32 +166,6 @@ impl GenericRenderer {
             0
         };
         num
-    }
-
-    fn render_math(
-        &mut self,
-        display_mode: bool,
-        inner: &str,
-        label: &Option<String>,
-        ctx: &RenderContext,
-        buf: impl Write,
-    ) -> Result<()> {
-        let mut args = Context::default();
-
-        args.insert("label", label);
-        args.insert("display_mode", &display_mode);
-        if display_mode && label.is_some() {
-            let num = self.fetch_and_inc_num("equation".to_string(), &label);
-            args.insert("num", &num);
-        }
-        args.insert("value", inner);
-        ctx.templates.render(
-            "math",
-            ctx.format.template_prefix(),
-            TemplateType::Builtin,
-            &args,
-            buf,
-        )
     }
 }
 
@@ -349,10 +349,16 @@ impl RenderElement<CodeOutput> for GenericRenderer {
 impl RenderElement<Block> for GenericRenderer {
     fn render(&mut self, elem: &Block, ctx: &RenderContext, buf: impl Write) -> Result<()> {
         match elem {
-            Block::Heading { lvl, inner, .. } => {
+            Block::Heading {
+                lvl,
+                inner,
+                id: label,
+                ..
+            } => {
                 let mut args = Context::default();
                 // println!("{}", );
                 args.insert("level", &lvl);
+                args.insert("label", &label);
                 args.insert("inner", &self.render_inner(inner, ctx)?);
                 Ok(ctx.templates.render(
                     "header",

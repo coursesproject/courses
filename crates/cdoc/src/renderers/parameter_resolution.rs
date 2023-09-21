@@ -25,6 +25,6 @@ impl AstVisitor for ParameterResolution<'_> {
                 );
             }
         }
-        Ok(())
+        self.walk_command(&mut cmd.body)
     }
 }

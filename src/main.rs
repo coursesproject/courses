@@ -475,8 +475,8 @@ fn err_print(res: anyhow::Result<()>) {
     }
 }
 
-#[tokio::main]
-// #[pollster::main]
+#[cfg_attr(feature = "default", tokio::main)]
+#[cfg_attr(feature = "pollster", pollster::main)]
 async fn main() {
     err_print(cli_run().await)
 }

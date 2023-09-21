@@ -74,6 +74,15 @@ pub enum ContentItem<C> {
     },
 }
 
+// impl<C> ContentItem<C> {
+//     pub fn get_path(&self, path: &[&str]) -> Option<ContentItem<C>> {
+//         match self {
+//             ContentItem::Document { .. } => Some(self.clone()),
+//             ContentItem::Section { children } => {}
+//         }
+//     }
+// }
+
 impl<C> DocumentDescriptor<C> {
     pub fn as_ref(&self) -> DocumentDescriptor<&C> {
         DocumentDescriptor {

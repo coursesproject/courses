@@ -11,7 +11,7 @@ pub mod loader;
 pub mod parser;
 
 /// Contains preprocessors for documents. Currently, only used for the exercise syntax.
-pub mod processors;
+pub mod preprocessors;
 
 /// Contains renderer types that can be used for raw outputs and notebook-based outputs. Can be extended.
 pub mod renderers;

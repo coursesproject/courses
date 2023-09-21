@@ -15,7 +15,7 @@ use tera::{Context, Filter, Function, Tera};
 mod definition;
 mod precompiled;
 
-use crate::renderers::generic::RenderedParam;
+use crate::renderers::RenderedParam;
 pub use definition::*;
 
 fn create_rhai_filter(source: String) -> impl Filter {

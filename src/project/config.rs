@@ -7,8 +7,10 @@ use cdoc::config::Format;
 use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
 
-use cdoc::processors::cell_outputs::CellOutputConfig;
-use cdoc::processors::AstPreprocessorConfig;
+use cdoc::preprocessors::cell_outputs::CellOutputConfig;
+use cdoc::preprocessors::AstPreprocessorConfig;
+use cdoc::renderers::extensions::structure::DocStructureConfig;
+use cdoc::renderers::extensions::RenderExtensionConfig;
 use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
 use semver::VersionReq;
@@ -53,6 +55,8 @@ pub struct Profile {
     #[serde(default)]
     pub formats: Vec<Box<dyn Format>>,
     #[serde(default)]
+    pub render_extensions: Vec<Box<dyn RenderExtensionConfig>>,
+    #[serde(default)]
     pub create_filters: bool,
 }
 
@@ -83,6 +87,10 @@ fn default_profiles() -> HashMap<String, Profile> {
                 settings: ParserSettings { solutions: true },
             },
             formats: vec![],
+            render_extensions: vec![Box::new(DocStructureConfig {
+                max_heading_level: 0,
+                included_commands: vec![],
+            })],
             create_filters: true,
         },
     );
@@ -96,6 +104,10 @@ fn default_profiles() -> HashMap<String, Profile> {
                 settings: ParserSettings { solutions: false },
             },
             formats: vec![],
+            render_extensions: vec![Box::new(DocStructureConfig {
+                max_heading_level: 0,
+                included_commands: vec![],
+            })],
             create_filters: false,
         },
     );

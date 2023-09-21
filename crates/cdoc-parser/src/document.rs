@@ -1,6 +1,7 @@
 use crate::ast::Ast;
 use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Special};
 use anyhow::Result;
+use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -34,7 +35,7 @@ pub struct Metadata {
     pub exclude_outputs: Option<Vec<String>>,
 
     #[serde(flatten)]
-    pub user_defined: HashMap<String, Value>,
+    pub user_defined: LinkedHashMap<String, Value>,
 }
 
 const fn default_true() -> bool {

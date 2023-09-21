@@ -85,10 +85,14 @@ pub trait AstVisitor {
         Ok(())
     }
 
-    fn visit_command(&mut self, cmd: &mut Command) -> Result<()> {
-        if let Some(body) = &mut cmd.body {
+    fn walk_command(&mut self, body: &mut Option<Vec<Block>>) -> Result<()> {
+        if let Some(body) = body {
             self.walk_vec_block(body)?;
         }
         Ok(())
+    }
+
+    fn visit_command(&mut self, cmd: &mut Command) -> Result<()> {
+        self.walk_command(&mut cmd.body)
     }
 }

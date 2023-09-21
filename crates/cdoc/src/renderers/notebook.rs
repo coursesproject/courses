@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufWriter;
 
+use crate::renderers::extensions::RenderExtension;
 use crate::renderers::generic::GenericRenderer;
 use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderResult};
 
@@ -18,8 +19,16 @@ pub struct NotebookRenderer;
 
 #[typetag::serde(name = "notebook")]
 impl DocumentRenderer for NotebookRenderer {
-    fn render_doc(&mut self, ctx: &RenderContext) -> Result<Document<RenderResult>> {
+    fn render_doc(
+        &mut self,
+        ctx: &mut RenderContext,
+        extensions: Vec<Box<dyn RenderExtension>>,
+    ) -> Result<Document<RenderResult>> {
         let renderer = GenericRenderer::default();
+
+        for mut ext in extensions {
+            ext.process(ctx, renderer.clone())?;
+        }
 
         let writer = NotebookWriter {
             notebook_meta: ctx.notebook_output_meta.clone(),

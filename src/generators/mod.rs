@@ -129,6 +129,7 @@ impl Generator<'_> {
                 // context.insert("current_part", &item.part_id);
                 // context.insert("current_chapter", &item.chapter_id);
                 // context.insert("current_doc", &item.doc.id);
+
                 context.insert("doc", &doc);
                 context.insert("mode", &self.mode);
 
