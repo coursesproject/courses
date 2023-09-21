@@ -9,11 +9,15 @@ use cdoc::parser::{Parser, ParserSettings};
 use cdoc::processors::exercises::ExercisesConfig;
 use cdoc::processors::AstPreprocessorConfig;
 use clap::ValueEnum;
+use semver::VersionReq;
 
 /// Refers to a configuration.yml file in the project that specifies a variety
 /// of options for the project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
+    #[serde(default)]
+    pub courses: CoursesConfig,
+
     #[serde(default)]
     pub url_prefix: String,
     #[serde(default)]
@@ -32,6 +36,19 @@ pub struct ProjectConfig {
 
     #[serde(default)]
     pub scripts: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoursesConfig {
+    pub version: VersionReq,
+}
+
+impl Default for CoursesConfig {
+    fn default() -> Self {
+        CoursesConfig {
+            version: VersionReq::parse("0.8.3").unwrap(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
