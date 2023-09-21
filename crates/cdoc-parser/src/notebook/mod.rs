@@ -331,12 +331,17 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
             Cell::Code {
                 common, outputs, ..
             } => {
-                let attr = common.metadata.tags.as_ref().map(|tags| tags.join(", "));
-                if let Some(attr) = attr {
-                    write!(&mut writer, "\n```{}\n{}\n```\n", attr, common.source)?;
-                } else {
-                    write!(&mut writer, "\n```\n{}\n```\n", common.source)?;
-                }
+                let attr = common
+                    .metadata
+                    .tags
+                    .as_ref()
+                    .map(|tags| tags.join(", "))
+                    .unwrap_or(String::new());
+                write!(
+                    &mut writer,
+                    "\n```python, cell\n#| tags: {}\n{}\n```\n",
+                    attr, common.source
+                )?;
 
                 let mut hasher = DefaultHasher::new();
                 common.source.hash(&mut hasher);

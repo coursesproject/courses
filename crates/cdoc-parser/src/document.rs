@@ -21,7 +21,7 @@ pub struct Metadata {
     #[serde(default = "default_true")]
     pub exercises: bool,
     #[serde(default)]
-    pub code_solutions: bool,
+    pub code_solutions: Option<bool>,
     #[serde(default = "default_true")]
     pub cell_outputs: bool,
     #[serde(default)]

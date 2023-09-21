@@ -226,6 +226,7 @@ impl Pipeline {
             &ts.themes["base16-ocean.light"],
             self.project_config.notebook_meta.as_ref().unwrap(),
             format,
+            self.profile.parser.settings.clone(),
         )
     }
 

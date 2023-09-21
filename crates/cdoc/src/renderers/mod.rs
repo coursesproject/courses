@@ -8,6 +8,7 @@ use linked_hash_map::LinkedHashMap;
 use std::fmt::Debug;
 use std::io::Write;
 
+use crate::parser::ParserSettings;
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
 use cdoc_parser::ast::visitor::AstVisitor;
@@ -41,6 +42,7 @@ pub struct RenderContext<'a> {
     theme: &'a Theme,
     pub notebook_output_meta: &'a NotebookMeta,
     pub format: &'a dyn Format,
+    pub parser_settings: ParserSettings,
     pub references: LinkedHashMap<String, Reference>,
     pub references_by_type: HashMap<String, Vec<(String, Reference)>>,
 }
@@ -54,6 +56,7 @@ impl<'a> RenderContext<'a> {
         theme: &'a Theme,
         notebook_output_meta: &'a NotebookMeta,
         format: &'a dyn Format,
+        parser_settings: ParserSettings,
     ) -> Result<Self> {
         let mut parameter_resolution = ParameterResolution { templates };
         parameter_resolution.walk_ast(&mut doc.content.0)?;
@@ -70,6 +73,7 @@ impl<'a> RenderContext<'a> {
             theme,
             notebook_output_meta,
             format,
+            parser_settings,
             references: ref_visit.references,
             references_by_type: rbt,
         })

@@ -214,7 +214,12 @@ impl RenderElement<Inline> for GenericRenderer {
             }) => {
                 let id = get_id();
 
-                let code_rendered = source.to_string(ctx.doc.meta.code_solutions)?;
+                let code_rendered = source.to_string(
+                    ctx.doc
+                        .meta
+                        .code_solutions
+                        .unwrap_or(ctx.parser_settings.solutions),
+                )?;
 
                 let highlighted = syntect::html::highlighted_html_for_string(
                     &code_rendered,

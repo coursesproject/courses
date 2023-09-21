@@ -168,12 +168,12 @@ impl NotebookWriter<'_> {
             common: CellCommon {
                 metadata: cell_meta,
                 source: r#"import requests
-        from IPython.core.display import HTML
-        HTML(f"""
-        <style>
-        @import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
-        </style>
-        """)"#
+from IPython.core.display import HTML
+HTML(f"""
+<style>
+@import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+</style>
+""")"#
                     .to_string(),
             },
             execution_count: None,
@@ -218,18 +218,30 @@ const CODE_SPLIT: &str = "--+code+--";
 
 impl AstVisitor for NotebookWriter<'_> {
     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        if let Inline::CodeBlock(CodeBlock { source, .. }) = inline {
-            let rendered = source.to_string(self.ctx.doc.meta.code_solutions)?;
-            self.code_cells.push(Cell::Code {
-                common: CellCommon {
-                    metadata: Default::default(),
-                    source: rendered,
-                },
-                execution_count: None,
-                outputs: vec![], // TODO: fix outputs
-            });
+        if let Inline::CodeBlock(CodeBlock {
+            source, attributes, ..
+        }) = inline
+        {
+            if attributes.contains(&"cell".to_string()) {
+                let rendered = source.to_string(
+                    self.ctx
+                        .doc
+                        .meta
+                        .code_solutions
+                        .unwrap_or(self.ctx.parser_settings.solutions),
+                )?;
 
-            *inline = Inline::Text(CODE_SPLIT.to_string());
+                self.code_cells.push(Cell::Code {
+                    common: CellCommon {
+                        metadata: Default::default(),
+                        source: rendered,
+                    },
+                    execution_count: None,
+                    outputs: vec![], // TODO: fix outputs
+                });
+
+                *inline = Inline::Text(CODE_SPLIT.to_string());
+            }
         }
 
         Ok(())
