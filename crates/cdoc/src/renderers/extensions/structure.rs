@@ -8,6 +8,7 @@ use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Block, Command, Inline};
 use cdoc_parser::document::Document;
 use linked_hash_map::LinkedHashMap;
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -98,6 +99,11 @@ impl RenderExtension for DocStructure {
 
         let tree = visitor.construct_element_tree()?;
 
+        ctx.doc.meta.user_defined.insert(
+            "tree_raw".to_string(),
+            serde_json::to_value(visitor.elems.clone())?,
+        );
+
         ctx.doc
             .meta
             .user_defined
@@ -109,26 +115,61 @@ impl RenderExtension for DocStructure {
 
 impl DocStructureVisitor<'_> {
     pub fn construct_element_tree(&self) -> anyhow::Result<Vec<Tree>> {
-        let mut iter = self.elems.iter();
-        if let Some(elem) = iter.next() {
-            self.construct_element_tree_inner(elem, &mut iter, 1)
-        } else {
-            Ok(vec![])
+        let lvl = &self.elems.get(0).map(|e| e.lvl).unwrap_or_default();
+        let (tree, _) = self.construct_element_tree_inner2(&self.elems, 0, *lvl);
+        Ok(tree)
+    }
+
+    fn construct_element_tree_inner2(
+        &self,
+        elems: &[Elem],
+        current_idx: usize,
+        current_lvl: u8,
+    ) -> (Vec<Tree>, usize) {
+        let mut tree: Vec<Tree> = vec![];
+        let mut current_idx = current_idx;
+
+        while current_idx < elems.len() {
+            let current = &elems[current_idx];
+
+            if current.lvl > current_lvl {
+                let (children, new_idx) =
+                    self.construct_element_tree_inner2(elems, current_idx, current.lvl);
+
+                let t = tree.last_mut().unwrap();
+                t.children = children;
+
+                current_idx = new_idx;
+            } else if current.lvl == current_lvl {
+                tree.push(Tree {
+                    elem: current.clone(),
+                    children: vec![],
+                });
+                current_idx += 1;
+            } else {
+                return (tree, current_idx + 1);
+            }
         }
+
+        (tree, current_idx)
     }
 
     fn construct_element_tree_inner<'a, I: Iterator<Item = &'a Elem>>(
         &self,
-        elem: &Elem,
+        previous: &Elem,
         iter: &mut I,
         current_level: u8,
     ) -> anyhow::Result<Vec<Tree>> {
         let mut current = vec![];
-        let mut previous = elem;
-        let mut final_push = true;
+        let mut previous = previous;
+        let mut final_val = true;
         while let Some(elem) = iter.next() {
             if elem.lvl < current_level {
-                final_push = false;
+                current.push(Tree {
+                    elem: previous.clone(),
+                    children: vec![],
+                });
+                previous = elem;
                 break;
             } else if elem.lvl > current_level {
                 let inner = self.construct_element_tree_inner(elem, iter, current_level + 1)?;
@@ -136,6 +177,7 @@ impl DocStructureVisitor<'_> {
                     elem: previous.clone(),
                     children: inner,
                 });
+                final_val = false;
             } else if elem.lvl == current_level {
                 current.push(Tree {
                     elem: previous.clone(),
@@ -144,9 +186,9 @@ impl DocStructureVisitor<'_> {
             }
             previous = elem;
         }
-        // if final_push {
+        // if final_val {
         //     current.push(Tree {
-        //         elem: elem.clone(),
+        //         elem: previous.clone(),
         //         children: vec![],
         //     });
         // }
@@ -178,15 +220,6 @@ impl AstVisitor for DocStructureVisitor<'_> {
         self.walk_block(block)
     }
 
-    fn walk_command(&mut self, body: &mut Option<Vec<Block>>) -> anyhow::Result<()> {
-        if let Some(body) = body {
-            self.current_level += 1;
-            self.walk_vec_block(body)?;
-            self.current_level -= 1;
-        }
-        Ok(())
-    }
-
     fn visit_command(&mut self, cmd: &mut Command) -> anyhow::Result<()> {
         let params = self
             .renderer
@@ -196,15 +229,26 @@ impl AstVisitor for DocStructureVisitor<'_> {
             .map(|p| (p.key.unwrap(), p.value))
             .collect();
 
-        self.elems.push(Elem {
-            val: ElemVal::Command {
-                name: cmd.function.clone(),
-                parameters: params,
-            },
-            lvl: self.current_level,
-            label: cmd.label.clone(),
-        });
+        if self.base.config.included_commands.contains(&cmd.function) {
+            // println!(
+            //     "included: {:?}, {}",
+            //     self.base.config.included_commands, &cmd.function
+            // );
+            self.elems.push(Elem {
+                val: ElemVal::Command {
+                    name: cmd.function.clone(),
+                    parameters: params,
+                },
+                lvl: self.current_level,
+                label: cmd.label.clone(),
+            });
+            self.current_level += 1;
+            self.walk_command(&mut cmd.body)?;
+            self.current_level -= 1;
+        } else {
+            self.walk_command(&mut cmd.body)?;
+        }
 
-        self.walk_command(&mut cmd.body)
+        Ok(())
     }
 }

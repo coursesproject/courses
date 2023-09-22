@@ -18,7 +18,8 @@ impl PosInfo {
     }
 
     pub fn get_with_margin(&self, margin: usize) -> &str {
-        &self.input[max(self.start - margin, 0)..min(self.end + margin, self.input.len())]
+        &self.input[self.start.checked_sub(margin).unwrap_or_default()
+            ..min(self.end + margin, self.input.len())]
     }
 }
 

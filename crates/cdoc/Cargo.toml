@@ -52,6 +52,7 @@ walkdir = "2.3.3"
 include_dir = "0.7.3"
 dirs = "5.0.1"
 linked-hash-map = {version = "0.5.6", features = ["serde_impl"]}
+nanoid = "0.4.0"
 
 rhai = { version = "1.13.0", features = ["serde", "metadata", "internals", "sync"] }
 reqwest = { version = "0.11.18", features = ["blocking"] }

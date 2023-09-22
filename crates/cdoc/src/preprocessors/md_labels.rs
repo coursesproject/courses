@@ -3,6 +3,7 @@ use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, Prepro
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Block, Inline};
 use cdoc_parser::document::Document;
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -50,6 +51,8 @@ impl AstVisitor for MdLabels {
                     *id = label.label.clone();
                 }
                 *cmd = Inline::Text(String::new());
+            } else {
+                *id = Some(nanoid!());
             }
         }
 
