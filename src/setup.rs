@@ -2,8 +2,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::{fs, io};
 
+use bytes::Bytes;
 use fs_extra::dir::CopyOptions;
-use penguin::hyper::body::Bytes;
+
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]

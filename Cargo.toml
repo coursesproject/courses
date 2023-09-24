@@ -32,6 +32,8 @@ members = [
 name = "courses"
 path = "src/lib.rs"
 
+[profile.release]
+debug = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.x86_64-pc-windows-msvc]
@@ -69,12 +71,13 @@ indicatif = {version="0.17.2", features=["rayon"]}
 
 
 # Async + server stuff
-penguin = "0.1.7"
+penguin = {version = "0.1.7", optional = true}
 tokio = { version = "1.21.2", features = ["macros", "rt"], optional = true }
 pollster = { version = "0.3.0", features = ["macro"], optional = true}
-notify = { version = "6.0.0" }
-notify-debouncer-mini = "0.3.0"
+notify = { version = "6.0.0", optional = true }
+notify-debouncer-mini = { version = "0.4.1", optional = true }
 reqwest = { version = "0.11.13", features = ["blocking"] }
+bytes = {version = "1.5.0"}
 zip = "0.6.3"
 rayon = "1.7.0"
 
@@ -84,4 +87,6 @@ tempfile = "3.3.0"
 built = "0.7.0"
 
 [features]
-default = ["tokio"]
+default = ["server"]
+server = ["dep:tokio", "dep:penguin", "dep:notify", "dep:notify-debouncer-mini"]
+no-server = ["dep:pollster"]

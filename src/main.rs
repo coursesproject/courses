@@ -12,10 +12,13 @@ use console::style;
 
 use inquire::{InquireError, Select};
 use linked_hash_map::LinkedHashMap;
+#[cfg(feature = "server")]
 use notify::{RecommendedWatcher, RecursiveMode};
+#[cfg(feature = "server")]
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
+#[cfg(feature = "server")]
 use penguin::Server;
 use semver::{Version, VersionReq};
 
@@ -39,6 +42,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Build and serve the project locally. Recompiles whenever a file change is detected.
+    #[cfg(feature = "server")]
     Serve {
         /// Optional path to the project root directory (that contains config.yml).
         #[arg(short, long)]
@@ -200,6 +204,7 @@ async fn cli_run() -> anyhow::Result<()> {
             // assert!(output.status.success());
             Ok(())
         }
+        #[cfg(feature = "server")]
         Commands::Serve { path, profile } => {
             // Used for measuring build time
             let current_time = SystemTime::now();
@@ -228,13 +233,12 @@ async fn cli_run() -> anyhow::Result<()> {
                 pipeline.project_config.url_prefix
             );
 
-            let notify_config = notify::Config::default();
+            let notify_config =
+                notify_debouncer_mini::Config::default().with_timeout(Duration::from_millis(100));
 
             // Notifier that watches for file changes.
-            let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(
-                Duration::from_millis(100),
-                None,
-                move |res: DebounceEventResult| match res {
+            let mut debouncer: Debouncer<RecommendedWatcher> =
+                new_debouncer_opt(notify_config, move |res: DebounceEventResult| match res {
                     Ok(events) => events.iter().for_each(|event| {
                         // Only listen for this specific kind of event that is emitted for
                         // file changes on any operating system.
@@ -281,10 +285,8 @@ async fn cli_run() -> anyhow::Result<()> {
                             }
                         }
                     }),
-                    Err(errs) => errs.iter().for_each(|e| println!("Error {:?}", e)),
-                },
-                notify_config,
-            )?;
+                    Err(errs) => errs.paths.iter().for_each(|e| println!("Error {:?}", e)),
+                })?;
 
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
@@ -475,8 +477,8 @@ fn err_print(res: anyhow::Result<()>) {
     }
 }
 
-#[cfg_attr(feature = "default", tokio::main)]
-#[cfg_attr(feature = "pollster", pollster::main)]
+#[cfg_attr(feature = "server", tokio::main)]
+#[cfg_attr(feature = "no-server", pollster::main)]
 async fn main() {
     err_print(cli_run().await)
 }
