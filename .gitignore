@@ -1,5 +1,7 @@
 *.DS_Store
 docs/build/
+docs/.cache/
+docs/node_modules/
 /target
 .idea/codeStyles/
 .fleet/
