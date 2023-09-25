@@ -177,7 +177,7 @@ impl NotebookWriter<'_> {
 
         let import = Cell::Code {
             common: CellCommon {
-                id: "css setup".to_string(),
+                id: "css_setup".to_string(),
                 metadata: cell_meta,
                 source: r#"import requests
 from IPython.core.display import HTML
@@ -202,21 +202,20 @@ HTML(f"""
 
         let md_cells = out_str.split(CODE_SPLIT);
 
-        let cells = vec![import]
-            .into_iter()
-            .chain(md_cells.zip(self.code_cells).flat_map(|(md, code)| {
-                [
-                    Cell::Markdown {
-                        common: CellCommon {
-                            id: nanoid!(),
-                            metadata: Default::default(),
-                            source: md.to_string(),
-                        },
-                    },
-                    code,
-                ]
-            }))
-            .collect();
+        let mut cells = vec![import];
+
+        for (idx, md) in md_cells.enumerate() {
+            cells.push(Cell::Markdown {
+                common: CellCommon {
+                    id: nanoid!(),
+                    metadata: Default::default(),
+                    source: md.to_string(),
+                },
+            });
+            if let Some(code) = self.code_cells.get(idx) {
+                cells.push(code.clone());
+            }
+        }
 
         Ok(Notebook {
             metadata: self.notebook_meta,
@@ -248,7 +247,7 @@ impl AstVisitor for NotebookWriter<'_> {
                     common: CellCommon {
                         id: nanoid!(),
                         metadata: Default::default(),
-                        source: rendered,
+                        source: rendered.trim().to_string(),
                     },
                     execution_count: Some(0),
                     outputs: vec![], // TODO: fix outputs

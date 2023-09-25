@@ -1,4 +1,3 @@
-use cowstr::CowStr;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 use std::ops::Range;

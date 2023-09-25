@@ -49,11 +49,12 @@ pub struct LayoutSettings {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct CodeOutput {
-    pub values: Vec<Outval>,
+    pub values: Vec<OutputValue>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum Outval {
+pub enum OutputValue {
+    Plain(String),
     Text(String),
     Image(Image),
     Json(Value),

@@ -4,22 +4,18 @@ use cdoc::config::Format;
 use cdoc::renderers::RenderResult;
 use cdoc::templates::{TemplateManager, TemplateType};
 use cdoc_parser::document::Document;
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressIterator};
+use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::Mutex;
+
 use tera::Context;
 
-use crate::project::caching::Cache;
 use crate::project::config::ProjectConfig;
-use crate::project::{
-    ContentItem, ContentItemDescriptor, ContentResultS, ContentResultX, ProjectItemContentVec,
-    ProjectItemVec,
-};
+use crate::project::{ContentItemDescriptor, ContentResultX, ProjectItemContentVec};
 
 /// This type is responsible for writing the final output for a given format.
 /// For formats that use layouts, this is where the document content is rendered into the layout

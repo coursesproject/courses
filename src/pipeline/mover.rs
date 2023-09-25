@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::project::config::{Mode, Profile};
-use crate::project::{ContentItem, ContentResultS, ContentResultX};
+use crate::project::{ContentItem, ContentResultX};
 use cdoc::parser::ParserSettings;
 use cdoc_parser::code_ast::parse_code_string;
 

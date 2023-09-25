@@ -4,6 +4,8 @@ use crate::renderers::{RenderContext, RenderElement};
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Block, Command};
 use cowstr::CowStr;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use linked_hash_map::LinkedHashMap;
 
@@ -34,6 +36,7 @@ pub struct DocStructureVisitor<'a> {
     elems: Vec<Elem>,
     current_level: u8,
     renderer: GenericRenderer,
+    num_counters: HashMap<String, usize>,
 }
 
 impl<'a> DocStructureVisitor<'a> {
@@ -48,6 +51,7 @@ impl<'a> DocStructureVisitor<'a> {
             elems: vec![],
             current_level: 0,
             renderer,
+            num_counters: HashMap::default(),
         }
     }
 }
@@ -58,6 +62,8 @@ pub struct Elem {
     val: ElemVal,
     lvl: u8,
     label: Option<CowStr>,
+    num: usize,
+    chrono_num: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -71,6 +77,16 @@ pub enum ElemVal {
         parameters: LinkedHashMap<CowStr, CowStr>,
     },
     CodeBlock,
+}
+
+impl ElemVal {
+    pub fn type_id(&self) -> &str {
+        match self {
+            ElemVal::Heading { .. } => "heading",
+            ElemVal::Command { name, .. } => name.as_str(),
+            ElemVal::CodeBlock => "code",
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -89,7 +105,7 @@ impl RenderExtension for DocStructure {
         ctx: &mut RenderContext,
         renderer: GenericRenderer,
     ) -> anyhow::Result<()> {
-        let mut visitor = DocStructureVisitor::new(&self, ctx, renderer);
+        let mut visitor = DocStructureVisitor::new(self, ctx, renderer);
         visitor.walk_ast(&mut ctx.doc.content.blocks.clone())?;
 
         let tree = visitor.construct_element_tree()?;
@@ -108,108 +124,80 @@ impl RenderExtension for DocStructure {
     }
 }
 
-impl DocStructureVisitor<'_> {
-    pub fn construct_element_tree(&self) -> anyhow::Result<Vec<Tree>> {
-        let lvl = &self.elems.get(0).map(|e| e.lvl).unwrap_or_default();
-        let (tree, _) = self.construct_element_tree_inner2(&self.elems, 0, *lvl);
-        Ok(tree)
-    }
+//noinspection RsExternalLinter
+fn construct_element_tree_inner2(
+    elems: &[Elem],
+    current_idx: usize,
+    current_lvl: u8,
+) -> (Vec<Tree>, usize) {
+    let mut tree: Vec<Tree> = vec![];
+    let mut current_idx = current_idx;
+    let mut current_counters = HashMap::new();
 
-    fn construct_element_tree_inner2(
-        &self,
-        elems: &[Elem],
-        current_idx: usize,
-        current_lvl: u8,
-    ) -> (Vec<Tree>, usize) {
-        let mut tree: Vec<Tree> = vec![];
-        let mut current_idx = current_idx;
+    while current_idx < elems.len() {
+        let current = &elems[current_idx];
 
-        while current_idx < elems.len() {
-            let current = &elems[current_idx];
-
-            if current.lvl > current_lvl {
+        match current.lvl.cmp(&current_lvl) {
+            Ordering::Greater => {
                 let (children, new_idx) =
-                    self.construct_element_tree_inner2(elems, current_idx, current.lvl);
+                    construct_element_tree_inner2(elems, current_idx, current.lvl);
 
                 let t = tree.last_mut().unwrap();
                 t.children = children;
 
                 current_idx = new_idx;
-            } else if current.lvl == current_lvl {
+            }
+            Ordering::Equal => {
+                let mut elem = current.clone();
+                let cnum = current_counters
+                    .entry(elem.val.type_id().to_string())
+                    .or_insert(1);
+                elem.num = *cnum;
+                *cnum += 1;
+
                 tree.push(Tree {
-                    elem: current.clone(),
+                    elem,
                     children: vec![],
                 });
                 current_idx += 1;
-            } else {
-                return (tree, current_idx + 1);
             }
+            Ordering::Less => return (tree, current_idx),
         }
-
-        (tree, current_idx)
     }
 
-    fn construct_element_tree_inner<'a, I: Iterator<Item = &'a Elem>>(
-        &self,
-        previous: &Elem,
-        iter: &mut I,
-        current_level: u8,
-    ) -> anyhow::Result<Vec<Tree>> {
-        let mut current = vec![];
-        let mut previous = previous;
-        let mut final_val = true;
-        while let Some(elem) = iter.next() {
-            if elem.lvl < current_level {
-                current.push(Tree {
-                    elem: previous.clone(),
-                    children: vec![],
-                });
-                previous = elem;
-                break;
-            } else if elem.lvl > current_level {
-                let inner = self.construct_element_tree_inner(elem, iter, current_level + 1)?;
-                current.push(Tree {
-                    elem: previous.clone(),
-                    children: inner,
-                });
-                final_val = false;
-            } else if elem.lvl == current_level {
-                current.push(Tree {
-                    elem: previous.clone(),
-                    children: vec![],
-                });
-            }
-            previous = elem;
-        }
-        // if final_val {
-        //     current.push(Tree {
-        //         elem: previous.clone(),
-        //         children: vec![],
-        //     });
-        // }
+    (tree, current_idx)
+}
 
-        Ok(current)
+impl DocStructureVisitor<'_> {
+    pub fn construct_element_tree(&self) -> anyhow::Result<Vec<Tree>> {
+        let lvl = &self.elems.get(0).map(|e| e.lvl).unwrap_or(1);
+        let (tree, _) = construct_element_tree_inner2(&self.elems, 0, *lvl);
+        Ok(tree)
     }
 }
 
 impl AstVisitor for DocStructureVisitor<'_> {
     fn visit_block(&mut self, block: &mut Block) -> anyhow::Result<()> {
-        match block {
-            Block::Heading {
-                lvl,
-                id,
-                classes: _,
-                inner,
-            } => {
-                let inner = self.renderer.render_inner(inner, self.ctx)?;
-                self.elems.push(Elem {
-                    val: ElemVal::Heading { value: inner },
-                    lvl: *lvl,
-                    label: id.clone(),
-                });
-                self.current_level = *lvl + 1;
-            }
-            _ => {}
+        if let Block::Heading {
+            lvl,
+            id,
+            classes: _,
+            inner,
+        } = block
+        {
+            let inner = self.renderer.render_inner(inner, self.ctx)?;
+            let cnum = self.num_counters.entry("heading".to_string()).or_insert(1);
+
+            self.elems.push(Elem {
+                val: ElemVal::Heading { value: inner },
+                lvl: *lvl,
+                label: id.clone(),
+                num: 0,
+                chrono_num: *cnum,
+            });
+
+            *cnum += 1;
+            self.current_level = *lvl + 1;
         }
 
         self.walk_block(block)
@@ -230,10 +218,11 @@ impl AstVisitor for DocStructureVisitor<'_> {
             .included_commands
             .contains(&cmd.function.to_string())
         {
-            // println!(
-            //     "included: {:?}, {}",
-            //     self.base.config.included_commands, &cmd.function
-            // );
+            let cnum = self
+                .num_counters
+                .entry(cmd.function.to_string())
+                .or_insert(1);
+
             self.elems.push(Elem {
                 val: ElemVal::Command {
                     name: cmd.function.clone(),
@@ -241,7 +230,11 @@ impl AstVisitor for DocStructureVisitor<'_> {
                 },
                 lvl: self.current_level,
                 label: cmd.label.clone(),
+                num: 0,
+                chrono_num: *cnum,
             });
+            *cnum += 1;
+
             self.current_level += 1;
             self.walk_command(&mut cmd.body)?;
             self.current_level -= 1;

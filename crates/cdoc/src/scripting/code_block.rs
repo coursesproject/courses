@@ -14,7 +14,8 @@ pub(crate) struct ScriptCodeBlock {
     outputs: Dynamic,
     display_cell: bool,
     global_idx: usize,
-    pos: Span,
+    #[allow(unused)]
+    span: Span,
 }
 
 impl ScriptCodeBlock {
@@ -32,7 +33,7 @@ impl ScriptCodeBlock {
             outputs: to_dynamic(outputs).unwrap(),
             display_cell,
             global_idx,
-            pos: pos.clone(),
+            span: pos.clone(),
         }
     }
 

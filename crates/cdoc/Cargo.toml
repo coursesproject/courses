@@ -1,6 +1,6 @@
 [package]
 name = "cdoc"
-version = "0.8.0-alpha.3"
+version = "0.8.0-beta.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -23,7 +23,7 @@ path = "src/lib.rs"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
-cdoc-parser = { path = "../cdoc-parser", version = "=0.1.0-alpha.3", features = ["scripting"] }
+cdoc-parser = { path = "../cdoc-parser", version = "=0.1.0-beta.1", features = ["scripting"] }
 
 # Serialization
 serde = "1.0.150"

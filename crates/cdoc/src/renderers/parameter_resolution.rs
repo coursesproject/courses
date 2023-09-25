@@ -10,7 +10,7 @@ pub struct ParameterResolution<'a> {
 impl AstVisitor for ParameterResolution<'_> {
     fn visit_command(&mut self, cmd: &mut Command) -> anyhow::Result<()> {
         for (i, param) in cmd.parameters.iter_mut().enumerate() {
-            if let None = param.key {
+            if param.key.is_none() {
                 let def = self
                     .templates
                     .get_template(&cmd.function, TemplateType::Shortcode)?

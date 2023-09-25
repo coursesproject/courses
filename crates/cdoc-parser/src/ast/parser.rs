@@ -3,7 +3,7 @@ use crate::ast::*;
 use crate::raw;
 use crate::raw::{Child, ComposedMarkdown, Special};
 use anyhow::anyhow;
-use cowstr::{ToCowStr, ToSubStr};
+use cowstr::ToCowStr;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
 use std::str::FromStr;
@@ -280,7 +280,7 @@ mod tests {
     use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::Span;
     use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Special};
-    use cowstr::CowStr;
+
     use pulldown_cmark::LinkType;
 
     #[test]

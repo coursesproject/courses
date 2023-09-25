@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::code_ast::types::CodeContent;
 use crate::common::Span;
-use cowstr::{CowStr, SubStr};
+use cowstr::CowStr;
 use serde::{Deserialize, Serialize};
 use std::io::{BufWriter, Write};
 
@@ -15,6 +15,17 @@ pub struct RawDocument {
     pub(crate) input: CowStr,
     pub(crate) meta: Option<CowStr>,
     pub(crate) references: HashMap<CowStr, Reference>,
+}
+
+impl RawDocument {
+    pub fn new(input: &str) -> Self {
+        Self {
+            src: vec![],
+            input: CowStr::from(input),
+            meta: None,
+            references: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

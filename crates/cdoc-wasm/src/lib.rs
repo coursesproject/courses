@@ -1,6 +1,5 @@
 mod utils;
 
-use cdoc_parser::ast::Ast;
 use cdoc_parser::document::Document;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;

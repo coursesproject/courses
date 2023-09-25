@@ -1,21 +1,12 @@
-use crate::project::ContentItem;
 use anyhow::anyhow;
 use blake3::Hash;
 use cdoc::config::Format;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Cache {
     content_files: HashMap<String, FileInfo>,
-}
-
-impl Default for Cache {
-    fn default() -> Self {
-        Cache {
-            content_files: HashMap::default(),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

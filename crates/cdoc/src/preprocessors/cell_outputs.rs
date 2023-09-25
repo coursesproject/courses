@@ -3,7 +3,7 @@ use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, Prepro
 
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, CodeBlock, Command, Inline, Parameter, Value};
-use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
+use cdoc_parser::document::{CodeOutput, Document, Image, OutputValue};
 use cdoc_parser::Span;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,9 +36,10 @@ impl AstVisitor for CellVisitor<'_> {
         for (i, inline) in inlines.clone().into_iter().enumerate() {
             if let Inline::CodeBlock(CodeBlock { source, .. }) = inline {
                 if let Some(outputs) = self.outputs.get(&source.hash) {
+                    // println!("got output");
                     for output in &outputs.values {
                         match output {
-                            Outval::Text(s) => {
+                            OutputValue::Text(s) => {
                                 let command = Command {
                                     function: "output_text".into(),
                                     label: None,
@@ -55,7 +56,7 @@ impl AstVisitor for CellVisitor<'_> {
                                 inlines.insert(i + offset + 1, Inline::Command(command));
                                 offset += 1;
                             }
-                            Outval::Image(img) => {
+                            OutputValue::Image(img) => {
                                 let mut params = Vec::new();
                                 for (key, val) in source.meta.clone() {
                                     params.push(Parameter {
@@ -90,10 +91,11 @@ impl AstVisitor for CellVisitor<'_> {
                                 inlines.insert(i + offset + 1, Inline::Command(command));
                                 offset += 1;
                             }
-                            Outval::Json(_) => {}
-                            Outval::Html(_) => {}
-                            Outval::Javascript(_) => {}
-                            Outval::Error(_) => {}
+                            OutputValue::Json(_) => {}
+                            OutputValue::Html(_) => {}
+                            OutputValue::Javascript(_) => {}
+                            OutputValue::Error(_) => {}
+                            OutputValue::Plain(_) => {}
                         }
                     }
                 }

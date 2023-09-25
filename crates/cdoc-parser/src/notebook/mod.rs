@@ -5,8 +5,9 @@ use std::collections::hash_map::DefaultHasher;
 use anyhow::Result;
 
 use crate::ast::Ast;
-use crate::document::{CodeOutput, Document, Image, Metadata, Outval};
+use crate::document::{CodeOutput, Document, Image, Metadata};
 
+use crate::document;
 use linked_hash_map::LinkedHashMap;
 use nanoid::nanoid;
 use serde::de::Error;
@@ -290,34 +291,34 @@ impl From<Vec<CellOutput>> for CodeOutput {
         for output in value {
             match output {
                 CellOutput::Stream { text, .. } => {
-                    outputs.push(Outval::Text(text));
+                    outputs.push(document::OutputValue::Text(text));
                 }
                 CellOutput::Data { data, .. } => {
                     for v in data {
                         match v {
                             OutputValue::Plain(s) => {
-                                outputs.push(Outval::Text(s.join("")));
+                                outputs.push(document::OutputValue::Plain(s.join("")));
                             }
                             OutputValue::Image(i) => {
-                                outputs.push(Outval::Image(Image::Png(i.join(""))));
+                                outputs.push(document::OutputValue::Image(Image::Png(i.join(""))));
                             }
                             OutputValue::Svg(i) => {
-                                outputs.push(Outval::Image(Image::Svg(i.join(""))));
+                                outputs.push(document::OutputValue::Image(Image::Svg(i.join(""))));
                             }
                             OutputValue::Json(s) => {
-                                outputs.push(Outval::Json(s));
+                                outputs.push(document::OutputValue::Json(s));
                             }
                             OutputValue::Html(s) => {
-                                outputs.push(Outval::Html(s.join("")));
+                                outputs.push(document::OutputValue::Html(s.join("")));
                             }
                             OutputValue::Javascript(s) => {
-                                outputs.push(Outval::Javascript(s));
+                                outputs.push(document::OutputValue::Javascript(s));
                             }
                         }
                     }
                 }
                 CellOutput::Error { evalue, .. } => {
-                    outputs.push(Outval::Error(evalue));
+                    outputs.push(document::OutputValue::Error(evalue));
                 }
             }
         }
@@ -347,14 +348,12 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
                     .as_ref()
                     .map(|tags| tags.join(", "))
                     .unwrap_or(String::new());
-                write!(
-                    &mut writer,
-                    "\n```python, cell\n#| tags: {}\n{}\n```\n",
-                    attr, common.source
-                )?;
+                let full = format!("#| tags: {}\n{}\n", attr, common.source);
+
+                write!(&mut writer, "\n```python, cell\n{}```\n", full)?;
 
                 let mut hasher = DefaultHasher::new();
-                common.source.hash(&mut hasher);
+                full.hash(&mut hasher);
                 output_map.insert(hasher.finish(), CodeOutput::from(outputs.clone()));
             }
             Cell::Raw { common } => {
@@ -470,7 +469,7 @@ mod tests {
             code_outputs: HashMap::from([(
                 14255542742518776859,
                 CodeOutput {
-                    values: vec![Outval::Text("x".into())],
+                    values: vec![OutputValue::Text("x".into())],
                 },
             )]),
         };

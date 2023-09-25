@@ -1,5 +1,5 @@
 use crate::raw::{RawDocument, Reference};
-use cowstr::{CowStr, Error, SubStr};
+use cowstr::CowStr;
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -58,10 +58,7 @@ impl RawDocument {
             _ => unreachable!(),
         };
 
-        Ok(ElementInfo {
-            element,
-            span: span,
-        })
+        Ok(ElementInfo { element, span })
     }
 
     fn parse_src(&mut self, pair: Pair<Rule>) -> Element {
@@ -103,7 +100,7 @@ impl RawDocument {
         Ok(Element::Special(
             label,
             Special::Command {
-                function: name.into(),
+                function: name,
                 parameters,
                 body,
             },
@@ -202,8 +199,8 @@ impl RawDocument {
 
         let maybe_param = inner.next().expect("missing code_src");
         let (src_pair, params) = if let Rule::code_params = maybe_param.as_rule() {
-            let params = self.parse_code_attributes(maybe_param.into_inner());
-            (inner.next().expect("missing code_src"), Some(params))
+            let attributes = self.parse_code_attributes(maybe_param.into_inner());
+            (inner.next().expect("missing code_src"), Some(attributes))
         } else {
             (maybe_param, None)
         };
@@ -280,8 +277,7 @@ impl RawDocument {
 }
 
 pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
-    let mut doc = RawDocument::default();
-    doc.input = CowStr::from(input);
+    let mut doc = RawDocument::new(input);
     doc.parse_doc(RawDocParser::parse(Rule::top, input).map_err(Box::new)?)?;
     Ok(doc)
 }

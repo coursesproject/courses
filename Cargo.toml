@@ -1,6 +1,6 @@
 [package]
 name = "courses"
-version = "0.9.0-alpha.3"
+version = "0.9.0-beta.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
@@ -40,8 +40,8 @@ debug = true
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
-cdoc-parser = { path = "crates/cdoc-parser", version = "=0.1.0-alpha.3" }
-cdoc = { path = "crates/cdoc", version = "=0.8.0-alpha.3" }
+cdoc-parser = { path = "crates/cdoc-parser", version = "=0.1.0-beta.1" }
+cdoc = { path = "crates/cdoc", version = "=0.8.0-beta.1" }
 
 # Serialization and templating
 serde = { version = "1.0.145", features = ["derive", "rc"] }

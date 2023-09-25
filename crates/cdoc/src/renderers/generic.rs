@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context as AhContext, Result};
 use serde::{Deserialize, Serialize};
 
 use cdoc_parser::ast::{Block, CodeBlock, Command, Inline, Math, Parameter, Style, Value};
-use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
+use cdoc_parser::document::{CodeOutput, Document, Image, OutputValue};
 use cowstr::CowStr;
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -237,7 +237,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 // )?;
                 let highlighted = &code_rendered.trim();
 
-                let num = self.fetch_and_inc_num("code".into(), &label);
+                let num = self.fetch_and_inc_num("code".into(), label);
 
                 let mut args = Context::default();
                 args.insert("label", label);
@@ -302,7 +302,7 @@ impl RenderElement<CodeOutput> for GenericRenderer {
     ) -> Result<()> {
         for output in &elem.values {
             match output {
-                Outval::Text(text) => {
+                OutputValue::Text(text) => {
                     render_value_template(
                         "output_text",
                         TemplateType::Builtin,
@@ -311,7 +311,7 @@ impl RenderElement<CodeOutput> for GenericRenderer {
                         &mut buf,
                     )?;
                 }
-                Outval::Image(img) => match img {
+                OutputValue::Image(img) => match img {
                     Image::Png(s) => {
                         render_value_template(
                             "output_img",
@@ -331,18 +331,33 @@ impl RenderElement<CodeOutput> for GenericRenderer {
                         )?;
                     }
                 },
-                Outval::Json(s) => {
-                    write_bytes(&serde_json::to_string(s)?, &mut buf)?;
+                OutputValue::Json(s) => {
+                    render_value_template(
+                        "output_json",
+                        TemplateType::Builtin,
+                        &serde_json::to_string(s)?,
+                        ctx,
+                        &mut buf,
+                    )?;
                 }
-                Outval::Html(s) => {
+                OutputValue::Html(s) => {
                     write_bytes(s, &mut buf)?;
                 }
-                Outval::Javascript(s) => {
+                OutputValue::Javascript(s) => {
                     write_bytes(s, &mut buf)?;
                 }
-                Outval::Error(text) => {
+                OutputValue::Error(text) => {
                     render_value_template(
                         "output_error",
+                        TemplateType::Builtin,
+                        text,
+                        ctx,
+                        &mut buf,
+                    )?;
+                }
+                OutputValue::Plain(text) => {
+                    render_value_template(
+                        "output_stream",
                         TemplateType::Builtin,
                         text,
                         ctx,

@@ -1,7 +1,7 @@
 pub mod structure;
 
 use crate::renderers::generic::GenericRenderer;
-use crate::renderers::{RenderContext};
+use crate::renderers::RenderContext;
 
 use dyn_clone::DynClone;
 use std::fmt::Debug;
@@ -18,7 +18,7 @@ pub trait RenderExtensionConfig: Debug + Send + Sync + DynClone {
 }
 
 pub fn build_extensions(
-    extensions: &Vec<Box<dyn RenderExtensionConfig>>,
+    extensions: &[Box<dyn RenderExtensionConfig>],
 ) -> anyhow::Result<Vec<Box<dyn RenderExtension>>> {
     extensions.iter().map(|e| e.build()).collect()
 }

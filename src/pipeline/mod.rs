@@ -10,9 +10,7 @@ use anyhow::{anyhow, Context as AContext};
 
 use console::style;
 use image::ImageOutputFormat;
-use indicatif::{
-    MultiProgress, ParallelProgressIterator, ProgressBar, ProgressIterator, ProgressStyle,
-};
+use indicatif::{MultiProgress, ParallelProgressIterator, ProgressBar, ProgressStyle};
 use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
@@ -33,8 +31,8 @@ use rayon::prelude::*;
 use crate::generators::Generator;
 use crate::project::config::{Mode, Profile, ProjectConfig};
 use crate::project::{
-    from_vec, ContentItem, ContentItemDescriptor, ContentResultX, DocumentDescriptor,
-    ProjectItemContentVec, ProjectItemVec, ProjectItemVecErr,
+    from_vec, ContentItem, ContentItemDescriptor, DocumentDescriptor, ProjectItemContentVec,
+    ProjectItemVec, ProjectItemVecErr,
 };
 
 use crate::project::caching::Cache;
@@ -237,7 +235,7 @@ impl Pipeline {
         meta.insert("config", &self.project_config);
         // meta.insert("references", &doc.references);
         meta.insert("doc_meta", &doc.meta);
-        let ts = &DEFAULT_THEME;
+        let _ts = &DEFAULT_THEME;
         RenderContext::new(
             doc,
             &self.templates,
@@ -301,7 +299,7 @@ impl Pipeline {
                             .ok_or_else(|| anyhow!("Cached context is missing"))?
                             .clone();
 
-                        let output_raw = output.clone().map(|c| ());
+                        let output_raw = output.clone().map(|_c| ());
 
                         let project_vec = self.update_cache(
                             &item2,
@@ -319,7 +317,7 @@ impl Pipeline {
                             build_dir: self.get_build_path(format.as_ref()),
                             format: format.as_ref(),
                         };
-                        ctx.generate_single(&output, &item2)?;
+                        ctx.generate_single(output, &item2)?;
                         self.cache_info.update_build_status(
                             item2.doc.path.to_str().unwrap().to_string(),
                             format.name(),
@@ -481,7 +479,7 @@ impl Pipeline {
             bars.push(bar);
         }
 
-        let mut successes = Arc::new(Mutex::new(Vec::new()));
+        let successes = Arc::new(Mutex::new(Vec::new()));
 
         self.get_formats_or_default()
             .par_iter()
@@ -513,7 +511,7 @@ impl Pipeline {
                     .iter()
                     .map(|item| {
                         item.map_ref(|doc| {
-                            Ok(doc.as_ref().map(|inner| inner.clone().map(|inner| ())))
+                            Ok(doc.as_ref().map(|inner| inner.clone().map(|_inner| ())))
                         })
                     })
                     .collect::<anyhow::Result<ProjectItemVec>>()
@@ -522,7 +520,7 @@ impl Pipeline {
                 // format_errs.append(&mut errs.lock().unwrap());
 
                 let project_full = from_vec(&proj);
-                let mut context = Generator {
+                let context = Generator {
                     root: self.project_path.to_path_buf(),
                     project: &project_full,
                     mode: self.profile.mode,
@@ -647,7 +645,7 @@ impl Pipeline {
                         .context(format!("Error loading document {}", path.display()))?;
 
                     let hash = blake3::hash(val.as_bytes());
-                    if ignore_cache || !self.cache_info.matches(&doc.path.to_str().unwrap(), hash) {
+                    if ignore_cache || !self.cache_info.matches(doc.path.to_str().unwrap(), hash) {
                         self.cache_info
                             .reset_entry(doc.path.to_str().unwrap().to_string(), hash);
                         Ok(Some(val))

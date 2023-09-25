@@ -292,7 +292,7 @@ impl TemplateDefinition {
                         } else {
                             s.parameters
                                 .iter()
-                                .find(|sp| &sp.name == key)
+                                .find(|sp| sp.name == key)
                                 .map(|sp| sp.type_.validate(p))
                                 .ok_or(ValidationError::InvalidName(key.to_string()))?
                         }

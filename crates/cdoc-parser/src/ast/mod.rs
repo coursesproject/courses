@@ -5,7 +5,7 @@ use crate::code_ast::types::CodeContent;
 use crate::common::Span;
 use cowstr::CowStr;
 use pulldown_cmark::LinkType;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use linked_hash_map::LinkedHashMap;
 
