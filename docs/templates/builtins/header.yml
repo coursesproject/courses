@@ -6,7 +6,7 @@ type: builtin
 
 templates:
   html: !String |
-    <h{{level}}>{{inner | safe}}</h{{level}}>
+    <h{{level}} class="title is-{{level}}">{{inner | safe}}</h{{level}}>
   markdown: !String |
     {% for i in range(end=level) %}#{% endfor %} {{inner | safe}}
   latex: !String |
