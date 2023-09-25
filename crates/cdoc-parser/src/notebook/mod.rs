@@ -467,9 +467,9 @@ mod tests {
                     .into(),
             },
             code_outputs: HashMap::from([(
-                14255542742518776859,
+                14521985544978239724,
                 CodeOutput {
-                    values: vec![OutputValue::Text("x".into())],
+                    values: vec![document::OutputValue::Plain("x".into())],
                 },
             )]),
         };
