@@ -3,6 +3,7 @@ use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, Prepro
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Block, Inline};
 use cdoc_parser::document::Document;
+use cowstr::CowStr;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -16,8 +17,8 @@ pub struct MdLabels;
 impl AstPreprocessorConfig for MdLabelsConfig {
     fn build(
         &self,
-        ctx: &PreprocessorContext,
-        settings: &ParserSettings,
+        _ctx: &PreprocessorContext,
+        _settings: &ParserSettings,
     ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
         Ok(Box::new(MdLabels))
     }
@@ -29,7 +30,7 @@ impl AstPreprocessor for MdLabels {
     }
 
     fn process(&mut self, mut input: Document<Ast>) -> Result<Document<Ast>, Error> {
-        self.walk_ast(&mut input.content.0)?;
+        self.walk_ast(&mut input.content.blocks)?;
         Ok(input)
     }
 }
@@ -44,15 +45,15 @@ impl AstVisitor for MdLabels {
     fn visit_block(&mut self, block: &mut Block) -> anyhow::Result<()> {
         if let Block::Heading { id, inner, .. } = block {
             if let Some(cmd) = inner.iter_mut().find(|i| match i {
-                Inline::Command(c) => c.function == "label".to_string(),
+                Inline::Command(c) => c.function.as_str() == "label",
                 _ => false,
             }) {
                 if let Inline::Command(label) = cmd {
                     *id = label.label.clone();
                 }
-                *cmd = Inline::Text(String::new());
+                *cmd = Inline::Text(CowStr::new());
             } else {
-                *id = Some(nanoid!());
+                *id = Some(CowStr::from(nanoid!()));
             }
         }
 

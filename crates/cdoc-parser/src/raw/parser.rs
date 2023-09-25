@@ -1,4 +1,5 @@
-use crate::raw::{CodeAttr, RawDocument, Reference};
+use crate::raw::{RawDocument, Reference};
+use cowstr::{CowStr, Error, SubStr};
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -8,7 +9,7 @@ use pest_derive::Parser;
 pub struct RawDocParser;
 
 use crate::code_ast::parse_code_string;
-use crate::common::PosInfo;
+use crate::common::Span;
 use crate::raw::{Element, ElementInfo, Parameter, Special, Value};
 use pest::iterators::Pairs;
 use thiserror::Error;
@@ -46,7 +47,7 @@ impl RawDocument {
     }
 
     fn parse_element(&mut self, pair: Pair<Rule>) -> Result<ElementInfo, ParserError> {
-        let span = PosInfo::from(pair.as_span());
+        let span = Span::from(pair.as_span());
 
         let element = match pair.as_rule() {
             Rule::command => self.parse_command(pair)?,
@@ -57,7 +58,10 @@ impl RawDocument {
             _ => unreachable!(),
         };
 
-        Ok(ElementInfo { element, pos: span })
+        Ok(ElementInfo {
+            element,
+            span: span,
+        })
     }
 
     fn parse_src(&mut self, pair: Pair<Rule>) -> Element {
@@ -73,7 +77,8 @@ impl RawDocument {
             .into_inner()
             .next()
             .unwrap()
-            .as_str();
+            .as_span();
+        let name = self.cowstr_from_span(name);
 
         let mut parameters = vec![];
         let mut body = None;
@@ -83,16 +88,16 @@ impl RawDocument {
             match elem.as_rule() {
                 Rule::parameters => parameters = self.parse_parameters(elem.into_inner())?,
                 Rule::body_def => body = Some(self.parse_elements(elem.into_inner())?),
-                Rule::label => label = Some(elem.into_inner().as_str().to_string()),
+                Rule::label => {
+                    label = Some(self.cowstr_from_span(elem.into_inner().next().unwrap().as_span()))
+                }
                 _ => unreachable!(),
             }
         }
 
         if let Some(label) = label.clone() {
-            self.references.insert(
-                label,
-                Reference::Command(name.to_string(), parameters.clone()),
-            );
+            self.references
+                .insert(label, Reference::Command(name.clone(), parameters.clone()));
         }
 
         Ok(Element::Special(
@@ -119,7 +124,7 @@ impl RawDocument {
     }
 
     fn parse_param(&mut self, pair: Pair<Rule>) -> Result<Parameter, ParserError> {
-        let span = PosInfo::from(pair.as_span());
+        let span = Span::from(pair.as_span());
         let mut pairs = pair.into_inner();
         let first = pairs.next().expect("empty param");
 
@@ -141,13 +146,12 @@ impl RawDocument {
     }
 
     fn parse_math_block(&mut self, pair: Pair<Rule>) -> Element {
-        let (lvl, src, label) = block_parser(pair);
+        let (lvl, src, label) = self.block_parser(pair);
 
-        let src = parse_math(src);
+        let src = self.parse_math(src);
 
         if let Some(label) = label.clone() {
-            self.references
-                .insert(label, Reference::Math(src.to_string()));
+            self.references.insert(label, Reference::Math(src.clone()));
         }
 
         Element::Special(
@@ -159,7 +163,7 @@ impl RawDocument {
         )
     }
 
-    fn parse_code_attributes(&mut self, pairs: Pairs<Rule>) -> Vec<String> {
+    fn parse_code_attributes(&mut self, pairs: Pairs<Rule>) -> Vec<CowStr> {
         pairs
             .into_iter()
             .map(|elem| {
@@ -172,7 +176,7 @@ impl RawDocument {
             .collect()
     }
 
-    fn parse_code_attribute(&mut self, pair: Pair<Rule>) -> String {
+    fn parse_code_attribute(&mut self, pair: Pair<Rule>) -> CowStr {
         let mut pairs = pair.into_inner();
         let first = pairs.next().expect("empty param");
 
@@ -182,13 +186,13 @@ impl RawDocument {
             //     key: Some(first.as_str().to_string()),
             //     value: value.as_str().to_string(),
             // }
-            value.as_str().to_string()
+            self.cowstr_from_span(value.as_span())
         } else {
             // CodeAttr {
             //     key: None,
             //     value: first.as_str().to_string(),
             // }
-            first.as_str().to_string()
+            self.cowstr_from_span(first.as_span())
         }
     }
 
@@ -204,13 +208,13 @@ impl RawDocument {
             (maybe_param, None)
         };
 
-        let src = src_pair.as_str().to_string();
+        let src_span = src_pair.as_span();
+        let src = self.cowstr_from_span(src_span);
 
-        let id = inner.next().map(|val| val.as_str().to_string());
+        let id = inner.next().map(|val| self.cowstr_from_span(val.as_span()));
 
         if let Some(label) = id.clone() {
-            self.references
-                .insert(label, Reference::Code(src.to_string()));
+            self.references.insert(label, Reference::Code(src.clone()));
         }
 
         Ok(Element::Special(
@@ -218,7 +222,7 @@ impl RawDocument {
             if lvl.len() == 1 {
                 Special::CodeInline { inner: src }
             } else {
-                let content = parse_code_string(src.trim())?;
+                let content = parse_code_string(src)?;
 
                 Special::CodeBlock {
                     lvl: lvl.len(),
@@ -240,47 +244,56 @@ impl RawDocument {
     }
 
     fn parse_meta(&mut self, pair: Pair<Rule>) {
-        self.meta = Some(pair.as_str().to_string());
+        self.meta = Some(self.cowstr_from_span(pair.as_span()));
     }
-}
 
-fn parse_math(pair: Pair<Rule>) -> String {
-    match pair.as_rule() {
-        Rule::math_chars => pair.as_str().to_string(),
-        Rule::math_block_curly => format!(
-            "{{{}}}",
-            pair.into_inner().map(parse_math).collect::<String>()
-        ),
-        // | Rule::math_block_bracket
-        // | Rule::math_block_paren
-        Rule::math_body => pair.into_inner().map(parse_math).collect(),
-        _ => unreachable!(),
+    fn cowstr_from_span(&self, span: pest::Span) -> CowStr {
+        CowStr::from(&self.input[span.start()..span.end()])
     }
-}
 
-fn block_parser(pair: Pair<Rule>) -> (String, Pair<Rule>, Option<String>) {
-    let mut inner = pair.into_inner();
-    let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
-    let src = inner.next().expect("missing code_src");
-    let id = inner.next().map(|val| val.as_str().to_string());
-    (lvl, src, id)
+    fn parse_math(&self, pair: Pair<Rule>) -> CowStr {
+        match pair.as_rule() {
+            Rule::math_chars => self.cowstr_from_span(pair.as_span()),
+            Rule::math_block_curly => cowstr::format!(
+                "{{{}}}",
+                pair.into_inner()
+                    .map(|p| self.parse_math(p))
+                    .collect::<CowStr>()
+            ),
+            // | Rule::math_block_bracket
+            // | Rule::math_block_paren
+            Rule::math_body => pair
+                .into_inner()
+                .map(|p| self.parse_math(p))
+                .collect::<CowStr>(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn block_parser<'a>(&'a self, pair: Pair<'a, Rule>) -> (CowStr, Pair<Rule>, Option<CowStr>) {
+        let mut inner = pair.into_inner();
+        let lvl = self.cowstr_from_span(inner.next().expect("missing code_lvl").as_span());
+        let src = inner.next().expect("missing code_src");
+        let id = inner.next().map(|val| self.cowstr_from_span(val.as_span()));
+        (lvl, src, id)
+    }
 }
 
 pub fn parse_to_doc(input: &str) -> Result<RawDocument, ParserError> {
     let mut doc = RawDocument::default();
+    doc.input = CowStr::from(input);
     doc.parse_doc(RawDocParser::parse(Rule::top, input).map_err(Box::new)?)?;
-
     Ok(doc)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::code_ast::types::{CodeContent, CodeElem};
-    use crate::common::PosInfo;
+    use crate::common::Span;
     use crate::raw::{
-        parse_to_doc, CodeAttr, Element, ElementInfo, Parameter, RawDocument, Reference, Special,
-        Value,
+        parse_to_doc, Element, ElementInfo, Parameter, RawDocument, Reference, Special, Value,
     };
+    use cowstr::CowStr;
     use std::collections::HashMap;
 
     macro_rules! doc_tests {
@@ -290,7 +303,7 @@ mod tests {
             #[test]
             fn [<$prefix _ $name>]() {
                 let (input, expected) = $value;
-                let doc = RawDocument { src: expected, meta: None, references: Default::default() };
+                let doc = RawDocument { input: CowStr::from(input), src: expected, meta: None, references: Default::default() };
                 compare(doc, input);
             }
             }
@@ -310,15 +323,16 @@ code
                     Special::CodeBlock {
                         lvl: 3,
                         inner: CodeContent {
-                            blocks: vec![CodeElem::Src("code\n".into())],
+                            blocks: vec![CodeElem::Src("\ncode\n\n".into())],
                             meta: Default::default(),
-                            hash: 7837613302888775477,
+                            hash: 3750657748055546767,
                         },
                         attributes: vec![],
                     },
                 ),
-                pos: PosInfo::new(input, 0, 12),
+                span: Span::new(0, 12),
             }],
+            input: CowStr::from(input),
             meta: None,
             references: Default::default(),
         };
@@ -338,15 +352,16 @@ code
                     Special::CodeBlock {
                         lvl: 3,
                         inner: CodeContent {
-                            blocks: vec![CodeElem::Src("code\n".into())],
+                            blocks: vec![CodeElem::Src("code\n\n".into())],
                             meta: Default::default(),
-                            hash: 7837613302888775477,
+                            hash: 15492099155864206242,
                         },
-                        attributes: vec!["lang".to_string(), "val".to_string()],
+                        attributes: vec!["lang".into(), "val".into()],
                     },
                 ),
-                pos: PosInfo::new(input, 0, 21),
+                span: Span::new(0, 21),
             }],
+            input: CowStr::from(input),
             meta: None,
             references: Default::default(),
         };
@@ -366,8 +381,9 @@ code
                         inner: "inline".into(),
                     },
                 ),
-                pos: PosInfo::new(input, 0, 8),
+                span: Span::new(0, 8),
             }],
+            input: CowStr::from(input),
             meta: None,
             references: Default::default(),
         };
@@ -386,8 +402,9 @@ code
                         inner: "verbatim".into(),
                     },
                 ),
-                pos: PosInfo::new(input, 2, 10),
+                span: Span::new(2, 10),
             }],
+            input: CowStr::from(input),
             meta: None,
             references: Default::default(),
         };
@@ -401,8 +418,9 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Markdown(input.into()),
-                pos: PosInfo::new(input, 0, 31),
+                span: Span::new(0, 31),
             }],
+            input: CowStr::from(input),
             meta: None,
             references: Default::default(),
         };
@@ -416,20 +434,18 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Special(
-                    Some("id".to_string()),
+                    Some("id".into()),
                     Special::Command {
-                        function: "call".to_string(),
+                        function: "call".into(),
                         parameters: vec![],
                         body: None,
                     },
                 ),
-                pos: PosInfo::new(input, 0, 8),
+                span: Span::new(0, 8),
             }],
+            input: CowStr::from(input),
             meta: None,
-            references: HashMap::from([(
-                "id".to_string(),
-                Reference::Command("call".to_string(), vec![]),
-            )]),
+            references: HashMap::from([("id".into(), Reference::Command("call".into(), vec![]))]),
         };
 
         compare(expected, input);
@@ -447,7 +463,7 @@ code
                     parameters: vec![],
                     body: None,
                 }),
-                pos: PosInfo::new("#func", 0, 5),
+                span: Span::new(0, 5),
             }
         ]),
         with_params_no_body: (CMD_WITH_PARAMS_NO_BODY,  vec![
@@ -455,27 +471,27 @@ code
                 element: Element::Special(None, Special::Command {
                     function: "func".into(),
                     parameters: vec![
-                        Parameter { key: None, value: Value::String("basic".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 6, 11) },
-                        Parameter { key: None, value: Value::String("quoted".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 13, 21) },
+                        Parameter { key: None, value: Value::String("basic".into()), span: Span::new(6, 11) },
+                        Parameter { key: None, value: Value::String("quoted".into()), span: Span::new(13, 21) },
                         Parameter { key: None, value: Value::Content(vec![
                             ElementInfo {
                                 element: Element::Markdown("content".into()),
-                                pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 24, 31)
+                                span: Span::new(24, 31)
                             }
-                        ]), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 23, 32) },
-                        Parameter { key: Some("key".into()), value: Value::String("basic".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 34, 43) },
-                        Parameter { key: Some("key".into()), value: Value::String("quoted".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 45, 57) },
+                        ]), span: Span::new(23, 32) },
+                        Parameter { key: Some("key".into()), value: Value::String("basic".into()), span: Span::new(34, 43) },
+                        Parameter { key: Some("key".into()), value: Value::String("quoted".into()), span: Span::new(45, 57) },
                         Parameter { key: Some("key".into()), value: Value::Content(vec![
                             ElementInfo {
                                 element: Element::Markdown("content".into()),
-                                pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 64, 71)
+                                span: Span::new(64, 71)
                             }
-                        ]), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 59, 72) },
-                        Parameter { key: None, value: Value::Flag("flag".into()), pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 74, 79) }
+                        ]), span: Span::new( 59, 72) },
+                        Parameter { key: None, value: Value::Flag("flag".into()), span: Span::new(74, 79) }
                     ],
                     body: None,
                 }),
-                pos: PosInfo::new(CMD_WITH_PARAMS_NO_BODY, 0, 80),
+                span: Span::new(0, 80),
             }
         ]),
         with_params_with_body: ("#func(c){x}", vec![
@@ -483,16 +499,16 @@ code
                 element: Element::Special(None, Special::Command {
                     function: "func".into(),
                     parameters: vec![
-                        Parameter { key: None, value: Value::String("c".to_string()), pos: PosInfo::new("#func(c){x}", 6, 7)}
+                        Parameter { key: None, value: Value::String("c".into()), span: Span::new(6, 7)}
                     ],
                     body: Some(vec![
                         ElementInfo {
                             element: Element::Markdown("x".into()),
-                            pos: PosInfo::new("#func(c){x}", 9, 10)
+                            span: Span::new(9, 10)
                         }
                     ])
                 }),
-                pos: PosInfo::new("#func(c){x}", 0, 11),
+                span: Span::new(0, 11),
             }
         ]),
         no_params_with_body: ("#func{x}", vec![
@@ -503,11 +519,11 @@ code
                     body: Some(vec![
                         ElementInfo {
                             element: Element::Markdown("x".into()),
-                            pos: PosInfo::new("#func{x}", 6, 7)
+                            span: Span::new(6, 7)
                         }
                     ])
                 }),
-                pos: PosInfo::new("#func{x}", 0, 8),
+                span: Span::new(0, 8),
             }
         ]),
         body_nested: ("#func1{#func2}", vec![
@@ -521,11 +537,11 @@ code
                                 parameters: vec![],
                                 body: None,
                             }),
-                            pos: PosInfo::new("#func1{#func2}", 7, 13),
+                            span: Span::new(7, 13),
                         }
                     ])
                 }),
-                pos: PosInfo::new("#func1{#func2}", 0, 14),
+                span: Span::new(0, 14),
             }
 
         ]),

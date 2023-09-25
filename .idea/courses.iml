@@ -15,6 +15,11 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/cdoc-wasm/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/cdoc-wasm/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/github-package-repo/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/codeStyles" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/cdoc-wasm/pkg" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/github-package-repo" />
+      <excludeFolder url="file://$MODULE_DIR$/docs/.cache" />
+      <excludeFolder url="file://$MODULE_DIR$/docs/build" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

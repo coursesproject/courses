@@ -1,9 +1,10 @@
 use anyhow::Context;
+use cowstr::CowStr;
 use std::fs;
 use std::path::PathBuf;
 
 use crate::project::config::{Mode, Profile};
-use crate::project::{ContentItem, ContentResultS};
+use crate::project::{ContentItem, ContentResultS, ContentResultX};
 use cdoc::parser::ParserSettings;
 use cdoc_parser::code_ast::parse_code_string;
 
@@ -33,7 +34,7 @@ impl Mover<'_> {
         self.project_path.join("content")
     }
 
-    fn get_children_dirs(&self, children: &[ContentResultS]) -> Vec<String> {
+    fn get_children_dirs(&self, children: &[ContentResultX]) -> Vec<String> {
         children
             .iter()
             .filter_map(|c| match c {
@@ -43,7 +44,7 @@ impl Mover<'_> {
             .collect()
     }
 
-    pub fn traverse_content(&self, item: &ContentResultS) -> anyhow::Result<()> {
+    pub fn traverse_content(&self, item: &ContentResultX) -> anyhow::Result<()> {
         if let ContentItem::Section {
             section_id,
             section_path,
@@ -109,7 +110,7 @@ impl Mover<'_> {
                                         entry_path.as_path().display()
                                     )
                                 })?;
-                            let parsed = parse_code_string(&input)?;
+                            let parsed = parse_code_string(CowStr::from(input))?;
                             let output = parsed.to_string(self.settings.solutions)?;
 
                             // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;

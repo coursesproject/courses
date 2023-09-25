@@ -2,7 +2,8 @@
 
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+use cowstr::CowStr;
 use std::io::{BufWriter, Write};
 
 pub trait Output {
@@ -13,15 +14,15 @@ pub trait Output {
 /// code (regular source code).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Content {
-    Markup(String),
-    Src(String),
+    Markup(CowStr),
+    Src(CowStr),
 }
 
 /// An exercise element with a placeholder and a solution
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Solution {
-    pub placeholder: Option<String>,
-    pub solution: String,
+    pub placeholder: Option<CowStr>,
+    pub solution: CowStr,
 }
 
 /// Top-level structure. A code file is split into these types.
@@ -35,7 +36,7 @@ pub enum CodeElem {
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 pub struct CodeContent {
     pub blocks: Vec<CodeElem>,
-    pub meta: LinkedHashMap<String, String>,
+    pub meta: LinkedHashMap<CowStr, CowStr>,
     pub hash: u64,
 }
 

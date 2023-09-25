@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use dyn_clone::DynClone;
 
+use cowstr::CowStr;
 use linked_hash_map::LinkedHashMap;
 use std::fmt::Debug;
 use std::io::Write;
@@ -13,14 +14,12 @@ use crate::renderers::extensions::RenderExtension;
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Block, Inline, Parameter, Reference, Value};
+use cdoc_parser::ast::{Ast, Reference};
 use cdoc_parser::document::Document;
 use cdoc_parser::notebook::NotebookMeta;
-use syntect::highlighting::Theme;
-use syntect::parsing::SyntaxSet;
 use tera::Context;
 
-use crate::templates::{TemplateManager, TemplateType};
+use crate::templates::TemplateManager;
 
 pub mod extensions;
 pub mod generic;
@@ -30,7 +29,7 @@ mod parameter_resolution;
 mod references;
 
 /// Type alias used to specify that the string is a renderer output.
-pub type RenderResult = String;
+pub type RenderResult = CowStr;
 
 /// Context that is passed to the render functions.
 pub struct RenderContext<'a> {
@@ -40,8 +39,8 @@ pub struct RenderContext<'a> {
     /// Extra arguments (this type is essentially a wrapped HashMap)
     pub extra_args: Context,
     /// For syntax highlighting using Syntect
-    pub syntax_set: &'a SyntaxSet,
-    theme: &'a Theme,
+    // pub syntax_set: &'a SyntaxSet,
+    // theme: &'a Theme,
     pub notebook_output_meta: &'a NotebookMeta,
     pub format: &'a dyn Format,
     pub parser_settings: ParserSettings,
@@ -53,26 +52,33 @@ impl<'a> RenderContext<'a> {
     pub fn new(
         doc: &'a mut Document<Ast>,
         templates: &'a TemplateManager,
-        extra_args: Context,
-        syntax_set: &'a SyntaxSet,
-        theme: &'a Theme,
+        mut extra_args: Context,
+        // syntax_set: &'a SyntaxSet,
+        // theme: &'a Theme,
         notebook_output_meta: &'a NotebookMeta,
         format: &'a dyn Format,
         parser_settings: ParserSettings,
     ) -> Result<Self> {
         let mut parameter_resolution = ParameterResolution { templates };
-        parameter_resolution.walk_ast(&mut doc.content.0)?;
+        parameter_resolution.walk_ast(&mut doc.content.blocks)?;
 
         let mut ref_visit = ReferenceVisitor::new();
-        ref_visit.walk_ast(&mut doc.content.0)?;
+        ref_visit.walk_ast(&mut doc.content.blocks)?;
         let rbt = references_by_type(&mut ref_visit.references);
+
+        extra_args.insert("refs", &ref_visit.references);
+        extra_args.insert("refs_by_type", &rbt);
+        extra_args.insert("defs", &templates.definitions);
+        // args.insert("refs", &ctx.references);
+        // println!("{:?}", &ctx.references);
+        // args.insert("refs_by_type", &ctx.references_by_type);
 
         Ok(RenderContext {
             doc,
             templates,
             extra_args,
-            syntax_set,
-            theme,
+            // syntax_set,
+            // theme,
             notebook_output_meta,
             format,
             parser_settings,
@@ -118,10 +124,10 @@ pub trait RenderElement<T> {
     /// Convenience function for creating a buffer, rendering the element into the buffer, and
     /// returning the result as a string. This is useful when an inner element needs to be rendered
     /// first to be used in an outer element, hence the name.
-    fn render_inner(&mut self, elem: &T, ctx: &RenderContext) -> Result<String> {
+    fn render_inner(&mut self, elem: &T, ctx: &RenderContext) -> Result<CowStr> {
         let mut buf = Vec::new();
         self.render(elem, ctx, &mut buf)?;
-        Ok(String::from_utf8(buf)?)
+        Ok(String::from_utf8(buf)?.into())
     }
 }
 
@@ -134,6 +140,6 @@ impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
 }
 
 pub struct RenderedParam {
-    pub key: Option<String>,
-    pub value: String,
+    pub key: Option<CowStr>,
+    pub value: CowStr,
 }

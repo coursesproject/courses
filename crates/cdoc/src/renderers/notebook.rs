@@ -4,6 +4,7 @@ use cdoc_parser::ast::{Ast, CodeBlock, Inline};
 use cdoc_parser::document::{CodeOutput, Document};
 use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
 
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufWriter;
@@ -39,8 +40,9 @@ impl DocumentRenderer for NotebookRenderer {
         };
 
         let notebook: Notebook = writer.convert(ctx.doc.content.clone())?;
-        let output =
-            serde_json::to_string_pretty(&notebook).expect("Invalid notebook (this is a bug)");
+        let output = serde_json::to_string_pretty(&notebook)
+            .expect("Invalid notebook (this is a bug)")
+            .into();
 
         Ok(Document {
             content: output,
@@ -175,6 +177,7 @@ impl NotebookWriter<'_> {
 
         let import = Cell::Code {
             common: CellCommon {
+                id: "css setup".to_string(),
                 metadata: cell_meta,
                 source: r#"import requests
 from IPython.core.display import HTML
@@ -185,15 +188,15 @@ HTML(f"""
 """)"#
                     .to_string(),
             },
-            execution_count: None,
+            execution_count: Some(0),
             outputs: vec![],
         };
 
-        self.walk_ast(&mut ast.0)?;
+        self.walk_ast(&mut ast.blocks)?;
 
         let mut buf = BufWriter::new(Vec::new());
 
-        self.renderer.render(&ast.0, self.ctx, &mut buf)?;
+        self.renderer.render(&ast.blocks, self.ctx, &mut buf)?;
 
         let out_str = String::from_utf8(buf.into_inner()?)?;
 
@@ -205,6 +208,7 @@ HTML(f"""
                 [
                     Cell::Markdown {
                         common: CellCommon {
+                            id: nanoid!(),
                             metadata: Default::default(),
                             source: md.to_string(),
                         },
@@ -231,7 +235,7 @@ impl AstVisitor for NotebookWriter<'_> {
             source, attributes, ..
         }) = inline
         {
-            if attributes.contains(&"cell".to_string()) {
+            if attributes.contains(&"cell".into()) {
                 let rendered = source.to_string(
                     self.ctx
                         .doc
@@ -242,14 +246,15 @@ impl AstVisitor for NotebookWriter<'_> {
 
                 self.code_cells.push(Cell::Code {
                     common: CellCommon {
+                        id: nanoid!(),
                         metadata: Default::default(),
                         source: rendered,
                     },
-                    execution_count: None,
+                    execution_count: Some(0),
                     outputs: vec![], // TODO: fix outputs
                 });
 
-                *inline = Inline::Text(CODE_SPLIT.to_string());
+                *inline = Inline::Text(CODE_SPLIT.into());
             }
         }
 

@@ -3,6 +3,7 @@ use crate::ast::*;
 use crate::raw;
 use crate::raw::{Child, ComposedMarkdown, Special};
 use anyhow::anyhow;
+use cowstr::{ToCowStr, ToSubStr};
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
 use std::str::FromStr;
@@ -69,7 +70,7 @@ impl From<raw::Parameter> for Parameter {
         Parameter {
             key: value.key,
             value: value.value.into(),
-            pos: value.pos,
+            span: value.span,
         }
     }
 }
@@ -94,7 +95,7 @@ impl From<Child> for Inline {
                 label: value.label,
                 source: inner,
                 display_block: is_block,
-                pos: value.pos,
+                span: value.span,
             }),
             Special::CodeBlock {
                 inner, attributes, ..
@@ -104,7 +105,7 @@ impl From<Child> for Inline {
                 attributes,
                 display_cell: false,
                 global_idx: value.identifier,
-                pos: value.pos,
+                span: value.span,
             }),
             Special::CodeInline { inner } => Inline::Code(inner),
             Special::Command {
@@ -120,7 +121,7 @@ impl From<Child> for Inline {
                     label: value.label,
                     parameters,
                     body,
-                    pos: value.pos,
+                    span: value.span,
                     global_idx: value.identifier,
                 })
             }
@@ -132,7 +133,7 @@ impl From<Child> for Inline {
 impl From<ComposedMarkdown> for Vec<Block> {
     fn from(composed: ComposedMarkdown) -> Self {
         let parser: MdParser = MdParser::new(&composed.src);
-
+        let r = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
         let mut inners = vec![InnerContent::Blocks(Vec::new())];
 
         for event in parser {
@@ -170,8 +171,8 @@ impl From<ComposedMarkdown> for Vec<Block> {
                             .expect("for heading")
                             .push(Block::Heading {
                                 lvl: heading_to_lvl(lvl),
-                                id: id.map(|s| s.to_string()),
-                                classes: classes.into_iter().map(|s| s.to_string()).collect(),
+                                id: id.map(|s| s.into()),
+                                classes: classes.into_iter().map(|s| s.into()).collect(),
                                 inner: inner.into_inlines(),
                             }),
                         Tag::BlockQuote => inners
@@ -210,16 +211,16 @@ impl From<ComposedMarkdown> for Vec<Block> {
                         Tag::Link(tp, url, alt) => {
                             inners.last_mut().unwrap().push_inline(Inline::Link(
                                 tp,
-                                url.to_string(),
-                                alt.to_string(),
+                                url.to_cowstr(),
+                                alt.to_cowstr(),
                                 inner.into_inlines(),
                             ))
                         }
                         Tag::Image(tp, url, alt) => {
                             inners.last_mut().unwrap().push_inline(Inline::Image(
                                 tp,
-                                url.to_string(),
-                                alt.to_string(),
+                                url.to_cowstr(),
+                                alt.to_cowstr(),
                                 inner.into_inlines(),
                             ))
                         }
@@ -227,8 +228,6 @@ impl From<ComposedMarkdown> for Vec<Block> {
                     }
                 }
                 Event::Html(src) => {
-                    let r = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
-
                     let is_insert = r.captures(src.as_ref()).and_then(|c| c.get(1));
 
                     if let Some(match_) = is_insert {
@@ -239,13 +238,13 @@ impl From<ComposedMarkdown> for Vec<Block> {
                         inners
                             .last_mut()
                             .unwrap()
-                            .push_inline(Inline::Html(src.to_string()));
+                            .push_inline(Inline::Html(src.to_cowstr()));
                     }
                 }
                 other => {
                     let inner = match other {
-                        Event::Text(s) => Inline::Text(s.to_string()),
-                        Event::Code(s) => Inline::Code(s.to_string()),
+                        Event::Text(s) => Inline::Text(s.to_cowstr()),
+                        Event::Code(s) => Inline::Code(s.to_cowstr()),
                         Event::SoftBreak => Inline::SoftBreak,
                         Event::HardBreak => Inline::HardBreak,
                         Event::Rule => Inline::Rule,
@@ -279,17 +278,17 @@ mod tests {
     use crate::ast::Block::ListItem;
     use crate::ast::{Block, Command, Inline, Math, Parameter, Style, Value};
     use crate::code_ast::types::{CodeContent, CodeElem};
-    use crate::common::PosInfo;
-    use crate::raw::Special::CodeBlock;
+    use crate::common::Span;
     use crate::raw::{parse_to_doc, ComposedMarkdown, Element, ElementInfo, Special};
+    use cowstr::CowStr;
     use pulldown_cmark::LinkType;
 
     #[test]
     fn simple_command() {
         let stuff = vec![
             ElementInfo {
-                element: Element::Markdown("regular stuff ".to_string()),
-                pos: PosInfo::new("", 0, 0),
+                element: Element::Markdown("regular stuff ".into()),
+                span: Span::new(0, 0),
             },
             ElementInfo {
                 element: Element::Special(
@@ -299,11 +298,11 @@ mod tests {
                         parameters: vec![],
                         body: Some(vec![ElementInfo {
                             element: Element::Markdown("x".into()),
-                            pos: PosInfo::new("", 0, 0),
+                            span: Span::new(0, 0),
                         }]),
                     },
                 ),
-                pos: PosInfo::new("", 0, 0),
+                span: Span::new(0, 0),
             },
         ];
 
@@ -311,13 +310,13 @@ mod tests {
         let doc = Vec::from(composed);
 
         let expected = vec![Block::Paragraph(vec![
-            Inline::Text("regular stuff ".to_string()),
+            Inline::Text("regular stuff ".into()),
             Inline::Command(Command {
-                function: "func".to_string(),
+                function: "func".into(),
                 label: None,
                 parameters: vec![],
-                body: Some(vec![Block::Paragraph(vec![Inline::Text("x".to_string())])]),
-                pos: PosInfo::new("", 0, 0),
+                body: Some(vec![Block::Paragraph(vec![Inline::Text("x".into())])]),
+                span: Span::new(0, 0),
                 global_idx: 0,
             }),
         ])];
@@ -337,89 +336,77 @@ mod tests {
                 lvl: 1,
                 id: None,
                 classes: vec![],
-                inner: vec![Inline::Text("Heading".to_string())],
+                inner: vec![Inline::Text("Heading".into())],
             },
             Block::Heading {
                 lvl: 2,
                 id: None,
                 classes: vec![],
-                inner: vec![Inline::Text("Subheading".to_string())],
+                inner: vec![Inline::Text("Subheading".into())],
             },
             Block::List(
                 None,
                 vec![
                     ListItem(vec![Block::Plain(vec![Inline::Text(
-                        "unordered list".to_string(),
+                        "unordered list".into(),
                     )])]),
-                    ListItem(vec![Block::Plain(vec![Inline::Text("item 2".to_string())])]),
+                    ListItem(vec![Block::Plain(vec![Inline::Text("item 2".into())])]),
                 ],
             ),
             Block::List(
                 Some(1),
                 vec![
                     ListItem(vec![Block::Plain(vec![Inline::Text(
-                        "ordered list".to_string(),
+                        "ordered list".into(),
                     )])]),
-                    ListItem(vec![Block::Plain(vec![Inline::Text("item 2".to_string())])]),
+                    ListItem(vec![Block::Plain(vec![Inline::Text("item 2".into())])]),
                 ],
             ),
             Block::Paragraph(vec![
                 Inline::Link(
                     LinkType::Inline,
-                    "path/is/here".to_string(),
-                    String::new(),
-                    vec![Inline::Text("link".to_string())],
+                    "path/is/here".into(),
+                    "".into(),
+                    vec![Inline::Text("link".into())],
                 ),
                 Inline::SoftBreak,
                 Inline::Image(
                     LinkType::Inline,
-                    "path/is/here".to_string(),
-                    String::new(),
-                    vec![Inline::Text("image".to_string())],
+                    "path/is/here".into(),
+                    "".into(),
+                    vec![Inline::Text("image".into())],
                 ),
             ]),
             Block::Paragraph(vec![
-                Inline::Styled(vec![Inline::Text("emph".to_string())], Style::Emphasis),
+                Inline::Styled(vec![Inline::Text("emph".into())], Style::Emphasis),
                 Inline::SoftBreak,
-                Inline::Styled(vec![Inline::Text("strong".to_string())], Style::Strong),
+                Inline::Styled(vec![Inline::Text("strong".into())], Style::Strong),
             ]),
-            Block::Plain(vec![Inline::Code("code inline".to_string())]),
+            Block::Plain(vec![Inline::Code("code inline".into())]),
             Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
                 label: None,
                 source: CodeContent {
-                    blocks: vec![CodeElem::Src("code block\n".to_string())],
+                    blocks: vec![CodeElem::Src("\ncode block\n\n".to_string())],
                     meta: Default::default(),
-                    hash: 3303757851706689630,
+                    hash: 8014072465408005981,
                 },
 
                 display_cell: false,
                 global_idx: 0,
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 180,
-                    end: 198,
-                },
+                span: Span::new(180, 198),
                 attributes: vec![],
             })]),
             Block::Plain(vec![Inline::Math(Math {
                 label: None,
-                source: "math inline".to_string(),
+                source: "math inline".into(),
                 display_block: false,
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 200,
-                    end: 213,
-                },
+                span: Span::new(200, 213),
             })]),
             Block::Plain(vec![Inline::Math(Math {
                 label: None,
-                source: "\nmath block\n".to_string(),
+                source: "\nmath block\n".into(),
                 display_block: true,
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 215,
-                    end: 231,
-                },
+                span: Span::new(215, 231),
             })]),
         ];
 
@@ -435,128 +422,85 @@ mod tests {
 
         let expected = vec![
             Block::Plain(vec![Inline::Command(Command {
-                function: "func".to_string(),
+                function: "func".into(),
                 label: None,
                 parameters: vec![],
                 body: None,
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 0,
-                    end: 5,
-                },
+                span: Span::new(0, 5),
                 global_idx: 0,
             })]),
             Block::Plain(vec![Inline::Command(Command {
-                function: "func_param".to_string(),
+                function: "func_param".into(),
                 label: None,
                 parameters: vec![
                     Parameter {
                         key: None,
-                        value: Value::String("p1".to_string()),
-                        pos: PosInfo {
-                            input: input.to_string(),
-                            start: 19,
-                            end: 21,
-                        },
+                        value: Value::String("p1".into()),
+                        span: Span::new(19, 21),
                     },
                     Parameter {
-                        key: Some("x".to_string()),
-                        value: Value::String("p2".to_string()),
-                        pos: PosInfo {
-                            input: input.to_string(),
-                            start: 23,
-                            end: 27,
-                        },
+                        key: Some("x".into()),
+                        value: Value::String("p2".into()),
+                        span: Span::new(23, 27),
                     },
                 ],
                 body: None,
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 7,
-                    end: 28,
-                },
+                span: Span::new(7, 28),
+
                 global_idx: 1,
             })]),
             Block::Plain(vec![Inline::Command(Command {
-                function: "func_body".to_string(),
+                function: "func_body".into(),
                 label: None,
                 parameters: vec![],
                 body: Some(vec![Block::Paragraph(vec![Inline::Text(
-                    "hello there".to_string(),
+                    "hello there".into(),
                 )])]),
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 30,
-                    end: 55,
-                },
+                span: Span::new(30, 55),
                 global_idx: 2,
             })]),
             Block::Plain(vec![Inline::Command(Command {
-                function: "func_all".to_string(),
+                function: "func_all".into(),
                 label: None,
                 parameters: vec![
                     Parameter {
                         key: None,
-                        value: Value::String("p1".to_string()),
-                        pos: PosInfo {
-                            input: input.to_string(),
-                            start: 67,
-                            end: 69,
-                        },
+                        value: Value::String("p1".into()),
+                        span: Span::new(67, 69),
                     },
                     Parameter {
-                        key: Some("x".to_string()),
-                        value: Value::String("p2".to_string()),
-                        pos: PosInfo {
-                            input: input.to_string(),
-                            start: 71,
-                            end: 75,
-                        },
+                        key: Some("x".into()),
+                        value: Value::String("p2".into()),
+                        span: Span::new(71, 75),
                     },
                 ],
                 body: Some(vec![Block::Paragraph(vec![Inline::Text(
-                    "hello there".to_string(),
+                    "hello there".into(),
                 )])]),
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 57,
-                    end: 91,
-                },
+                span: Span::new(57, 91),
                 global_idx: 3,
             })]),
             Block::Plain(vec![Inline::Command(Command {
-                function: "func_inner".to_string(),
+                function: "func_inner".into(),
                 label: None,
                 parameters: vec![],
                 body: Some(vec![
-                    Block::Plain(vec![Inline::Code("#func".to_string())]),
+                    Block::Plain(vec![Inline::Code("#func".into())]),
                     Block::Plain(vec![Inline::Command(Command {
-                        function: "inner".to_string(),
+                        function: "inner".into(),
                         label: None,
                         parameters: vec![],
                         body: Some(vec![Block::Plain(vec![Inline::Math(Math {
                             label: None,
-                            source: "math".to_string(),
+                            source: "math".into(),
                             display_block: false,
-                            pos: PosInfo {
-                                input: input.to_string(),
-                                start: 122,
-                                end: 128,
-                            },
+                            span: Span::new(122, 128),
                         })])]),
-                        pos: PosInfo {
-                            input: input.to_string(),
-                            start: 114,
-                            end: 130,
-                        },
+                        span: Span::new(114, 130),
                         global_idx: 0,
                     })]),
                 ]),
-                pos: PosInfo {
-                    input: input.to_string(),
-                    start: 93,
-                    end: 132,
-                },
+                span: Span::new(93, 132),
                 global_idx: 4,
             })]),
         ];

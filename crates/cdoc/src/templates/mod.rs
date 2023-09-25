@@ -8,8 +8,6 @@ use rhai::serde::{from_dynamic, to_dynamic};
 use std::io;
 use std::path::PathBuf;
 
-use cdoc_parser::ast::Parameter;
-use cdoc_parser::ast::Reference;
 use tera::{Context, Filter, Function, Tera};
 
 mod definition;

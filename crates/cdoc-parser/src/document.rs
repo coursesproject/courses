@@ -82,7 +82,10 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
     let ast = composed.into();
 
     let doc = Document {
-        content: Ast(ast),
+        content: Ast {
+            blocks: ast,
+            source: doc.input,
+        },
         meta: doc.meta.map_or(
             Ok::<Metadata, serde_yaml::Error>(Metadata::default()),
             |meta| serde_yaml::from_str(&meta),

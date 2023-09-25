@@ -44,7 +44,7 @@ impl AstPreprocessor for ScriptPreprocessor {
 
     fn process(&mut self, mut input: Document<Ast>) -> Result<Document<Ast>, Error> {
         let mut visitor = ScriptVisitor::new(&mut self.engine, &mut input.code_outputs);
-        visitor.walk_ast(&mut input.content.0)?;
+        visitor.walk_ast(&mut input.content.blocks)?;
         visitor.finalize(&input.meta)?;
         Ok(input)
     }

@@ -20,6 +20,7 @@ use notify_debouncer_mini::{
 };
 #[cfg(feature = "server")]
 use penguin::Server;
+use rayon::ThreadPoolBuilder;
 use semver::{Version, VersionReq};
 
 use courses::pipeline::Pipeline;
@@ -69,6 +70,10 @@ enum Commands {
     },
     Create {},
     Test {},
+    Clean {
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+    },
     /// Run a project script (as defined in config.yml)
     Run {
         /// Script name.
@@ -157,6 +162,12 @@ async fn cli_run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Clean { path } => {
+            let path = path_with_default(path)?;
+            fs::remove_dir_all(path.join(".cache"))?;
+            fs::remove_dir_all(path.join("build"))?;
+            Ok(())
+        }
         Commands::Update { path, version } => {
             let mut cmd = Command::new("cargo");
             if let Some(version) = version {
@@ -215,7 +226,7 @@ async fn cli_run() -> anyhow::Result<()> {
             let config_out = serde_json::to_string(&stuff)?;
 
             fs::write(absolute_path.join("project.json"), config_out).unwrap();
-            let res = pipeline.build_all(true).context("Build error:");
+            let res = pipeline.build_all(false).context("Build error:");
             err_print(res);
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
 
@@ -261,10 +272,10 @@ async fn cli_run() -> anyhow::Result<()> {
                                         let res = pipeline.reload_templates();
                                         err_print(res);
                                         println!("{}", style("reloaded templates").green());
-                                        let res = pipeline.build_all(false);
+                                        let res = pipeline.build_all(true);
                                         err_print(res);
                                     } else if p.starts_with(Path::new("scripts")) {
-                                        let res = pipeline.build_all(false);
+                                        let res = pipeline.build_all(true);
                                         err_print(res);
                                     }
 

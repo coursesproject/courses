@@ -10,7 +10,9 @@ use anyhow::{anyhow, Context as AContext};
 
 use console::style;
 use image::ImageOutputFormat;
-use indicatif::{MultiProgress, ParallelProgressIterator, ProgressBar, ProgressStyle};
+use indicatif::{
+    MultiProgress, ParallelProgressIterator, ProgressBar, ProgressIterator, ProgressStyle,
+};
 use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
@@ -31,12 +33,15 @@ use rayon::prelude::*;
 use crate::generators::Generator;
 use crate::project::config::{Mode, Profile, ProjectConfig};
 use crate::project::{
-    from_vec, ContentItem, ContentItemDescriptor, DocumentDescriptor, ProjectItemVec,
+    from_vec, ContentItem, ContentItemDescriptor, ContentResultX, DocumentDescriptor,
+    ProjectItemContentVec, ProjectItemVec, ProjectItemVecErr,
 };
 
+use crate::project::caching::Cache;
 use cdoc::renderers::extensions::build_extensions;
 use cdoc_parser::ast::Ast;
 use cdoc_parser::document::Document;
+use cowstr::CowStr;
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
 
@@ -105,6 +110,8 @@ pub struct Pipeline {
     /// Configuration for project loaded from config.yml
     pub project_config: ProjectConfig,
 
+    pub cache_info: Cache,
+
     templates: TemplateManager,
     cached_contexts: Arc<Mutex<HashMap<String, ProjectItemVec>>>,
 }
@@ -155,8 +162,13 @@ impl Pipeline {
 
         template_manager.register_filter(
             "embed",
-            create_embed_fn(project_path.as_ref().join("resources"), cache_path),
+            create_embed_fn(project_path.as_ref().join("resources"), cache_path.clone()),
         );
+
+        let cache_info = match fs::read_to_string(cache_path.join("project_info.json")) {
+            Ok(cache_val) => serde_json::from_str(&cache_val)?,
+            Err(_) => Cache::default(),
+        };
 
         let mut pipeline = Pipeline {
             profile: p,
@@ -164,6 +176,7 @@ impl Pipeline {
             project_path: project_path.as_ref().to_path_buf(),
             project_structure,
             project_config: config,
+            cache_info,
             templates: template_manager,
             cached_contexts: Arc::new(Mutex::new(HashMap::new())),
         };
@@ -207,7 +220,7 @@ impl Pipeline {
                         )
                         .map_err(tera::Error::msg)?;
                     let val = res.content;
-                    Ok(Value::String(val))
+                    Ok(Value::String(val.to_string()))
                 } else {
                     Err(tera::Error::msg("invalid type for 'body'"))
                 }
@@ -229,8 +242,8 @@ impl Pipeline {
             doc,
             &self.templates,
             meta,
-            &DEFAULT_SYNTAX,
-            &ts.themes["base16-ocean.light"],
+            // &DEFAULT_SYNTAX,
+            // &ts.themes["base16-ocean.light"],
             self.project_config.notebook_meta.as_ref().unwrap(),
             format,
             self.profile.parser.settings.clone(),
@@ -260,7 +273,11 @@ impl Pipeline {
             let path = self.project_path.join("content").join(doc.path);
             let val = fs::read_to_string(path.as_path())
                 .context(format!("Error loading document at {}", path.display()))?;
-            Ok::<String, anyhow::Error>(val)
+            self.cache_info.reset_entry(
+                path.clone().to_str().unwrap().to_string(),
+                blake3::hash(val.as_bytes()),
+            );
+            Ok::<Option<String>, anyhow::Error>(Some(val))
         })?;
 
         let mut all_errors = Vec::new();
@@ -275,7 +292,7 @@ impl Pipeline {
                     println!(" {}", style("error").red());
                 }
                 Ok(output) => {
-                    if let Some(output) = output {
+                    if let Some(output) = &output {
                         let project = self
                             .cached_contexts
                             .lock()
@@ -284,13 +301,18 @@ impl Pipeline {
                             .ok_or_else(|| anyhow!("Cached context is missing"))?
                             .clone();
 
-                        let project_vec =
-                            self.update_cache(&item2, format.as_ref(), &output, project.clone());
+                        let output_raw = output.clone().map(|c| ());
 
-                        let ctx = Generator {
+                        let project_vec = self.update_cache(
+                            &item2,
+                            format.as_ref(),
+                            &output_raw,
+                            project.clone(),
+                        );
+
+                        let mut ctx = Generator {
                             root: self.project_path.clone(),
-                            project_vec: &project_vec,
-                            project: from_vec(&project_vec),
+                            project: &from_vec(&project_vec),
                             templates: &self.templates,
                             config: self.project_config.clone(),
                             mode: self.profile.mode,
@@ -298,6 +320,11 @@ impl Pipeline {
                             format: format.as_ref(),
                         };
                         ctx.generate_single(&output, &item2)?;
+                        self.cache_info.update_build_status(
+                            item2.doc.path.to_str().unwrap().to_string(),
+                            format.name(),
+                            true,
+                        )?;
 
                         println!(" {}", style("done").green());
                     } else {
@@ -339,7 +366,7 @@ impl Pipeline {
         &mut self,
         item2: &ContentItemDescriptor<()>,
         format: &dyn Format,
-        output: &Document<RenderResult>,
+        output: &Document<()>,
         mut project: ProjectItemVec,
     ) -> ProjectItemVec {
         let item = project
@@ -395,35 +422,35 @@ impl Pipeline {
     }
 
     /// Build the whole project (optionally removes existing build)
-    pub fn build_all(&mut self, remove_existing: bool) -> Result<(), anyhow::Error> {
+    pub fn build_all(&mut self, ignore_cache: bool) -> Result<(), anyhow::Error> {
         let build_path = self.project_path.join("build").join(&self.profile_name);
 
         fs::create_dir_all(&build_path).with_context(|| format!("at {}", build_path.display()))?;
 
-        let format_folder_names: Vec<&str> = self
-            .get_formats_or_default()
-            .iter()
-            .map(|f| f.name())
-            .collect();
-        if remove_existing && build_path.exists() {
-            for entry in
-                fs::read_dir(&build_path).with_context(|| format!("at {}", build_path.display()))?
-            {
-                let entry = entry?;
-                if entry.path().is_dir()
-                    && format_folder_names
-                        .iter()
-                        .any(|f| entry.path().ends_with(f))
-                {
-                    fs::remove_dir_all(entry.path())
-                        .with_context(|| format!("at {}", entry.path().display()))?;
-                    fs::create_dir(entry.path())
-                        .with_context(|| format!("at {}", entry.path().display()))?;
-                }
-            }
-        }
+        // let format_folder_names: Vec<&str> = self
+        //     .get_formats_or_default()
+        //     .iter()
+        //     .map(|f| f.name())
+        //     .collect();
+        // if remove_existing && build_path.exists() {
+        //     for entry in
+        //         fs::read_dir(&build_path).with_context(|| format!("at {}", build_path.display()))?
+        //     {
+        //         let entry = entry?;
+        //         if entry.path().is_dir()
+        //             && format_folder_names
+        //                 .iter()
+        //                 .any(|f| entry.path().ends_with(f))
+        //         {
+        //             fs::remove_dir_all(entry.path())
+        //                 .with_context(|| format!("at {}", entry.path().display()))?;
+        //             fs::create_dir(entry.path())
+        //                 .with_context(|| format!("at {}", entry.path().display()))?;
+        //         }
+        //     }
+        // }
 
-        let loaded = self.load_files()?;
+        let loaded = self.load_files(ignore_cache)?;
 
         println!("{}", style("=".repeat(60)).blue());
         println!(
@@ -438,7 +465,12 @@ impl Pipeline {
         let multi = MultiProgress::new();
         let mut bars = Vec::new();
 
-        let bar_len = self.project_structure.len() * 2;
+        let bar_len: usize = loaded
+            .iter()
+            .map(|c| c.doc.content.is_some() as usize)
+            .sum::<usize>();
+
+        // let bar_len = self.project_structure.len() * 2;
         let sty = ProgressStyle::with_template("{msg:<20} {pos}/{len} {bar:20.cyan/blue}")?;
 
         for _f in self.get_formats_or_default() {
@@ -449,8 +481,11 @@ impl Pipeline {
             bars.push(bar);
         }
 
+        let mut successes = Arc::new(Mutex::new(Vec::new()));
+
         self.get_formats_or_default()
-            .iter()
+            .par_iter()
+            // .iter()
             .zip(bars.clone())
             .for_each(|(format, bar)| {
                 let mut format_errs = Vec::new();
@@ -460,37 +495,67 @@ impl Pipeline {
                     style(format.name()).bold(),
                     style("parsing").blue()
                 ));
-                let (output, errs) = self.process_all(loaded.clone(), format.as_ref(), bar.clone());
+                let output = self.process_all(loaded.clone(), format.as_ref(), bar.clone());
 
-                format_errs.append(&mut errs.lock().unwrap());
+                // let mut errs = Vec::new();
+                let output: ProjectItemContentVec = output
+                    .into_iter()
+                    .filter_map(|item| match item {
+                        Ok(item) => Some(item),
+                        Err(err) => {
+                            format_errs.push(err);
+                            None
+                        }
+                    })
+                    .collect();
 
-                let project_full = from_vec(&output);
-                let context = Generator {
+                let proj = output
+                    .iter()
+                    .map(|item| {
+                        item.map_ref(|doc| {
+                            Ok(doc.as_ref().map(|inner| inner.clone().map(|inner| ())))
+                        })
+                    })
+                    .collect::<anyhow::Result<ProjectItemVec>>()
+                    .unwrap();
+
+                // format_errs.append(&mut errs.lock().unwrap());
+
+                let project_full = from_vec(&proj);
+                let mut context = Generator {
                     root: self.project_path.to_path_buf(),
-                    project_vec: &output,
-                    project: project_full.clone(),
+                    project: &project_full,
                     mode: self.profile.mode,
                     templates: &self.templates,
                     config: self.project_config.clone(),
                     format: format.as_ref(),
                     build_dir: self.get_build_path(format.as_ref()),
                 };
+
                 self.cached_contexts
                     .lock()
                     .unwrap()
-                    .insert(format.name().to_string(), output.clone());
+                    .insert(format.name().to_string(), proj);
 
                 bar.set_message(format!(
                     "{} {}",
                     style(format.name()).bold(),
                     style("writing").blue()
                 ));
-                let res = context
-                    .generate(bar.clone())
+                let res: anyhow::Result<Vec<anyhow::Result<String>>> = context
+                    .generate(bar.clone(), &output)
                     .with_context(|| format!("Could not generate {}", format));
 
-                if let Err(e) = res {
-                    format_errs.push(e);
+                let res = res.unwrap();
+
+                for r in res {
+                    match r {
+                        Ok(path) => successes
+                            .lock()
+                            .unwrap()
+                            .push((format.name().to_string(), path)),
+                        Err(e) => format_errs.push(e),
+                    }
                 }
 
                 // Move extra files
@@ -501,15 +566,6 @@ impl Pipeline {
                     profile: &self.profile,
                 };
 
-                // println!("format {:?}", format);
-                // let project_full2 = from_vec(
-                //     &output
-                //         .clone()
-                //         .into_iter()
-                //         .map(|i| i.map(|d| Ok(())).unwrap())
-                //         .collect::<Vec<ContentItemDescriptor<()>>>(),
-                // );
-                // println!("{:#?}", &project_full2);
                 let res = mover.traverse_content(&project_full);
                 if let Err(e) = res {
                     format_errs.push(e);
@@ -534,6 +590,12 @@ impl Pipeline {
             });
 
         let all_errs = all_errs.lock().unwrap();
+
+        for (format, path) in successes.lock().unwrap().clone().into_iter() {
+            self.cache_info
+                .update_build_status(path.clone(), &format, true)
+                .unwrap()
+        }
 
         println!("{}", style("-".repeat(60)).blue());
         if all_errs.is_empty() {
@@ -561,40 +623,51 @@ impl Pipeline {
         }
         println!("{}", style("=".repeat(60)).blue());
 
+        let cache_out = serde_json::to_string_pretty(&self.cache_info)?;
+        fs::write(
+            self.project_path.join(".cache").join("project_info.json"),
+            cache_out,
+        )?;
+
         Ok(())
     }
 
-    fn load_files(&self) -> anyhow::Result<Vec<ContentItemDescriptor<String>>> {
+    fn load_files(
+        &mut self,
+        ignore_cache: bool,
+    ) -> anyhow::Result<Vec<ContentItemDescriptor<Option<String>>>> {
         self.project_structure
             .clone()
             .to_vector()
             .into_iter()
             .map(|item| {
                 item.map_doc(|doc| {
-                    let path = self.project_path.join("content").join(doc.path);
+                    let path = self.project_path.join("content").join(&doc.path);
                     let val = fs::read_to_string(path.as_path())
                         .context(format!("Error loading document {}", path.display()))?;
 
-                    Ok(val)
+                    let hash = blake3::hash(val.as_bytes());
+                    if ignore_cache || !self.cache_info.matches(&doc.path.to_str().unwrap(), hash) {
+                        self.cache_info
+                            .reset_entry(doc.path.to_str().unwrap().to_string(), hash);
+                        Ok(Some(val))
+                    } else {
+                        Ok(None)
+                    }
                 })
             })
-            .collect::<anyhow::Result<Vec<ContentItemDescriptor<String>>>>()
+            .collect::<anyhow::Result<Vec<ContentItemDescriptor<Option<String>>>>>()
     }
 
     fn process_all(
         &self,
-        project: Vec<ContentItemDescriptor<String>>,
+        project: Vec<ContentItemDescriptor<Option<String>>>,
         format: &dyn Format,
         bar: ProgressBar,
-    ) -> (ProjectItemVec, Arc<Mutex<Vec<anyhow::Error>>>) {
-        let errs = Arc::new(Mutex::new(Vec::new()));
-
-        // let project_vec: Vec<ItemDescriptor<String>> = project.into_iter().collect();
-        // let project_structure_vec
-
+    ) -> ProjectItemVecErr {
         let res = project
-            // .into_par_iter()
-            .into_par_iter()
+            .par_iter()
+            // .iter()
             .progress_with(bar)
             .map(|i| {
                 let res = self.process_document(&i.doc, format).with_context(|| {
@@ -604,86 +677,77 @@ impl Pipeline {
                     )
                 });
 
-                let res = match res {
-                    Ok(good) => good,
-                    Err(e) => {
-                        let mut errs_guard = errs.lock().unwrap();
-                        errs_guard.push(e);
-                        None
-                    }
-                };
-
-                // println!("doc is {:?}, {}", &i.path, res.is_some());
-
-                // let res = print_err(res);
-                ContentItemDescriptor {
+                res.map(|res| ContentItemDescriptor {
                     is_section: i.is_section,
-                    path: i.path,
-                    path_idx: i.path_idx,
+                    path: i.path.clone(),
+                    path_idx: i.path_idx.clone(),
                     doc: DocumentDescriptor {
-                        id: i.doc.id,
+                        id: i.doc.id.clone(),
                         format: i.doc.format,
-                        path: i.doc.path,
+                        path: i.doc.path.clone(),
                         content: Arc::new(res),
                     },
-                }
+                })
             })
-            .collect::<Vec<ContentItemDescriptor<Option<Document<RenderResult>>>>>();
+            .collect::<Vec<anyhow::Result<ContentItemDescriptor<Option<Document<RenderResult>>>>>>(
+            );
 
-        // pb.finish_with_message(format!("Done"));
-
-        (res, errs)
+        res
     }
 
     fn process_document(
         &self,
-        item: &DocumentDescriptor<String>,
+        item: &DocumentDescriptor<Option<String>>,
         format: &dyn Format,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
-        let doc = item
-            .format
-            .loader()
-            .load(&item.content, self.profile.mode == Mode::Draft)?;
+        if let Some(content) = item.content.as_ref() {
+            let doc = item
+                .format
+                .loader()
+                .load(content, self.profile.mode == Mode::Draft)?;
 
-        match doc {
-            None => Ok(None),
-            Some(doc) => {
-                if format.no_parse() {
-                    Ok(Some(Document {
-                        meta: doc.meta,
-                        content: "".to_string(),
-                        code_outputs: doc.code_outputs,
-                    }))
-                } else if self.profile.mode != Mode::Draft && doc.meta.draft {
-                    Ok(Some(doc.map(|_| String::new())))
-                } else if !doc
-                    .meta
-                    .exclude_outputs
-                    .as_ref()
-                    .map(|o| o.contains(&format.name().to_string()))
-                    .unwrap_or_default()
-                {
-                    let processor_ctx = PreprocessorContext {
-                        templates: &self.templates,
-                        output_format: format,
-                        project_root: self.project_path.clone(),
-                    };
+            match doc {
+                None => Ok(None),
+                Some(doc) => {
+                    if format.no_parse() {
+                        Ok(Some(Document {
+                            meta: doc.meta,
+                            content: "".into(),
+                            code_outputs: doc.code_outputs,
+                        }))
+                    } else if self.profile.mode != Mode::Draft && doc.meta.draft {
+                        Ok(Some(doc.map(|_| CowStr::new())))
+                    } else if !doc
+                        .meta
+                        .exclude_outputs
+                        .as_ref()
+                        .map(|o| o.contains(&format.name().to_string()))
+                        .unwrap_or_default()
+                    {
+                        let processor_ctx = PreprocessorContext {
+                            templates: &self.templates,
+                            output_format: format,
+                            project_root: self.project_path.clone(),
+                        };
 
-                    let mut res = self.profile.parser.parse(doc, &processor_ctx)?;
+                        let mut res = self.profile.parser.parse(doc, &processor_ctx)?;
 
-                    // let res = print_err(res)?;
+                        // let res = print_err(res)?;
 
-                    let mut ctx = self.get_render_context(&mut res, format)?;
-                    let mut renderer = format.renderer();
+                        let mut ctx = self.get_render_context(&mut res, format)?;
+                        let mut renderer = format.renderer();
 
-                    Ok(Some(renderer.render_doc(
-                        &mut ctx,
-                        build_extensions(&self.profile.render_extensions)?,
-                    )?))
-                } else {
-                    Ok(None)
+                        Ok(Some(renderer.render_doc(
+                            &mut ctx,
+                            build_extensions(&self.profile.render_extensions)?,
+                        )?))
+                    } else {
+                        Ok(None)
+                    }
                 }
             }
+        } else {
+            Ok(None)
         }
     }
 }

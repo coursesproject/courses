@@ -5,14 +5,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
-use linked_hash_map::LinkedHashMap;
 
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, CodeBlock, Inline};
-use cdoc_parser::code_ast::types::{CodeContent, CodeElem};
-use cdoc_parser::document::{CodeOutput, Document, Metadata};
-use cdoc_parser::raw::CodeAttr;
-use cdoc_parser::PosInfo;
+use cdoc_parser::ast::{CodeBlock, Inline};
+
+use cdoc_parser::document::{CodeOutput, Metadata};
+
 use code_block::ScriptCodeBlock;
 use rhai::{exported_module, CustomType, Engine, EvalAltResult, Scope, TypeBuilder};
 
@@ -146,7 +144,7 @@ impl AstVisitor for ScriptVisitor<'_> {
             &outputs,
             block.display_cell,
             block.global_idx,
-            &block.pos,
+            &block.span,
         );
 
         match self.base.engine.call_fn::<ScriptCodeBlock>(

@@ -4,7 +4,7 @@ use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, Prepro
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, CodeBlock, Command, Inline, Parameter, Value};
 use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
-use cdoc_parser::PosInfo;
+use cdoc_parser::Span;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -40,15 +40,15 @@ impl AstVisitor for CellVisitor<'_> {
                         match output {
                             Outval::Text(s) => {
                                 let command = Command {
-                                    function: "output_text".to_string(),
+                                    function: "output_text".into(),
                                     label: None,
                                     parameters: vec![Parameter {
-                                        key: Some("value".to_string()),
-                                        value: Value::String(s.clone()),
-                                        pos: Default::default(),
+                                        key: Some("value".into()),
+                                        value: Value::String(s.into()),
+                                        span: Default::default(),
                                     }],
                                     body: None,
-                                    pos: Default::default(),
+                                    span: Default::default(),
                                     global_idx: 0,
                                 };
 
@@ -61,29 +61,29 @@ impl AstVisitor for CellVisitor<'_> {
                                     params.push(Parameter {
                                         key: Some(key),
                                         value: Value::String(val),
-                                        pos: PosInfo::new("", 0, 0),
+                                        span: Span::new(0, 0),
                                     });
                                 }
 
                                 match img {
                                     Image::Png(png) => params.push(Parameter {
-                                        key: Some("base64".to_string()),
-                                        value: Value::String(png.clone()),
-                                        pos: PosInfo::new("", 0, 0),
+                                        key: Some("base64".into()),
+                                        value: Value::String(png.into()),
+                                        span: Span::new(0, 0),
                                     }),
                                     Image::Svg(svg) => params.push(Parameter {
-                                        key: Some("svg".to_string()),
-                                        value: Value::String(svg.clone()),
-                                        pos: PosInfo::new("", 0, 0),
+                                        key: Some("svg".into()),
+                                        value: Value::String(svg.into()),
+                                        span: Span::new(0, 0),
                                     }),
                                 }
 
                                 let command = Command {
-                                    function: "figure".to_string(),
+                                    function: "figure".into(),
                                     label: source.meta.get("id").cloned(),
                                     parameters: params,
                                     body: None,
-                                    pos: Default::default(),
+                                    span: Default::default(),
                                     global_idx: 0,
                                 };
 
@@ -115,7 +115,7 @@ impl AstPreprocessor for CellProcessor {
             let mut visitor = CellVisitor {
                 outputs: &input.code_outputs,
             };
-            visitor.walk_ast(&mut input.content.0)?;
+            visitor.walk_ast(&mut input.content.blocks)?;
         }
         Ok(input)
     }

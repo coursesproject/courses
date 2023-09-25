@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use cdoc_parser::ast::{Block, CodeBlock, Command, Inline, Math, Parameter, Style, Value};
 use cdoc_parser::document::{CodeOutput, Document, Image, Outval};
+use cowstr::CowStr;
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tera::Context;
@@ -27,7 +28,7 @@ fn write_bytes(source: &str, mut buf: impl Write) -> Result<()> {
 pub struct GenericRenderer {
     list_level: usize,
     current_list_idx: Vec<Option<u64>>,
-    counters: HashMap<String, usize>,
+    counters: HashMap<CowStr, usize>,
 }
 
 #[typetag::serde(name = "generic")]
@@ -35,7 +36,7 @@ impl DocumentRenderer for GenericRenderer {
     fn render_doc(
         &mut self,
         ctx: &mut RenderContext,
-        mut extensions: Vec<Box<dyn RenderExtension>>,
+        extensions: Vec<Box<dyn RenderExtension>>,
     ) -> Result<Document<RenderResult>> {
         for mut ext in extensions {
             ext.process(ctx, self.clone())?;
@@ -43,9 +44,9 @@ impl DocumentRenderer for GenericRenderer {
 
         let buf = Vec::new();
         let mut cursor = Cursor::new(buf);
-        self.render(&ctx.doc.content.0, ctx, &mut cursor)?;
+        self.render(&ctx.doc.content.blocks, ctx, &mut cursor)?;
 
-        let content = String::from_utf8(cursor.get_ref().clone())?;
+        let content = String::from_utf8(cursor.get_ref().clone())?.into();
         Ok(Document {
             content,
             meta: ctx.doc.meta.clone(),
@@ -63,10 +64,10 @@ impl GenericRenderer {
         parameters
             .iter()
             .map(|p| {
-                let value: String = match &p.value {
-                    Value::Flag(_) => String::new(),
+                let value: CowStr = match &p.value {
+                    Value::Flag(_) => CowStr::new(),
                     Value::Content(blocks) => self.render_inner(blocks, ctx)?,
-                    Value::String(s) => s.to_string(),
+                    Value::String(s) => s.clone(),
                 };
 
                 Ok(RenderedParam {
@@ -81,7 +82,7 @@ impl GenericRenderer {
         &mut self,
         display_mode: bool,
         inner: &str,
-        label: &Option<String>,
+        label: &Option<CowStr>,
         ctx: &RenderContext,
         buf: impl Write,
     ) -> Result<()> {
@@ -90,7 +91,7 @@ impl GenericRenderer {
         args.insert("label", label);
         args.insert("display_mode", &display_mode);
         if display_mode && label.is_some() {
-            let num = self.fetch_and_inc_num("equation".to_string(), &label);
+            let num = self.fetch_and_inc_num("equation".into(), label);
             args.insert("num", &num);
         }
         args.insert("value", inner);
@@ -109,10 +110,10 @@ impl GenericRenderer {
         buf: impl Write,
     ) -> Result<()> {
         let mut args = ctx.extra_args.clone();
-        args.insert("defs", &ctx.templates.definitions);
-        args.insert("refs", &ctx.references);
+        // args.insert("defs", &ctx.templates.definitions);
+        // args.insert("refs", &ctx.references);
         // println!("{:?}", &ctx.references);
-        args.insert("refs_by_type", &ctx.references_by_type);
+        // args.insert("refs_by_type", &ctx.references_by_type);
 
         let num = self.fetch_and_inc_num(command.function.clone(), &command.label);
         let rendered = self
@@ -120,20 +121,27 @@ impl GenericRenderer {
             .with_context(|| {
                 format!(
                     "error rendering shortcode {} at position {} and global index {}",
-                    command.function, command.pos.start, command.global_idx
+                    command.function, command.span.range.start, command.global_idx
                 )
             })?;
         let tdef = ctx
             .templates
             .get_template(&command.function, TemplateType::Shortcode)
-            .with_context(|| format!("at {}", command.pos.get_with_margin(100)))?;
+            .with_context(|| {
+                format!(
+                    "at {}",
+                    command
+                        .span
+                        .get_with_margin(ctx.doc.content.source.as_str(), 100)
+                )
+            })?;
         let r: Result<Vec<()>> = ctx
             .templates
             .validate_args_for_template(&command.function, &rendered)
             .with_context(|| {
                 format!(
                     "validation error at position {} {}",
-                    command.pos.start, command.global_idx
+                    command.span.range.start, command.global_idx
                 )
             })?
             .into_iter()
@@ -157,7 +165,7 @@ impl GenericRenderer {
         )
     }
 
-    fn fetch_and_inc_num(&mut self, typ: String, label: &Option<String>) -> usize {
+    fn fetch_and_inc_num(&mut self, typ: CowStr, label: &Option<CowStr>) -> usize {
         let num = if label.is_some() {
             let num = self.counters.entry(typ).or_insert(0);
             *num += 1;
@@ -221,14 +229,15 @@ impl RenderElement<Inline> for GenericRenderer {
                         .unwrap_or(ctx.parser_settings.solutions),
                 )?;
 
-                let highlighted = syntect::html::highlighted_html_for_string(
-                    &code_rendered,
-                    ctx.syntax_set,
-                    ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
-                    ctx.theme,
-                )?;
+                // let highlighted = syntect::html::highlighted_html_for_string(
+                //     &code_rendered,
+                //     ctx.syntax_set,
+                //     ctx.syntax_set.find_syntax_by_extension("py").unwrap(),
+                //     ctx.theme,
+                // )?;
+                let highlighted = &code_rendered.trim();
 
-                let num = self.fetch_and_inc_num("code".to_string(), &label);
+                let num = self.fetch_and_inc_num("code".into(), &label);
 
                 let mut args = Context::default();
                 args.insert("label", label);
@@ -467,7 +476,7 @@ fn get_id() -> usize {
 fn add_args(
     def: &TemplateDefinition,
     args: &mut Context,
-    id: &Option<String>,
+    id: &Option<CowStr>,
     num: usize,
     arguments: Vec<RenderedParam>,
 ) -> Result<()> {
@@ -483,7 +492,7 @@ fn add_args(
             def.shortcode.as_ref().unwrap().parameters[i].name.clone()
         };
 
-        args.insert(key, &p.value);
+        args.insert(key.as_str(), &p.value);
     }
     Ok(())
 }

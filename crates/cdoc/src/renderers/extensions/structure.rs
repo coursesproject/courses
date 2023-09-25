@@ -1,18 +1,13 @@
-use crate::parser::ParserSettings;
-use crate::preprocessors::cell_outputs::CellProcessor;
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
 use crate::renderers::extensions::{RenderExtension, RenderExtensionConfig};
 use crate::renderers::generic::GenericRenderer;
 use crate::renderers::{RenderContext, RenderElement};
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Block, Command, Inline};
-use cdoc_parser::document::Document;
+use cdoc_parser::ast::{Block, Command};
+use cowstr::CowStr;
+
 use linked_hash_map::LinkedHashMap;
-use nanoid::nanoid;
+
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DocStructureConfig {
@@ -62,18 +57,18 @@ pub struct Elem {
     #[serde(flatten)]
     val: ElemVal,
     lvl: u8,
-    label: Option<String>,
+    label: Option<CowStr>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ElemVal {
     Heading {
-        value: String,
+        value: CowStr,
     },
     Command {
-        name: String,
-        parameters: LinkedHashMap<String, String>,
+        name: CowStr,
+        parameters: LinkedHashMap<CowStr, CowStr>,
     },
     CodeBlock,
 }
@@ -95,7 +90,7 @@ impl RenderExtension for DocStructure {
         renderer: GenericRenderer,
     ) -> anyhow::Result<()> {
         let mut visitor = DocStructureVisitor::new(&self, ctx, renderer);
-        visitor.walk_ast(&mut ctx.doc.content.0.clone())?;
+        visitor.walk_ast(&mut ctx.doc.content.blocks.clone())?;
 
         let tree = visitor.construct_element_tree()?;
 
@@ -203,7 +198,7 @@ impl AstVisitor for DocStructureVisitor<'_> {
             Block::Heading {
                 lvl,
                 id,
-                classes,
+                classes: _,
                 inner,
             } => {
                 let inner = self.renderer.render_inner(inner, self.ctx)?;
@@ -229,7 +224,12 @@ impl AstVisitor for DocStructureVisitor<'_> {
             .map(|p| (p.key.unwrap(), p.value))
             .collect();
 
-        if self.base.config.included_commands.contains(&cmd.function) {
+        if self
+            .base
+            .config
+            .included_commands
+            .contains(&cmd.function.to_string())
+        {
             // println!(
             //     "included: {:?}, {}",
             //     self.base.config.included_commands, &cmd.function

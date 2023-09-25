@@ -12,6 +12,7 @@ use cdoc::config::InputFormat;
 use cdoc::renderers::RenderResult;
 use cdoc_parser::document::Document;
 
+pub mod caching;
 pub mod config;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,10 +122,27 @@ impl<C> ContentItemDescriptor<C> {
         })
     }
 
-    /// Perform operation on the whole DocumentSpec.
-    pub fn map_doc<O, F, E>(self, f: F) -> Result<ContentItemDescriptor<O>, E>
+    pub fn map_ref<O, F>(&self, f: F) -> anyhow::Result<ContentItemDescriptor<O>>
     where
-        F: Fn(DocumentDescriptor<C>) -> Result<O, E>,
+        F: Fn(&C) -> anyhow::Result<O>,
+    {
+        Ok(ContentItemDescriptor {
+            is_section: self.is_section,
+            path: self.path.clone(),
+            path_idx: self.path_idx.clone(),
+            doc: DocumentDescriptor {
+                id: self.doc.id.clone(),
+                format: self.doc.format,
+                path: self.doc.path.clone(),
+                content: Arc::new(f(self.doc.content.as_ref())?),
+            },
+        })
+    }
+
+    /// Perform operation on the whole DocumentSpec.
+    pub fn map_doc<O, F, E>(self, mut f: F) -> Result<ContentItemDescriptor<O>, E>
+    where
+        F: FnMut(DocumentDescriptor<C>) -> Result<O, E>,
     {
         Ok(ContentItemDescriptor {
             is_section: self.is_section,
@@ -447,7 +465,11 @@ fn create_section(
 
 pub type ContentResult<'a> = ContentItem<&'a Option<Document<RenderResult>>>;
 pub type ContentResultS = ContentItem<Option<Document<RenderResult>>>;
-pub type ProjectItemVec = Vec<ContentItemDescriptor<Option<Document<RenderResult>>>>;
+pub type ContentResultX = ContentItem<Option<Document<()>>>;
+pub type ProjectItemVec = Vec<ContentItemDescriptor<Option<Document<()>>>>;
+pub type ProjectItemContentVec = Vec<ContentItemDescriptor<Option<Document<RenderResult>>>>;
+pub type ProjectItemVecErr =
+    Vec<anyhow::Result<ContentItemDescriptor<Option<Document<RenderResult>>>>>;
 
 /// Extract a section_id (folder name) from a full path.
 pub fn section_id<P: AsRef<Path>>(path: P) -> Option<String> {

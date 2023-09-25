@@ -1,8 +1,8 @@
 pub mod structure;
 
 use crate::renderers::generic::GenericRenderer;
-use crate::renderers::{RenderContext, RenderElement};
-use cdoc_parser::ast::{Block, Inline};
+use crate::renderers::{RenderContext};
+
 use dyn_clone::DynClone;
 use std::fmt::Debug;
 

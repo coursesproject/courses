@@ -7,7 +7,8 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
+
+use cowstr::CowStr;
 use std::hash::{Hash, Hasher};
 
 /// The parser for exercise placeholders/solutions.
@@ -16,36 +17,40 @@ use std::hash::{Hash, Hasher};
 pub struct TaskParser;
 
 pub(crate) fn parse_code_placeholder_block(
+    content: &CowStr,
     pair: Pair<Rule>,
-) -> Result<String, Box<pest::error::Error<Rule>>> {
+) -> Result<CowStr, Box<pest::error::Error<Rule>>> {
     match pair.as_rule() {
         Rule::source_comment_block => Ok(pair
             .into_inner()
-            .map(parse_source_comment)
-            .collect::<anyhow::Result<String, Box<pest::error::Error<Rule>>>>(
-        )?),
+            .map(|p| parse_source_comment(content, p))
+            .collect::<anyhow::Result<CowStr, Box<pest::error::Error<Rule>>>>()?),
         _ => unreachable!(),
     }
 }
 
-fn parse_source_comment(pair: Pair<Rule>) -> Result<String, Box<pest::error::Error<Rule>>> {
+fn parse_source_comment(
+    content: &CowStr,
+    pair: Pair<Rule>,
+) -> Result<CowStr, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
         Rule::source_comment => {
             let mut inner = pair.into_inner();
             let spacing = inner.next().expect("Unexpected end of iterator");
-            let spacing: String = spacing.as_str().parse().expect("String parse error");
+            let spacing = cowstr_from_span(content, spacing.as_span());
             let str = inner.next().expect("Unexpected end of iterator");
-            let str: String = str.as_str().parse().expect("String parse error");
+            let str = cowstr_from_span(content, str.as_span());
 
-            format!("{spacing}{str}")
+            cowstr::format!("{spacing}{str}")
         }
         _ => unreachable!(),
     })
 }
 
 pub(crate) fn parse_value(
+    content: &CowStr,
     pair: Pair<Rule>,
-    meta: &mut LinkedHashMap<String, String>,
+    meta: &mut LinkedHashMap<CowStr, CowStr>,
 ) -> Result<Option<CodeElem>, Box<pest::error::Error<Rule>>> {
     Ok(match pair.as_rule() {
         Rule::source_code_block => Some(CodeElem::Src(pair.as_str().to_string())),
@@ -53,16 +58,15 @@ pub(crate) fn parse_value(
         Rule::code_block => {
             let mut block_segments = pair.into_inner();
             let solution_pair = block_segments.next().expect("Unexpected end of iterator");
+            let solution = CowStr::from(solution_pair.into_inner().as_str());
 
-            let solution = solution_pair.into_inner().as_str().to_string();
-
-            let placeholder: Option<String> = if let Some(placeholder_pair) = block_segments.next()
+            let placeholder: Option<CowStr> = if let Some(placeholder_pair) = block_segments.next()
             {
                 Some(
                     placeholder_pair
                         .into_inner()
-                        .map(parse_code_placeholder_block)
-                        .collect::<anyhow::Result<String, Box<pest::error::Error<Rule>>>>()?,
+                        .map(|p| parse_code_placeholder_block(content, p))
+                        .collect::<anyhow::Result<CowStr, Box<pest::error::Error<Rule>>>>()?,
                 )
             } else {
                 None
@@ -77,10 +81,10 @@ pub(crate) fn parse_value(
         Rule::meta => {
             let mut outer = pair.into_inner();
             let tp = outer.next().expect("Missing meta type");
-            let mut content = tp.into_inner();
+            let mut ct = tp.into_inner();
 
-            let ident = content.next().unwrap().as_str().to_string();
-            let value = content.next().unwrap().as_str().to_string();
+            let ident = cowstr_from_span(content, ct.next().unwrap().as_span());
+            let value = cowstr_from_span(content, ct.next().unwrap().as_span());
 
             meta.insert(ident, value);
             None
@@ -90,7 +94,11 @@ pub(crate) fn parse_value(
     })
 }
 
-pub fn parse_code_string(content: &str) -> Result<CodeContent, Box<pest::error::Error<Rule>>> {
+fn cowstr_from_span(base: &CowStr, span: pest::Span) -> CowStr {
+    CowStr::from(&base[span.start()..span.end()])
+}
+
+pub fn parse_code_string(content: CowStr) -> Result<CodeContent, Box<pest::error::Error<Rule>>> {
     let mut padded = content.to_string();
     padded.push('\n');
     let mut p = TaskParser::parse(Rule::doc, &padded)?;
@@ -98,7 +106,7 @@ pub fn parse_code_string(content: &str) -> Result<CodeContent, Box<pest::error::
     let mut meta = LinkedHashMap::new();
     let blocks = p
         .into_iter()
-        .filter_map(|v| parse_value(v, &mut meta).transpose())
+        .filter_map(|v| parse_value(&content, v, &mut meta).transpose())
         .collect::<anyhow::Result<Vec<CodeElem>, Box<pest::error::Error<Rule>>>>()?;
     let mut hasher = DefaultHasher::new();
     content.hash(&mut hasher);
@@ -140,7 +148,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let str = include_str!("../../resources/sample.py");
-        let _doc = parse_code_string(str).unwrap();
+        let _doc = parse_code_string(str.into()).unwrap();
     }
 
     // #[test]
@@ -155,7 +163,7 @@ mod tests {
     #[test]
     fn test_serialize() {
         let str = include_str!("../../resources/sample.rs");
-        let doc = parse_code_string(str).unwrap();
+        let doc = parse_code_string(str.into()).unwrap();
 
         let _res = serde_json::to_string(&doc).unwrap();
     }

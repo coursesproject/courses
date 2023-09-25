@@ -22,16 +22,11 @@ $inline$|label$$block$$|label$a(b{c[d]})$
     (math_block
         (math_lvl: "$")
         (math_body
-            (math_chars: "a")
-            (math_block_paren
-                (math_chars: "b")
-                (math_block_curly
-                    (math_chars: "c")
-                    (math_block_bracket
-                        (math_chars: "d")
-                    )
-                )
+            (math_chars: "a(b")
+            (math_block_curly
+                (math_chars: "c[d]")
             )
+            (math_chars: ")")
         )
     )
 )

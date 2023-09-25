@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context as AContext};
 
+use cowstr::CowStr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -25,6 +26,8 @@ pub struct TemplateDefinition {
     #[serde(rename = "type")]
     pub type_: TemplateType,
     pub script: Option<String>,
+    #[serde(default)]
+    pub required_meta: Vec<String>,
     /// Only present for shortcodes
     pub shortcode: Option<ShortcodeDefinition>,
     /// A map of the templates for each defined output format
@@ -78,8 +81,8 @@ pub enum ShortcodeType {
 /// Describes a parameter for a shortcode
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShortcodeParameter {
-    pub name: String,
-    pub description: String,
+    pub name: CowStr,
+    pub description: CowStr,
     /// Whether the argument can be omitted
     #[serde(default)]
     pub optional: bool,
@@ -93,7 +96,7 @@ pub struct ShortcodeParameter {
 #[serde(rename_all = "lowercase")]
 pub enum ParameterType {
     Regular,
-    Choice(Vec<String>),
+    Choice(Vec<CowStr>),
 }
 
 impl Display for ParameterType {
@@ -291,13 +294,13 @@ impl TemplateDefinition {
                                 .iter()
                                 .find(|sp| &sp.name == key)
                                 .map(|sp| sp.type_.validate(p))
-                                .ok_or(ValidationError::InvalidName(key.clone()))?
+                                .ok_or(ValidationError::InvalidName(key.to_string()))?
                         }
                     } else {
                         s.parameters
                             .get(i)
                             .map(|sp| sp.type_.validate(p))
-                            .ok_or(ValidationError::InvalidValue(p.value.clone()))?
+                            .ok_or(ValidationError::InvalidValue(p.value.to_string()))?
                     }
                 })
                 .map(|r| r.context(format!("when parsing shortcode '{}'", self.name)))

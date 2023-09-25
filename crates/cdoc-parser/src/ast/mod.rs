@@ -2,56 +2,58 @@ pub mod parser;
 pub mod visitor;
 
 use crate::code_ast::types::CodeContent;
-use crate::common::PosInfo;
+use crate::common::Span;
+use cowstr::CowStr;
 use pulldown_cmark::LinkType;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
-use crate::raw::CodeAttr;
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct Ast(pub Vec<Block>);
+pub struct Ast {
+    pub blocks: Vec<Block>,
+    pub source: CowStr,
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Command {
-    pub function: String,
-    pub label: Option<String>,
+    pub function: CowStr,
+    pub label: Option<CowStr>,
     pub parameters: Vec<Parameter>,
     pub body: Option<Vec<Block>>,
-    pub pos: PosInfo,
+    pub span: Span,
     pub global_idx: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CodeBlock {
     /// Label
-    pub label: Option<String>,
+    pub label: Option<CowStr>,
     /// Code source
     pub source: CodeContent,
     /// Code tags
-    pub attributes: Vec<String>,
+    pub attributes: Vec<CowStr>,
     /// Display the block as a cell or listing (only used for notebooks)
     pub display_cell: bool,
     pub global_idx: usize,
-    pub pos: PosInfo,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Math {
-    pub source: String,
-    pub label: Option<String>,
+    pub source: CowStr,
+    pub label: Option<CowStr>,
     pub display_block: bool,
-    pub pos: PosInfo,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Inline {
     /// Plain text
-    Text(String),
+    Text(CowStr),
     Styled(Vec<Inline>, Style),
     /// Inline code
-    Code(String),
+    Code(CowStr),
     /// A code block. May originate from markdown fenced code blocks or notebook code cells.
     CodeBlock(CodeBlock),
     SoftBreak,
@@ -59,11 +61,11 @@ pub enum Inline {
     /// Horizontal rule
     Rule,
     /// An inline image (usually originates from a markdown image spec)
-    Image(LinkType, String, String, Vec<Inline>),
+    Image(LinkType, CowStr, CowStr, Vec<Inline>),
     /// An inline link (usually originates from a markdown link spec)
-    Link(LinkType, String, String, Vec<Inline>),
+    Link(LinkType, CowStr, CowStr, Vec<Inline>),
     /// Unescaped html.
-    Html(String),
+    Html(CowStr),
     /// Math element (may be inline or display)
     /// The trailing space element is necessary due to the way parsing currently works with
     /// pulldown_cmark.
@@ -73,15 +75,15 @@ pub enum Inline {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
-    pub key: Option<String>,
+    pub key: Option<CowStr>,
     pub value: Value,
-    pub pos: PosInfo,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Reference {
     pub obj_type: String,
-    pub attr: LinkedHashMap<String, String>,
+    pub attr: LinkedHashMap<CowStr, CowStr>,
     pub num: usize,
 }
 
@@ -102,17 +104,17 @@ pub struct Reference {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
-    Flag(String),
+    Flag(CowStr),
     Content(Vec<Block>),
-    String(String),
+    String(CowStr),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Block {
     Heading {
         lvl: u8,
-        id: Option<String>,
-        classes: Vec<String>,
+        id: Option<CowStr>,
+        classes: Vec<CowStr>,
         inner: Vec<Inline>,
     },
     Plain(Vec<Inline>),

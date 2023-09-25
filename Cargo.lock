@@ -138,6 +138,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayref"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b4930d2cb77ce62f89ee5d5289b4ac049559b1c45539271f5ed4fdc7db34545"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -212,6 +224,20 @@ name = "bitflags"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4682ae6287fcf752ecaabbfcc7b6f9b72aa33933dc23a554d853aea8eea8635"
+
+[[package]]
+name = "blake3"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0231f06152bf547e9c2b5194f247cd97aacf6dcd8b15d8e5ec0663f64580da87"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq 0.3.0",
+ "serde",
+]
 
 [[package]]
 name = "block-buffer"
@@ -322,6 +348,7 @@ dependencies = [
  "base64 0.21.4",
  "cdoc-parser",
  "clap",
+ "cowstr",
  "dirs",
  "dyn-clone",
  "include_dir",
@@ -338,7 +365,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "serde_yaml 0.9.25",
- "syntect",
  "tera",
  "thiserror",
  "toml",
@@ -356,6 +382,7 @@ dependencies = [
  "cowstr",
  "lazy_static",
  "linked-hash-map",
+ "nanoid",
  "paste",
  "pest",
  "pest-test",
@@ -548,6 +575,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "constant_time_eq"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
+
+[[package]]
 name = "constptr"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -575,12 +608,14 @@ version = "0.9.0-alpha.3"
 dependencies = [
  "anyhow",
  "base64-simd",
+ "blake3",
  "built",
  "bytes",
  "cdoc",
  "cdoc-parser",
  "clap",
  "console",
+ "cowstr",
  "fs_extra",
  "image",
  "indicatif",
@@ -615,6 +650,8 @@ checksum = "12fdf07282e36b7d524d8a563f7c59e4cff4f1024bf75aadd297c044234fdee9"
 dependencies = [
  "constptr",
  "mutants",
+ "serde",
+ "serde_test",
 ]
 
 [[package]]
@@ -2612,6 +2649,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_test"
+version = "1.0.176"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a2f49ace1498612d14f7e0b8245519584db8299541dfe31a06374a828d620ab"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3699,7 +3745,7 @@ dependencies = [
  "aes",
  "byteorder",
  "bzip2",
- "constant_time_eq",
+ "constant_time_eq 0.1.5",
  "crc32fast",
  "crossbeam-utils",
  "flate2",

@@ -4,96 +4,98 @@ pub use parser::*;
 use std::collections::HashMap;
 
 use crate::code_ast::types::CodeContent;
-use crate::common::PosInfo;
+use crate::common::Span;
+use cowstr::{CowStr, SubStr};
 use serde::{Deserialize, Serialize};
 use std::io::{BufWriter, Write};
 
 #[derive(Debug, PartialEq, Default)]
 pub struct RawDocument {
     pub(crate) src: Vec<ElementInfo>,
-    pub(crate) meta: Option<String>,
-    pub(crate) references: HashMap<String, Reference>,
+    pub(crate) input: CowStr,
+    pub(crate) meta: Option<CowStr>,
+    pub(crate) references: HashMap<CowStr, Reference>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Reference {
-    Math(String),
-    Code(String),
-    Command(String, Vec<Parameter>),
+    Math(CowStr),
+    Code(CowStr),
+    Command(CowStr, Vec<Parameter>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Element {
-    Markdown(String),
-    Special(Option<String>, Special),
+    Markdown(CowStr),
+    Special(Option<CowStr>, Special),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Special {
     Math {
-        inner: String,
+        inner: CowStr,
         is_block: bool,
     },
     CodeInline {
-        inner: String,
+        inner: CowStr,
     },
     CodeBlock {
         lvl: usize,
         inner: CodeContent,
-        attributes: Vec<String>,
+        attributes: Vec<CowStr>,
     },
     Command {
-        function: String,
+        function: CowStr,
         parameters: Vec<Parameter>,
         body: Option<Vec<ElementInfo>>,
     },
     Verbatim {
-        inner: String,
+        inner: CowStr,
     },
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CodeAttr {
-    pub key: Option<String>,
-    pub value: String,
+    pub key: Option<CowStr>,
+    pub value: CowStr,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ElementInfo {
     pub(crate) element: Element,
-    pub(crate) pos: PosInfo,
+    pub(crate) span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
-    pub key: Option<String>,
+    pub key: Option<CowStr>,
     pub value: Value,
-    pub pos: PosInfo,
+    pub span: Span,
 }
 
 impl Parameter {
-    pub fn with_value(value: Value, pos: PosInfo) -> Self {
+    pub fn with_value(value: Value, pos: Span) -> Self {
         Self {
             key: None,
             value,
-            pos,
+            span: pos,
         }
     }
 
-    pub fn with_key<C: Into<String>>(key: C, value: Value, pos: PosInfo) -> Self {
+    pub fn with_key<C: Into<CowStr>>(key: C, value: Value, pos: Span) -> Self {
         Self {
             key: Some(key.into()),
             value,
-            pos,
+            span: pos,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    Flag(String),
+    Flag(CowStr),
     Content(Vec<ElementInfo>),
-    String(String),
+    String(CowStr),
 }
 
 impl ToString for Value {
@@ -101,7 +103,7 @@ impl ToString for Value {
         match self {
             Value::Flag(k) => format!("Flag: {k}"),
             Value::Content(_) => "Content".to_string(),
-            Value::String(s) => s.clone(),
+            Value::String(s) => s.to_string(),
         }
     }
 }
@@ -109,13 +111,13 @@ impl ToString for Value {
 #[derive(Clone)]
 pub struct Child {
     pub elem: Special,
-    pub pos: PosInfo,
-    pub label: Option<String>,
+    pub span: Span,
+    pub label: Option<CowStr>,
     pub identifier: usize,
 }
 
 pub struct ComposedMarkdown {
-    pub src: String,
+    pub src: CowStr,
     pub children: Vec<Child>,
 }
 
@@ -167,7 +169,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
 
                     children.push(Child {
                         elem: inner,
-                        pos: elem.pos,
+                        span: elem.span,
                         label,
                         identifier,
                     });
@@ -177,7 +179,7 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
         }
 
         ComposedMarkdown {
-            src: String::from_utf8(writer.into_inner().unwrap()).unwrap(),
+            src: CowStr::from(String::from_utf8(writer.into_inner().unwrap()).unwrap()),
             children,
         }
     }

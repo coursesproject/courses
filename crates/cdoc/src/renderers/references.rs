@@ -1,10 +1,7 @@
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Block, CodeBlock, Command, Math, Parameter, Reference, Value};
-use cdoc_parser::code_ast::types::{CodeContent, CodeElem};
-use cdoc_parser::raw::CodeAttr;
-use cdoc_parser::PosInfo;
+use cdoc_parser::ast::{CodeBlock, Command, Math, Reference, Value};
+
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashMap;
 
 pub struct ReferenceVisitor {
     pub(crate) references: LinkedHashMap<String, Reference>,
@@ -53,7 +50,7 @@ impl AstVisitor for ReferenceVisitor {
             .iter()
             .filter_map(|p| {
                 p.key.as_ref().and_then(|k| match &p.value {
-                    Value::String(s) => Some((k.to_string(), s.clone())),
+                    Value::String(s) => Some((k.clone(), s.clone())),
                     _ => None,
                 })
             })

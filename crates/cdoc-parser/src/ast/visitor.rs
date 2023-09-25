@@ -1,9 +1,7 @@
-use crate::ast::{Block, CodeBlock, Command, Inline, Math, Parameter, Style};
-use crate::code_ast::types::{CodeContent, CodeElem};
-use crate::common::PosInfo;
-use crate::raw::CodeAttr;
+use crate::ast::{Block, CodeBlock, Command, Inline, Math, Style};
+
 use anyhow::Result;
-use linked_hash_map::LinkedHashMap;
+use cowstr::CowStr;
 
 /// Implements the visitor pattern for the cdoc Ast type. Blanket implementations are provided so
 /// implementors only have to implement the methods they need to modify.
@@ -74,14 +72,14 @@ pub trait AstVisitor {
         Ok(())
     }
 
-    fn visit_code(&mut self, _source: &mut String) -> Result<()> {
+    fn visit_code(&mut self, _source: &mut CowStr) -> Result<()> {
         Ok(())
     }
 
     fn visit_math(&mut self, _math: &mut Math) -> Result<()> {
         Ok(())
     }
-    fn visit_math_inline(&mut self, _source: &mut String) -> Result<()> {
+    fn visit_math_inline(&mut self, _source: &mut CowStr) -> Result<()> {
         Ok(())
     }
 

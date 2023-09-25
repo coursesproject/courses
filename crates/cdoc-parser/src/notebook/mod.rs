@@ -8,6 +8,7 @@ use crate::ast::Ast;
 use crate::document::{CodeOutput, Document, Image, Metadata, Outval};
 
 use linked_hash_map::LinkedHashMap;
+use nanoid::nanoid;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -74,6 +75,8 @@ pub enum Cell {
 /// Stuff common to all cell types
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CellCommon {
+    #[serde(default = "get_id")]
+    pub id: String,
     pub metadata: CellMeta,
     /// Cell sources are stored as lists of source lines in the notebook file.
     /// It is parsed into a single string for convenience (and is deserialized to the list representation).
@@ -82,6 +85,10 @@ pub struct CellCommon {
         serialize_with = "concatenate_serialize"
     )]
     pub source: String,
+}
+
+fn get_id() -> String {
+    nanoid!()
 }
 
 /// Stream type used for stream output.
@@ -117,7 +124,8 @@ pub enum CellOutput {
     /// Complex output values (correspond to mime-types)
     #[serde(rename = "display_data", alias = "execute_result")]
     Data {
-        execution_count: Option<i64>,
+        #[serde(default)]
+        execution_count: i64,
         /// The content of the output (may be multiple)
         #[serde_as(as = "EnumMap")]
         data: Vec<OutputValue>,
@@ -192,6 +200,7 @@ pub struct NotebookMeta {
 }
 
 /// Controls cell display and function in notebook applications and is also used for rendering outputs.
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CellMeta {
     /// Cell is collapsed (can be shown).
@@ -209,6 +218,7 @@ pub struct CellMeta {
 }
 
 /// Extra metadata for the JupyterLab application
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct JupyterLabMeta {
     /// Hide cell outputs
@@ -376,7 +386,7 @@ mod tests {
     use crate::ast;
     use crate::ast::{Block, Command, Inline};
     use crate::code_ast::types::{CodeContent, CodeElem};
-    use crate::common::PosInfo;
+    use crate::common::Span;
     use std::fs::File;
     use std::io::BufReader;
     use std::path::PathBuf;
@@ -400,18 +410,20 @@ mod tests {
             cells: vec![
                 Cell::Markdown {
                     common: CellCommon {
+                        id: "id".to_string(),
                         metadata: Default::default(),
                         source: "# Heading\n#func".to_string(),
                     },
                 },
                 Cell::Code {
                     common: CellCommon {
+                        id: "id".to_string(),
                         metadata: Default::default(),
                         source: "print('x')".to_string(),
                     },
                     execution_count: None,
                     outputs: vec![CellOutput::Data {
-                        execution_count: None,
+                        execution_count: 0,
                         data: vec![OutputValue::Plain(vec!["x".to_string()])],
                         metadata: Default::default(),
                     }],
@@ -421,46 +433,44 @@ mod tests {
 
         let expected = Document {
             meta: Default::default(),
-            content: Ast(vec![
-                Block::Heading {
-                    lvl: 1,
-                    id: None,
-                    classes: vec![],
-                    inner: vec![Inline::Text("Heading".to_string())],
-                },
-                Block::Plain(vec![Inline::Command(Command {
-                    function: "func".to_string(),
-                    label: None,
-                    parameters: vec![],
-                    body: None,
-                    pos: PosInfo {
-                        input: "\n# Heading\n#func\n\n```\nprint('x')\n```\n".to_string(),
-                        start: 11,
-                        end: 16,
+            content: Ast {
+                blocks: vec![
+                    Block::Heading {
+                        lvl: 1,
+                        id: None,
+                        classes: vec![],
+                        inner: vec![Inline::Text("Heading".into())],
                     },
-                    global_idx: 0,
-                })]),
-                Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
-                    label: None,
-                    source: CodeContent {
-                        blocks: vec![CodeElem::Src("print('x')\n".to_string())],
-                        meta: Default::default(),
-                        hash: 14255542742518776859,
-                    },
-                    attributes: vec![],
-                    display_cell: false,
-                    global_idx: 0,
-                    pos: PosInfo {
-                        input: "\n# Heading\n#func\n\n```\nprint('x')\n```\n".to_string(),
-                        start: 18,
-                        end: 36,
-                    },
-                })]),
-            ]),
+                    Block::Plain(vec![Inline::Command(Command {
+                        function: "func".into(),
+                        label: None,
+                        parameters: vec![],
+                        body: None,
+                        span: Span::new(11, 16),
+                        global_idx: 0,
+                    })]),
+                    Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
+                        label: None,
+                        source: CodeContent {
+                            blocks: vec![CodeElem::Src("print('x')\n\n".into())],
+                            meta: LinkedHashMap::from_iter(
+                                [("tags".into(), "".into())].into_iter(),
+                            ),
+                            hash: 14521985544978239724,
+                        },
+                        attributes: vec!["python".into(), "cell".into()],
+                        display_cell: false,
+                        global_idx: 0,
+                        span: Span::new(18, 58),
+                    })]),
+                ],
+                source: "\n# Heading\n#func\n\n```python, cell\n#| tags: \nprint('x')\n```\n"
+                    .into(),
+            },
             code_outputs: HashMap::from([(
                 14255542742518776859,
                 CodeOutput {
-                    values: vec![Outval::Text("x".to_string())],
+                    values: vec![Outval::Text("x".into())],
                 },
             )]),
         };
