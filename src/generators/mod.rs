@@ -98,7 +98,7 @@ impl Generator<'_> {
         }
 
         let mut base = Context::new();
-        base.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+        base.insert("project", &self.project);
         base.insert("config", &self.config);
 
         let res = project_vec
@@ -163,7 +163,7 @@ impl Generator<'_> {
         doc_info: &ContentItemDescriptor<()>,
     ) -> anyhow::Result<()> {
         let mut base = Context::new();
-        base.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+        base.insert("project", &self.project);
         base.insert("config", &self.config);
         self.process(&base, doc, doc_info)
     }
