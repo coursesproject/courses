@@ -1,12 +1,8 @@
 *.DS_Store
 docs/build/
-docs/.cache/
-docs/node_modules/
-docs/scripts/__static__.d.rhai
 /target
 .idea/codeStyles/
 .fleet/
 .python-version
 .idea/qmlSettings.xml
 flamegraph.svg
-crates/github-package-repo/

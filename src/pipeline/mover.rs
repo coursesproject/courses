@@ -1,12 +1,12 @@
 use anyhow::Context;
-use cowstr::CowStr;
 use std::fs;
 use std::path::PathBuf;
 
 use crate::project::config::{Mode, Profile};
-use crate::project::{ContentItem, ContentResultX};
+use crate::project::{ContentItem, ContentResultS};
 use cdoc::parser::ParserSettings;
-use cdoc_parser::code_ast::parse_code_string;
+use cdoc::parsers::split::parse_code_string;
+use cdoc::parsers::split_types::Output;
 
 /// Type that implements copying resource files from within a project's content folder to
 /// the build output folder.
@@ -34,7 +34,7 @@ impl Mover<'_> {
         self.project_path.join("content")
     }
 
-    fn get_children_dirs(&self, children: &[ContentResultX]) -> Vec<String> {
+    fn get_children_dirs(&self, children: &[ContentResultS]) -> Vec<String> {
         children
             .iter()
             .filter_map(|c| match c {
@@ -44,7 +44,7 @@ impl Mover<'_> {
             .collect()
     }
 
-    pub fn traverse_content(&self, item: &ContentResultX) -> anyhow::Result<()> {
+    pub fn traverse_content(&self, item: &ContentResultS) -> anyhow::Result<()> {
         if let ContentItem::Section {
             section_id,
             section_path,
@@ -58,7 +58,7 @@ impl Mover<'_> {
                     .content
                     .as_ref()
                     .as_ref()
-                    .map(|c| !c.meta.draft)
+                    .map(|c| !c.metadata.draft)
                     .unwrap_or(true)
             {
                 let dir_path = self.content_path().join(section_path);
@@ -110,18 +110,17 @@ impl Mover<'_> {
                                         entry_path.as_path().display()
                                     )
                                 })?;
-                            let parsed = parse_code_string(CowStr::from(input))?;
-                            let output = parsed.to_string(self.settings.solutions)?;
+                            let parsed = parse_code_string(&input)?;
+                            let output = parsed.write_string(self.settings.solutions);
 
                             // let mut file = fs::OpenOptions::new().write(true).create(true).append(false).open(section_build_path)?;
                             // file.write_all(output.as_bytes())?;
+                            fs::create_dir_all(dest.as_path())?;
 
-                            fs::create_dir_all(dest.as_path().parent().unwrap())?;
-
-                            fs::write(dest.clone(), output).with_context(|| {
+                            fs::write(dest, output).with_context(|| {
                                 format!(
                                     "failed to write python file at {}",
-                                    dest.as_path().display()
+                                    entry_path.as_path().display()
                                 )
                             })?;
                         }

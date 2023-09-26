@@ -1,9 +1,9 @@
 use crate::project::config::Mode;
 use anyhow::{anyhow, Context as AContext};
 use cdoc::config::Format;
+use cdoc::document::Document;
 use cdoc::renderers::RenderResult;
 use cdoc::templates::{TemplateManager, TemplateType};
-use cdoc_parser::document::Document;
 use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
 use std::fs;
@@ -11,21 +11,22 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
-
 use tera::Context;
 
 use crate::project::config::ProjectConfig;
-use crate::project::{ContentItemDescriptor, ContentResultX, ProjectItemContentVec};
+use crate::project::{ContentItemDescriptor, ContentResultS, ProjectItemVec};
 
 /// This type is responsible for writing the final output for a given format.
 /// For formats that use layouts, this is where the document content is rendered into the layout
 /// template.
-// #[derive(Clone)]
+#[derive(Clone)]
 pub struct Generator<'a> {
     /// Project root
     pub root: PathBuf,
+    /// Rendered content as a vector. This format is used to enable parallelization.
+    pub project_vec: &'a ProjectItemVec,
     /// Structured project for inclusion in layout templates.
-    pub project: &'a ContentResultX,
+    pub project: ContentResultS,
     /// Template manager is used to render the layout.
     pub templates: &'a TemplateManager,
     /// The project configuration is included in template contexts.
@@ -70,11 +71,7 @@ impl Generator<'_> {
     }
 
     /// Run the generator.
-    pub fn generate(
-        &self,
-        bar: ProgressBar,
-        project_vec: &ProjectItemContentVec,
-    ) -> anyhow::Result<Vec<anyhow::Result<String>>> {
+    pub fn generate(&self, bar: ProgressBar) -> anyhow::Result<()> {
         if self.format.include_resources() {
             let resource_path_src = self.root.join("resources");
             let resource_path_build_dir = self.build_dir.as_path().join("resources");
@@ -93,32 +90,29 @@ impl Generator<'_> {
                 })?;
         }
 
-        let mut base = Context::new();
-        base.insert("project", &self.project);
-        base.insert("config", &self.config);
-
-        let res = project_vec
-            // .iter()
+        let res: anyhow::Result<()> = self
+            .project_vec
             .par_iter()
             .progress_with(bar)
             .map(|item| {
                 if let Some(c) = item.doc.content.deref() {
-                    self.process(&base, c, item)?;
+                    self.process(c, item)?;
                 }
-                Ok(item.doc.path.to_str().unwrap().to_string())
+                Ok(())
             })
             .collect();
-        Ok(res)
+        res?;
+
+        Ok(())
     }
 
     /// This method writes (and renders into template if applicable) a single document.
     pub fn process<T>(
         &self,
-        args: &Context,
         doc: &Document<RenderResult>,
         item: &ContentItemDescriptor<T>,
     ) -> anyhow::Result<()> {
-        if !(self.mode == Mode::Release && doc.meta.draft) {
+        if !(self.mode == Mode::Release && doc.metadata.draft) {
             let mut writer = self
                 .get_writer(&item.doc.id, &item.doc.path, item.is_section)
                 .with_context(|| {
@@ -128,17 +122,21 @@ impl Generator<'_> {
                     )
                 })?;
             if let Some(layout_id) = self.format.layout() {
-                let mut args = args.clone();
-                args.insert("current_path", &item.path);
-
-                args.insert("doc", &doc);
-                args.insert("mode", &self.mode);
+                let mut context = Context::default();
+                context.insert("project", &self.project); // TODO: THis is very confusing but I'm keeping it until I have a base working version of the new cdoc crate.
+                context.insert("config", &self.config);
+                context.insert("current_path", &item.path);
+                // context.insert("current_part", &item.part_id);
+                // context.insert("current_chapter", &item.chapter_id);
+                // context.insert("current_doc", &item.doc.id);
+                context.insert("doc", &doc);
+                context.insert("mode", &self.mode);
 
                 self.templates.render(
                     &layout_id,
                     self.format.template_prefix(),
                     TemplateType::Layout,
-                    &args,
+                    &context,
                     &mut writer,
                 )?;
             } else {
@@ -154,13 +152,10 @@ impl Generator<'_> {
 
     /// Function that writes only a single file.
     pub fn generate_single(
-        &mut self,
+        &self,
         doc: &Document<RenderResult>,
         doc_info: &ContentItemDescriptor<()>,
     ) -> anyhow::Result<()> {
-        let mut base = Context::new();
-        base.insert("project", &self.project);
-        base.insert("config", &self.config);
-        self.process(&base, doc, doc_info)
+        self.process(doc, doc_info)
     }
 }

@@ -1,0 +1,68 @@
+//WHITESPACE = _{ " " }
+SPACE = _{" "|"\t"}
+SPACES = _{SPACE*}
+
+COMMENT_SYMBOLS = _{"#"|"/"}
+//COMMENT_DEF = _{PEEK[0..1]} // FAST version : _{"#"}
+COMMENT_DEF = _{"#"}
+
+TAG_OPEN = _{"<<"}
+TAG_CLOSE = _{">>"}
+MARKUP = _{COMMENT_DEF ~ "|"}
+REGULAR_COMMENT = _{COMMENT_DEF ~ !"|"}
+
+attr_name = {LETTER+}
+attr_value = {(LETTER|" ")+}
+attr = {attr_name ~ "=" ~ attr_value}
+attributes = { "{" ~ attr ~ ("," ~ SPACES ~ attr)* ~ "}"}
+
+TASK = _{"TASK"}
+TEST = _{"TEST"}
+keyword = {TASK | TEST}
+
+CODE = _{"CODE"}
+SOLUTION = _{"SOLUTION"}
+
+END = _{NEWLINE}
+
+str = {(!NEWLINE ~ ANY)*}
+silent_str = _{(!NEWLINE ~ ANY)*}
+
+
+markup = {(!TAG_CLOSE ~ !keyword ~ !NEWLINE ~ !TAG_OPEN ~ ANY)*}
+markup_wrap = _{ SPACES ~ MARKUP ~ SPACES ~ markup}
+
+comment_space = {SPACE*}
+source_comment = { comment_space ~ REGULAR_COMMENT ~ SPACES ~ str}
+source_code = {(!(NEWLINE|MARKUP) ~ ANY)*}
+
+
+block_def = _{ MARKUP ~ SPACES ~ TAG_OPEN ~ SPACES ~ PUSH(keyword) ~ SPACES ~ attributes }
+end_tag = _{("END_" ~ POP)}
+block_end = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ end_tag }
+
+code_block_def = _{ MARKUP ~ SPACES ~ SPACES ~ CODE}
+code_block_solution = _{ SPACES ~ MARKUP ~ SPACES ~ SPACES ~ SOLUTION ~ SPACES }
+end_code = _{("END_" ~ CODE)}
+code_block_end = _{ SPACES ~ MARKUP ~ SPACES ~ TAG_CLOSE ~ SPACES ~ end_code }
+
+
+source_code_block = @{((source_comment | source_code) ~ END)+}
+
+source_comment_block = {((source_comment) ~ END)+}
+markup_block = ${(SPACES ~ markup_wrap ~ END)+}
+
+block_content = {((code_block ~ END | markup_block | source_code_block))*}
+block = {block_def ~ NEWLINE ~ block_content ~ block_end }
+
+
+placeholder = {((markup_block | source_comment_block))*}
+solution = {((markup_block | source_code_block))*}
+code_block = {SPACES ~ code_block_def ~ NEWLINE ~ placeholder ~ code_block_solution ~ NEWLINE ~ solution ~ code_block_end }
+
+top_level = _{SPACES ~ (block ~ END | code_block ~ END | markup_block | source_code_block)}
+
+comment_def = {PUSH(COMMENT_SYMBOLS+)}
+comment_set = _{comment_def ~"|" ~ SPACES ~ "DOC" ~ silent_str ~ END}
+
+doc = _{top_level+}
