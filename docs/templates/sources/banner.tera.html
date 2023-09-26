@@ -1,5 +1,11 @@
 
+<style>
 
+
+    /*.banner .card-content {*/
+    /*    height: 180px;*/
+    /*}*/
+</style>
 
 <div class="columns has-text-centered">
     <div class="column">
@@ -9,43 +15,62 @@
     </div>
 </div>
 
-<div class="not-prose">
-    <div class="columns-3">
-        <div class="card bg-base-100 shadow-xl break-inside-avoid-column">
-            <div class="card-body" >
-                <h2 class="card-title">IPython Notebooks and Markdown</h2>
-                <p>
+<div class="columns is-multiline banner">
+    <div class="column is-one-third">
+        <div class="card">
+            <div class="card-header has-background-danger">
+                <p class="card-header-title">IPython Notebooks and Markdown</p>
+            </div>
+            <div class="card-content" >
+                <p class="content">
                     Use notebooks and markdown files interchangeably for content files and generate an output notebook
                     collection alongside the webpage.
                     <!--                    Create webpages and notebook collections from <code>.ipynb</code> and <code>.md</code> files. Output-->
                     <!--                    formats are configurable per content file and can include both. A typical use case is to create the-->
                     <!--                    main content as a webpage with supplementary exercises as notebooks.-->
                 </p>
-                <div class="card-actions">
-                    <a href="{{config.url_prefix}}/documentation" class="btn btn-primary">Read docs</a>
-                </div>
-
             </div>
-        </div>
-        <div class="card bg-primary text-primary-content break-inside-avoid-column">
-            <div class="card-body">
-                <h2 class="card-title">Perfect for learning materials</h2>
-                <p>Write exercises/tasks and their solutions in single, testable, content and source files. Marked
-                    sections are removed
-                    automatically from the output.</p>
-                <a href="{{config.url_prefix}}/documentation/05_exercise_tools.html" class="card-footer-item">Read docs</a>
-            </div>
-        </div>
-        <div class="card bg-primary text-primary-content break-inside-avoid-column">
-            <div class="card-body">
-                <h2 class="card-title">Live-reload</h2>
-                <p>Courses can serve and automatically rebuild and reload a project's outputs whenever a source file
-                    change is detected. This allows for a very visual writing workflow.</p>
-                <a href="{{config.url_prefix}}/documentation/02_project_organisation.html" class="card-footer-item">Read docs</a>
+            <div class="card-footer">
+                <a href="{{config.url_prefix}}/documentation" class="card-footer-item">Read docs</a>
             </div>
         </div>
     </div>
+    <div class="column is-one-third">
+        <div class="card">
+            <div class="card-header has-background-warning">
+                <p class="card-header-title">Perfect for learning materials</p>
+            </div>
+            <div class="card-content">
+                <p class="content">
+                    Write exercises/tasks and their solutions in single, testable, content and source files. Marked
+                    sections are removed
+                    automatically from the output.
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="{{config.url_prefix}}/documentation/05_exercise_tools.html" class="card-footer-item">Read docs</a>
+            </div>
+        </div>
+    </div>
+    <div class="column is-one-third">
+        <div class="card" style="height: 100%">
+            <div class="card-header has-background-primary">
+                <p class="card-header-title">Live-reload</p>
+            </div>
+            <div class="card-content">
 
+                <p class="content">
+                    Courses can serve and automatically rebuild and reload a project's outputs whenever a source file
+                    change is detected. This allows for a very visual writing workflow.
+                </p>
+
+            </div>
+            <div class="card-footer">
+                <a href="{{config.url_prefix}}/documentation/02_project_organisation.html" class="card-footer-item">Read docs</a>
+            </div>
+        </div>
+
+    </div>
     <div class="column is-one-third">
         <div class="card" style="height: 100%">
             <div class="card-header has-background-primary">

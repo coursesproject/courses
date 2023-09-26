@@ -11,11 +11,6 @@ This version focuses on the experience of writing and testing code.
 
 <div class="columns is-multiline banner">
 
-
-#card(Improved code split syntax, color=primary) {
-Simplify and improve the code split syntax by making placeholders optional and by removing unnecessary elements.
-}
-
 {% card(title="Improved code split syntax", color=primary) %}
 Simplify and improve the code split syntax by making placeholders optional and by removing unnecessary elements.
 {% end %}

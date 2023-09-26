@@ -12,15 +12,11 @@ use console::style;
 
 use inquire::{InquireError, Select};
 use linked_hash_map::LinkedHashMap;
-#[cfg(feature = "server")]
 use notify::{RecommendedWatcher, RecursiveMode};
-#[cfg(feature = "server")]
 use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
-#[cfg(feature = "server")]
 use penguin::Server;
-
 use semver::{Version, VersionReq};
 
 use courses::pipeline::Pipeline;
@@ -43,7 +39,6 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Build and serve the project locally. Recompiles whenever a file change is detected.
-    #[cfg(feature = "server")]
     Serve {
         /// Optional path to the project root directory (that contains config.yml).
         #[arg(short, long)]
@@ -51,9 +46,6 @@ enum Commands {
         /// Build profile (defined in config.yml).
         #[arg(short = 'o', long, default_value = "draft")]
         profile: String,
-
-        #[arg(short, long)]
-        clean: bool,
     },
     /// Build the project with the given profile.
     Build {
@@ -63,8 +55,6 @@ enum Commands {
         /// Build profile (defined in config.yml).
         #[arg(short = 'o', long, default_value = "release")]
         profile: String,
-        #[arg(short, long)]
-        clean: bool,
     },
     /// Create a new courses project.
     Init {
@@ -75,10 +65,6 @@ enum Commands {
     },
     Create {},
     Test {},
-    Clean {
-        #[arg(short, long)]
-        path: Option<PathBuf>,
-    },
     /// Run a project script (as defined in config.yml)
     Run {
         /// Script name.
@@ -166,12 +152,6 @@ async fn cli_run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Clean { path } => {
-            let path = path_with_default(path)?;
-            fs::remove_dir_all(path.join(".cache"))?;
-            fs::remove_dir_all(path.join("build"))?;
-            Ok(())
-        }
         Commands::Update { path, version } => {
             let mut cmd = Command::new("cargo");
             if let Some(version) = version {
@@ -192,7 +172,7 @@ async fn cli_run() -> anyhow::Result<()> {
             let _status = res.wait()?;
             Ok(())
         }
-        Commands::Build { path, profile, .. } => {
+        Commands::Build { path, profile } => {
             let current_time = SystemTime::now();
             let (mut pipeline, _) = init_and_build(path, profile)?;
             pipeline.build_all(true)?;
@@ -219,8 +199,7 @@ async fn cli_run() -> anyhow::Result<()> {
             // assert!(output.status.success());
             Ok(())
         }
-        #[cfg(feature = "server")]
-        Commands::Serve { path, profile, .. } => {
+        Commands::Serve { path, profile } => {
             // Used for measuring build time
             let current_time = SystemTime::now();
 
@@ -248,12 +227,13 @@ async fn cli_run() -> anyhow::Result<()> {
                 pipeline.project_config.url_prefix
             );
 
-            let notify_config =
-                notify_debouncer_mini::Config::default().with_timeout(Duration::from_millis(100));
+            let notify_config = notify::Config::default();
 
             // Notifier that watches for file changes.
-            let mut debouncer: Debouncer<RecommendedWatcher> =
-                new_debouncer_opt(notify_config, move |res: DebounceEventResult| match res {
+            let mut debouncer: Debouncer<RecommendedWatcher> = new_debouncer_opt(
+                Duration::from_millis(100),
+                None,
+                move |res: DebounceEventResult| match res {
                     Ok(events) => events.iter().for_each(|event| {
                         // Only listen for this specific kind of event that is emitted for
                         // file changes on any operating system.
@@ -276,10 +256,10 @@ async fn cli_run() -> anyhow::Result<()> {
                                         let res = pipeline.reload_templates();
                                         err_print(res);
                                         println!("{}", style("reloaded templates").green());
-                                        let res = pipeline.build_all(true);
+                                        let res = pipeline.build_all(false);
                                         err_print(res);
                                     } else if p.starts_with(Path::new("scripts")) {
-                                        let res = pipeline.build_all(true);
+                                        let res = pipeline.build_all(false);
                                         err_print(res);
                                     }
 
@@ -300,8 +280,10 @@ async fn cli_run() -> anyhow::Result<()> {
                             }
                         }
                     }),
-                    Err(errs) => errs.paths.iter().for_each(|e| println!("Error {:?}", e)),
-                })?;
+                    Err(errs) => errs.iter().for_each(|e| println!("Error {:?}", e)),
+                },
+                notify_config,
+            )?;
 
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
@@ -492,8 +474,8 @@ fn err_print(res: anyhow::Result<()>) {
     }
 }
 
-#[cfg_attr(feature = "server", tokio::main)]
-#[cfg_attr(feature = "no-server", pollster::main)]
+#[tokio::main]
+// #[pollster::main]
 async fn main() {
     err_print(cli_run().await)
 }

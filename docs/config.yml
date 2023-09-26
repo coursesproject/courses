@@ -1,7 +1,3 @@
-
-courses:
-  version: "0.8.*"
-
 url_prefix: /courses
 
 plugins:
@@ -40,7 +36,7 @@ profiles:
     mode: draft
     parser: # Parser settings
       preprocessors:
-        - cells: null
+        - exercises: null
 #        - script:
 #            name: "link_checker.rhai"
       solutions: false # Don't include exercise solutions

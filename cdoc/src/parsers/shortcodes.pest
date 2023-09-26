@@ -1,0 +1,20 @@
+WHITESPACE = _{(" "|"\n"|"\t"|"\r")}
+
+
+string_base = _{(ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | " " | "*" | "_" | "." | "," | "`" | ":" | ";" | "%" | "^" | "$" | "\\" | "(" | ")" | "{" | "}" | "\n" | "\t" | "=" | "<" | ">" | "?" | "'")*}
+string_val = {string_base}
+md_val = {string_base}
+string = _{("\""|"“") ~ string_val ~ ("\""|"”")}
+markdown_string = _{"|"~ ("\""|"“") ~ md_val ~ ("\""|"”")}
+basic_val = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | SYMBOL | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")*}
+
+name = {ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC|"_"|"-")*}
+key = {(ASCII_ALPHANUMERIC|"_"|"-")+}
+value = {basic_val|string|markdown_string}
+param = {(key ~ "=" ~ value) | value}
+
+parameters = { "(" ~ param ~ ("," ~ param)* ~ ")" }
+
+id = @{name}
+
+p = _{ name ~ ("#" ~ id)? ~ parameters? ~ EOI }
