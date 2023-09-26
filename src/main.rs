@@ -17,10 +17,13 @@ use notify_debouncer_mini::{
     new_debouncer_opt, DebounceEventResult, DebouncedEventKind, Debouncer,
 };
 use penguin::Server;
+use semver::{Version, VersionReq};
 
 use courses::pipeline::Pipeline;
 use courses::project::config::ProjectConfig;
 use courses::project::{configure_project, from_vec, ContentItem};
+
+use courses::built_info;
 
 mod setup;
 
@@ -73,6 +76,13 @@ enum Commands {
         #[arg(last = true)]
         run_args: Vec<String>,
     },
+    Update {
+        /// Optional path to the project root directory (that contains config.yml).
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+        #[arg(short, long)]
+        version: Option<VersionReq>,
+    },
 }
 
 fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
@@ -86,10 +96,10 @@ fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     })
 }
 
-fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
+fn init_config(path: &Path, allow_incompatible: bool) -> anyhow::Result<ProjectConfig> {
     print!("Reading config...");
     let config_path = path.join("config.toml");
-    let config = if config_path.is_file() {
+    let config: ProjectConfig = if config_path.is_file() {
         let config_input = fs::read_to_string(config_path)?;
         toml::from_str(&config_input).context("Could not load project configuration")?
     } else {
@@ -98,8 +108,16 @@ fn init_config(path: &Path) -> anyhow::Result<ProjectConfig> {
         serde_yaml::from_str(&config_input).context("Could not load project configuration")?
     };
 
-    println!(" {}", style("done").green());
-    Ok(config)
+    let pkg_version = Version::parse(built_info::PKG_VERSION)?;
+    if !allow_incompatible && !config.courses.version.matches(&pkg_version) {
+        Err(anyhow!(format!(
+            "Incompatible courses version ({}) for project requiring {}. Please update courses with `courses update`",
+            pkg_version, config.courses.version
+        )))
+    } else {
+        println!(" {}", style("done").green());
+        Ok(config)
+    }
 }
 
 fn init_project_structure(path: &Path) -> anyhow::Result<ContentItem<()>> {
@@ -120,7 +138,7 @@ fn init_pipeline(
 
 fn init_and_build(path: Option<PathBuf>, profile: String) -> anyhow::Result<(Pipeline, PathBuf)> {
     let path = path_with_default(path)?;
-    let config = init_config(&path)?;
+    let config = init_config(&path, false)?;
     let structure = init_project_structure(&path)?;
 
     // let mut absolute_path = env::current_dir()?;
@@ -135,6 +153,26 @@ async fn cli_run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Update { path, version } => {
+            let mut cmd = Command::new("cargo");
+            if let Some(version) = version {
+                cmd.arg("install")
+                    .arg("courses")
+                    .arg("--version")
+                    .arg(version.to_string());
+            } else {
+                let path = path_with_default(path)?;
+                let config = init_config(&path, true)?;
+                cmd.arg("install")
+                    .arg("courses")
+                    .arg("--version")
+                    .arg(config.courses.version.to_string());
+            }
+
+            let mut res = cmd.spawn()?;
+            let _status = res.wait()?;
+            Ok(())
+        }
         Commands::Build { path, profile } => {
             let current_time = SystemTime::now();
             let (mut pipeline, _) = init_and_build(path, profile)?;
@@ -149,7 +187,7 @@ async fn cli_run() -> anyhow::Result<()> {
             run_args,
         } => {
             let path = path_with_default(path)?;
-            let config = init_config(&path)?;
+            let config = init_config(&path, false)?;
             let s = config.scripts.get(&script).unwrap();
             let mut cmd = Command::new("bash");
 
