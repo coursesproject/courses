@@ -15,6 +15,14 @@ use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
 use semver::VersionReq;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectConfigDummy {
+    pub courses: CoursesConfig,
+
+    #[serde(flatten)]
+    pub everything: HashMap<String, serde_yaml::Value>,
+}
+
 /// Refers to a configuration.yml file in the project that specifies a variety
 /// of options for the project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
