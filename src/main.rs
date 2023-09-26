@@ -20,7 +20,7 @@ use penguin::Server;
 use semver::{Version, VersionReq};
 
 use courses::pipeline::Pipeline;
-use courses::project::config::ProjectConfig;
+use courses::project::config::{ProjectConfig, ProjectConfigDummy};
 use courses::project::{configure_project, from_vec, ContentItem};
 
 use courses::built_info;
@@ -98,26 +98,25 @@ fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 
 fn init_config(path: &Path, allow_incompatible: bool) -> anyhow::Result<ProjectConfig> {
     print!("Reading config...");
-    let config_path = path.join("config.toml");
-    let config: ProjectConfig = if config_path.is_file() {
-        let config_input = fs::read_to_string(config_path)?;
-        toml::from_str(&config_input).context("Could not load project configuration")?
-    } else {
-        let config_path = path.join("config.yml");
-        let config_input = fs::read_to_string(config_path)?;
-        serde_yaml::from_str(&config_input).context("Could not load project configuration")?
-    };
 
-    let pkg_version = Version::parse(built_info::PKG_VERSION)?;
-    if !allow_incompatible && !config.courses.version.matches(&pkg_version) {
-        Err(anyhow!(format!(
+    let config_path = path.join("config.yml");
+    let config_input = fs::read_to_string(config_path)?;
+    if !allow_incompatible {
+        let dummy: ProjectConfigDummy = serde_yaml::from_str(&config_input)?;
+        let pkg_version = Version::parse(built_info::PKG_VERSION)?;
+        if !dummy.courses.version.matches(&pkg_version) {
+            return Err(anyhow!(format!(
             "Incompatible courses version ({}) for project requiring {}. Please update courses with `courses update`",
-            pkg_version, config.courses.version
-        )))
-    } else {
-        println!(" {}", style("done").green());
-        Ok(config)
+            pkg_version, dummy.courses.version
+        )));
+        }
     }
+
+    let config: ProjectConfig =
+        serde_yaml::from_str(&config_input).context("Could not load project configuration")?;
+
+    println!(" {}", style("done").green());
+    Ok(config)
 }
 
 fn init_project_structure(path: &Path) -> anyhow::Result<ContentItem<()>> {
