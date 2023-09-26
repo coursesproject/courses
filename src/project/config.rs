@@ -13,6 +13,7 @@ use semver::VersionReq;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfigDummy {
+    #[serde(default)]
     pub courses: CoursesConfig,
     #[serde(flatten)]
     pub everything: HashMap<String, serde_yaml::Value>,

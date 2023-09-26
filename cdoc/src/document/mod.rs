@@ -16,7 +16,6 @@ use crate::notebook::{Cell, Notebook};
 use crate::parsers::shortcodes::{Argument, ArgumentValue, ShortCodeCall};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct DocumentMetadata {
     pub title: String,
     #[serde(default)]
