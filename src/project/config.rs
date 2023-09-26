@@ -3,17 +3,20 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use cdoc::config::Format;
-use cdoc::notebook::NotebookMeta;
+
 use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
-use cdoc::processors::exercises::ExercisesConfig;
-use cdoc::processors::AstPreprocessorConfig;
+
+use cdoc::renderers::extensions::structure::DocStructureConfig;
+use cdoc::renderers::extensions::RenderExtensionConfig;
+use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
 use semver::VersionReq;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfigDummy {
     pub courses: CoursesConfig,
+
     #[serde(flatten)]
     pub everything: HashMap<String, serde_yaml::Value>,
 }
@@ -22,7 +25,6 @@ pub struct ProjectConfigDummy {
 /// of options for the project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
-    #[serde(default)]
     pub courses: CoursesConfig,
 
     #[serde(default)]
@@ -50,14 +52,6 @@ pub struct CoursesConfig {
     pub version: VersionReq,
 }
 
-impl Default for CoursesConfig {
-    fn default() -> Self {
-        CoursesConfig {
-            version: VersionReq::parse("0.8.3").unwrap(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Profile {
     #[serde(default)]
@@ -66,6 +60,8 @@ pub struct Profile {
     pub parser: Parser,
     #[serde(default)]
     pub formats: Vec<Box<dyn Format>>,
+    #[serde(default)]
+    pub render_extensions: HashMap<String, Vec<Box<dyn RenderExtensionConfig>>>,
     #[serde(default)]
     pub create_filters: bool,
 }
@@ -93,10 +89,18 @@ fn default_profiles() -> HashMap<String, Profile> {
         Profile {
             mode: Mode::Draft,
             parser: Parser {
-                preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
+                preprocessors: vec![],
                 settings: ParserSettings { solutions: true },
             },
             formats: vec![],
+            render_extensions: HashMap::from([(
+                "html".to_string(),
+                vec![Box::new(DocStructureConfig {
+                    max_heading_level: 0,
+                    included_commands: vec![],
+                })
+                    as Box<dyn RenderExtensionConfig + 'static>],
+            )]),
             create_filters: true,
         },
     );
@@ -106,10 +110,18 @@ fn default_profiles() -> HashMap<String, Profile> {
         Profile {
             mode: Mode::Release,
             parser: Parser {
-                preprocessors: vec![Box::new(ExercisesConfig) as Box<dyn AstPreprocessorConfig>],
+                preprocessors: vec![],
                 settings: ParserSettings { solutions: false },
             },
             formats: vec![],
+            render_extensions: HashMap::from([(
+                "html".to_string(),
+                vec![Box::new(DocStructureConfig {
+                    max_heading_level: 0,
+                    included_commands: vec![],
+                })
+                    as Box<dyn RenderExtensionConfig + 'static>],
+            )]),
             create_filters: false,
         },
     );

@@ -13,18 +13,14 @@ Courses supports multiple output formats for shortcodes depending on context. Th
 
 ## Syntax
 
-Shortcodes support two syntaxes:
+The basic syntax
 
-**Inline:** `{{ name(arg1=value1, arg2="a string value") }}`
+[//]: # (TODO: Fix this section)
 
-**Block:**
-
-```html
-{% name(arg1=value, arg2="a string value") %}
-
-Valid markdown markup
-
-{% end %}
+```txt
+#name(arg1=value, arg2="a string value", arg3={markup _emph_}){
+Body that can contain valid markup
+}
 ```
 
 The inline variant simply renders the shortcode template with the provided argument values and replaces the shortcode
@@ -35,7 +31,7 @@ is pre-rendered as html and then passed to the shortcode's template in the `body
 typically written using the block syntax can also be written using the inline syntax with the `body` parameter
 specified manually.*
 
-{% message#hej(color=warning, title="Tip") %}
+#message|id(color=warning, title=Tip){
 
 Shortcodes can be expanded over multiple lines to improve readability. For example:
 
@@ -49,11 +45,11 @@ Shortcodes can be expanded over multiple lines to improve readability. For examp
 The syntax does not use significant whitespace. It therefore does not matter how you choose to indent each line or even
 how many linebreaks there is between arguments.
 
-{% end %}
+}
 
 ## Codes in the default template
 
-{{ shortcode_docs }}
+#shortcode_docs
 
 ## Custom shortcodes
 

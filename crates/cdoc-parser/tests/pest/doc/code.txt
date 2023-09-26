@@ -1,0 +1,15 @@
+Code Cell
+
+=======
+```
+code
+```|label
+=======
+
+(doc
+    (code_def
+        (code_lvl: "```")
+        (code: "\ncode\n")
+        (label (ident: "label"))
+    )
+)

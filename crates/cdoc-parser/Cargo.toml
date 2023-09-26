@@ -1,0 +1,44 @@
+[package]
+name = "cdoc-parser"
+version = "0.1.0-beta.1"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+authors = ["Anton Mølbjerg Eskildsen"]
+
+description = "A markdown-based document parser with custom syntax"
+
+homepage = "https://coursesproject.github.io/courses/"
+repository = "https://github.com/coursesproject/courses/"
+readme = "README.md"
+
+[dependencies]
+pest = "2.7.3"
+pest_derive = "2.7.3"
+serde = "1.0.188"
+serde_json = "1.0.105"
+serde_yaml = "0.9.25"
+serde_with = "3.3.0"
+
+base64 = "0.21.3"
+cowstr = {version = "1.2.0", features = ["serde"]}
+nanoid = "0.4.0"
+
+regex = "1.9.5"
+pulldown-cmark = {version = "0.9.3", features = ["serde"]}
+
+thiserror = "1.0.48"
+anyhow = "1.0.75"
+linked-hash-map = {version = "0.5.6", features = ["serde_impl"]}
+
+rhai = {version="1.16.1", optional = true}
+
+[dev-dependencies]
+pest-test = "0.1.5"
+pest-test-gen = "0.1.6"
+lazy_static = "1.4.0"
+paste = "1.0.14"
+
+
+[features]
+scripting = ["dep:rhai"]

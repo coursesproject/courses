@@ -4,14 +4,17 @@ layout:
     hide_sidebar: true
 ---
 
-{{ figure(url=logo.svg, width="35%") }}
+#figure(url=logo.svg, width=35%)
 
-{{ hero(title="Courses", subtitle="A publishing system for interactive content") }}
 
-{{ button_row }}
+#hero(
+    title=Courses, 
+    subtitle=A publishing system for interactive content
+)
+
+#button_row
 
 ---
 
-{{ banner }}
-
+#banner
 
