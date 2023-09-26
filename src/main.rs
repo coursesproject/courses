@@ -192,14 +192,10 @@ async fn cli_run() -> anyhow::Result<()> {
             let _status = res.wait()?;
             Ok(())
         }
-        Commands::Build {
-            path,
-            profile,
-            clean,
-        } => {
+        Commands::Build { path, profile, .. } => {
             let current_time = SystemTime::now();
             let (mut pipeline, _) = init_and_build(path, profile)?;
-            pipeline.build_all(clean)?;
+            pipeline.build_all(true)?;
 
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
             Ok(())
@@ -224,11 +220,7 @@ async fn cli_run() -> anyhow::Result<()> {
             Ok(())
         }
         #[cfg(feature = "server")]
-        Commands::Serve {
-            path,
-            profile,
-            clean: ignore_cache,
-        } => {
+        Commands::Serve { path, profile, .. } => {
             // Used for measuring build time
             let current_time = SystemTime::now();
 
@@ -238,7 +230,7 @@ async fn cli_run() -> anyhow::Result<()> {
             let config_out = serde_json::to_string(&stuff)?;
 
             fs::write(absolute_path.join("project.json"), config_out).unwrap();
-            let res = pipeline.build_all(ignore_cache).context("Build error:");
+            let res = pipeline.build_all(true).context("Build error:");
             err_print(res);
             println!("🌟 Done ({} ms)", current_time.elapsed()?.as_millis());
 

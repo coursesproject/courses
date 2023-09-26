@@ -299,18 +299,18 @@ impl Pipeline {
                             .ok_or_else(|| anyhow!("Cached context is missing"))?
                             .clone();
 
-                        let output_raw = output.clone().map(|_c| ());
+                        // let output_raw = output.clone().map(|_c| ());
 
-                        let project_vec = self.update_cache(
-                            &item2,
-                            format.as_ref(),
-                            &output_raw,
-                            project.clone(),
-                        );
+                        // let project_vec = self.update_cache(
+                        //     &item2,
+                        //     format.as_ref(),
+                        //     &output_raw,
+                        //     project.clone(),
+                        // );
 
                         let mut ctx = Generator {
                             root: self.project_path.clone(),
-                            project: &from_vec(&project_vec),
+                            project: &from_vec(&project),
                             templates: &self.templates,
                             config: self.project_config.clone(),
                             mode: self.profile.mode,
@@ -360,25 +360,25 @@ impl Pipeline {
         Ok(())
     }
 
-    fn update_cache(
-        &mut self,
-        item2: &ContentItemDescriptor<()>,
-        format: &dyn Format,
-        output: &Document<()>,
-        mut project: ProjectItemVec,
-    ) -> ProjectItemVec {
-        let item = project
-            .iter_mut()
-            .find(|item| item.path == item2.path)
-            .unwrap();
-        item.doc.content = Arc::new(Some(output.clone()));
-
-        self.cached_contexts
-            .lock()
-            .unwrap()
-            .insert(format.name().to_string(), project.clone());
-        project
-    }
+    // fn update_cache(
+    //     &mut self,
+    //     item2: &ContentItemDescriptor<()>,
+    //     format: &dyn Format,
+    //     output: &Document<()>,
+    //     mut project: ProjectItemVec,
+    // ) -> ProjectItemVec {
+    //     let item = project
+    //         .iter_mut()
+    //         .find(|item| item.path == item2.path)
+    //         .expect(&format!("not item found at path: {:?}", item2.path));
+    //     item.doc.content = Arc::new(Some(output.clone()));
+    //
+    //     self.cached_contexts
+    //         .lock()
+    //         .unwrap()
+    //         .insert(format.name().to_string(), project.clone());
+    //     project
+    // }
 
     fn doc_from_path(&self, path: PathBuf) -> anyhow::Result<ContentItemDescriptor<()>> {
         let doc_path = path

@@ -241,7 +241,6 @@ impl<C: Debug> ContentItem<C> {
         match cur_item {
             ContentItem::Document { doc } => Ok(doc.clone()),
             ContentItem::Section { children, doc, .. } => {
-                println!("sec {:?}", path_idx);
                 if path_idx[1] == 0 {
                     Ok(doc.clone())
                 } else {
