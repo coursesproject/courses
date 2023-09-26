@@ -13,7 +13,7 @@ default = ["console_error_panic_hook"]
 [dependencies]
 wasm-bindgen = "0.2.84"
 
-cdoc-parser = { version = "0.1.0-alpha.3", path = "../cdoc-parser" }
+cdoc-parser = { version = "0.1.0", path = "../cdoc-parser" }
 
 serde-wasm-bindgen = "0.6.0"
 
