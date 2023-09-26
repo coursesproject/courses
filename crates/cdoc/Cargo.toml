@@ -12,7 +12,7 @@ homepage = "https://coursesproject.github.io/courses/"
 repository = "https://github.com/coursesproject/courses/tree/main/cdoc"
 readme = "README.md"
 
-keywords = ["generator", "markdown", "notebooks"]
+keywords = ["website-generator", "markdown", "notebooks"]
 categories = ["command-line-utilities"]
 
 [lib]
