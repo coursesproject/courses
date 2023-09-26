@@ -7,8 +7,6 @@ use cdoc::config::Format;
 use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
 
-use cdoc::preprocessors::cell_outputs::CellOutputConfig;
-use cdoc::preprocessors::AstPreprocessorConfig;
 use cdoc::renderers::extensions::structure::DocStructureConfig;
 use cdoc::renderers::extensions::RenderExtensionConfig;
 use cdoc_parser::notebook::NotebookMeta;
@@ -63,7 +61,7 @@ pub struct Profile {
     #[serde(default)]
     pub formats: Vec<Box<dyn Format>>,
     #[serde(default)]
-    pub render_extensions: Vec<Box<dyn RenderExtensionConfig>>,
+    pub render_extensions: HashMap<String, Vec<Box<dyn RenderExtensionConfig>>>,
     #[serde(default)]
     pub create_filters: bool,
 }
@@ -91,14 +89,18 @@ fn default_profiles() -> HashMap<String, Profile> {
         Profile {
             mode: Mode::Draft,
             parser: Parser {
-                preprocessors: vec![Box::new(CellOutputConfig) as Box<dyn AstPreprocessorConfig>],
+                preprocessors: vec![],
                 settings: ParserSettings { solutions: true },
             },
             formats: vec![],
-            render_extensions: vec![Box::new(DocStructureConfig {
-                max_heading_level: 0,
-                included_commands: vec![],
-            })],
+            render_extensions: HashMap::from([(
+                "html".to_string(),
+                vec![Box::new(DocStructureConfig {
+                    max_heading_level: 0,
+                    included_commands: vec![],
+                })
+                    as Box<dyn RenderExtensionConfig + 'static>],
+            )]),
             create_filters: true,
         },
     );
@@ -108,14 +110,18 @@ fn default_profiles() -> HashMap<String, Profile> {
         Profile {
             mode: Mode::Release,
             parser: Parser {
-                preprocessors: vec![Box::new(CellOutputConfig) as Box<dyn AstPreprocessorConfig>],
+                preprocessors: vec![],
                 settings: ParserSettings { solutions: false },
             },
             formats: vec![],
-            render_extensions: vec![Box::new(DocStructureConfig {
-                max_heading_level: 0,
-                included_commands: vec![],
-            })],
+            render_extensions: HashMap::from([(
+                "html".to_string(),
+                vec![Box::new(DocStructureConfig {
+                    max_heading_level: 0,
+                    included_commands: vec![],
+                })
+                    as Box<dyn RenderExtensionConfig + 'static>],
+            )]),
             create_filters: false,
         },
     );

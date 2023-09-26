@@ -11,7 +11,6 @@ use crate::config::Format;
 use crate::parser::ParserSettings;
 use crate::templates::TemplateManager;
 
-pub mod cell_outputs;
 pub mod md_labels;
 pub mod script;
 

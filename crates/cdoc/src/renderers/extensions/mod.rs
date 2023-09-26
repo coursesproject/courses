@@ -1,3 +1,4 @@
+pub mod cell_outputs;
 pub mod structure;
 
 use crate::renderers::generic::GenericRenderer;

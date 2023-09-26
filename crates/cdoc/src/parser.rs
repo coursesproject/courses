@@ -3,7 +3,6 @@ use cdoc_parser::document::Document;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::preprocessors::cell_outputs::CellOutputConfig;
 use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -15,7 +14,7 @@ pub struct Parser {
 }
 
 fn default_preprocessors() -> Vec<Box<dyn AstPreprocessorConfig>> {
-    vec![Box::new(CellOutputConfig) as Box<dyn AstPreprocessorConfig>]
+    vec![]
 }
 
 /// Additional parser configuration.

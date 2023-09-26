@@ -213,8 +213,13 @@ impl Pipeline {
                     let res = renderer
                         .render_doc(
                             &mut ctx,
-                            build_extensions(&self.profile.render_extensions)
-                                .map_err(tera::Error::msg)?,
+                            build_extensions(
+                                self.profile
+                                    .render_extensions
+                                    .get(&fstring)
+                                    .unwrap_or(&vec![]),
+                            )
+                            .map_err(tera::Error::msg)?,
                         )
                         .map_err(tera::Error::msg)?;
                     let val = res.content;
@@ -735,10 +740,17 @@ impl Pipeline {
                         let mut ctx = self.get_render_context(&mut res, format)?;
                         let mut renderer = format.renderer();
 
-                        Ok(Some(renderer.render_doc(
-                            &mut ctx,
-                            build_extensions(&self.profile.render_extensions)?,
-                        )?))
+                        Ok(Some(
+                            renderer.render_doc(
+                                &mut ctx,
+                                build_extensions(
+                                    self.profile
+                                        .render_extensions
+                                        .get(format.name())
+                                        .unwrap_or(&vec![]),
+                                )?,
+                            )?,
+                        ))
                     } else {
                         Ok(None)
                     }

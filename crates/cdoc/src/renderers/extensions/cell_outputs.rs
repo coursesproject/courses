@@ -1,9 +1,9 @@
-use crate::parser::ParserSettings;
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
-
+use crate::renderers::extensions::{RenderExtension, RenderExtensionConfig};
+use crate::renderers::generic::GenericRenderer;
+use crate::renderers::RenderContext;
 use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, CodeBlock, Command, Inline, Parameter, Value};
-use cdoc_parser::document::{CodeOutput, Document, Image, OutputValue};
+use cdoc_parser::ast::{CodeBlock, Command, Inline, Parameter, Value};
+use cdoc_parser::document::{CodeOutput, Image, OutputValue};
 use cdoc_parser::Span;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -13,12 +13,8 @@ use std::fmt::{Display, Formatter};
 pub struct CellOutputConfig;
 
 #[typetag::serde(name = "cells")]
-impl AstPreprocessorConfig for CellOutputConfig {
-    fn build(
-        &self,
-        _ctx: &PreprocessorContext,
-        _settings: &ParserSettings,
-    ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
+impl RenderExtensionConfig for CellOutputConfig {
+    fn build(&self) -> anyhow::Result<Box<dyn RenderExtension>> {
         Ok(Box::new(CellProcessor))
     }
 }
@@ -106,20 +102,24 @@ impl AstVisitor for CellVisitor<'_> {
     }
 }
 
-impl AstPreprocessor for CellProcessor {
+impl RenderExtension for CellProcessor {
     fn name(&self) -> String {
         "Cell processing".to_string()
     }
 
-    fn process(&mut self, mut input: Document<Ast>) -> Result<Document<Ast>, Error> {
-        if input.meta.cell_outputs {
+    fn process(
+        &mut self,
+        ctx: &mut RenderContext,
+        _renderer: GenericRenderer,
+    ) -> anyhow::Result<()> {
+        if ctx.doc.meta.cell_outputs {
             // Only run if outputs should be included
             let mut visitor = CellVisitor {
-                outputs: &input.code_outputs,
+                outputs: &ctx.doc.code_outputs,
             };
-            visitor.walk_ast(&mut input.content.blocks)?;
+            visitor.walk_ast(&mut ctx.doc.content.blocks)?;
         }
-        Ok(input)
+        Ok(())
     }
 }
 
