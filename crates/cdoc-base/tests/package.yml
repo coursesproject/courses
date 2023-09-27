@@ -14,9 +14,102 @@ nodes:
       - name: inner
         optional: false
         data_type: !Node
+    children:
+      - type_id: inner
+        optional: false
 
   - type_id: PARAGRAPH
     has_children: true
+    children:
+      - kind: ANY
+        repeat: *
 
   - type_id: SOFT_BREAK
     has_children: false
+
+collections:
+  - name: inline
+    type: !OneOf[TEXT, STYLED, SOFT_BREAK, HARD_BREAK, CODE, MATH_INLINE, COMMAND]
+  - name: block
+    type: !OneOf[PARAGRAPH, HEADING, CODE_BLOCK, LIST]
+
+nodest:
+  - type_id: HEADING
+    has_children: false
+    attributes:
+      - name: level
+        optional: false
+        data_type: !Int
+      - name: inner
+        optional: false
+        data_type: !Node
+    children:
+      - type_id: inner
+        optional: false
+
+  - type_id: LIST
+    attributes:
+      - name: type
+        type: enum
+        values: [unordered, numeric, alphabetic, roman]
+      - name: start
+        type: int
+        optional: yes
+    children:
+      - type: !Is[LIST_ITEM]
+        count: one
+
+  - type_id: CODE_BLOCK
+    attributes:
+      - name: label
+        type: string
+        optional: true
+      - name: language
+        type: string
+        optional: true
+      - name: is_cell
+        type: flag
+    has_value: true
+
+  - type_id: MATH
+    attributes:
+      - name: label
+        type: string
+        optional: true
+      - name: display_block
+        type: flag
+        optional: true
+    has_value: true
+
+  - type_id: STYLED
+    attributes:
+      - name: style
+        type: Enum[emphasis, strong, strikethrough, underline]
+    children:
+      - type: !Collection inline
+        count: one_or_many
+
+
+  - type_id: PARAGRAPH
+    children:
+      - kind: !Collection[block]
+        count: one_or_many
+
+  - type_id: SOFT_BREAK
+  - type_id: HARD_BREAK
+  - type_id: HORIZONTAL_RULE
+
+
+  # Example command
+  - type_id: TASK
+    attributes:
+      - name: level
+        type: Enum[easy, medium, hard]
+    children:
+      - type: !Is TASK_TITLE
+        count: zero_or_one
+
+  - type_id: TASK_TITLE
+    children:
+      - type: !Collection inline
+        count: one_or_many

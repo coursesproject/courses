@@ -54,7 +54,7 @@ impl GenericRenderer {
             template_context.insert("children", &inner);
         }
 
-        for attr in &node.attributes {}
+        for attr in &node.arguments {}
 
         Ok(template_context)
     }
