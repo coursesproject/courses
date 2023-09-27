@@ -161,7 +161,7 @@ async fn cli_run() -> anyhow::Result<()> {
                     .arg(version.to_string());
             } else {
                 let path = path_with_default(path)?;
-                let config = init_config(&path, true)?;
+                let config: ProjectConfigDummy = serde_json::from_str(&fs::read_to_string(&path)?)?;
                 cmd.arg("install")
                     .arg("courses")
                     .arg("--version")
