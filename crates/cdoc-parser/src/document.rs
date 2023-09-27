@@ -14,7 +14,6 @@ pub struct Document<T: Serialize> {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Metadata {
     pub title: String,
     #[serde(default)]
