@@ -1,0 +1,22 @@
+name: base
+version: 0.1
+
+dependencies:
+  extra: *
+
+nodes:
+  - type_id: HEADING
+    has_children: false
+    attributes:
+      - name: level
+        optional: false
+        data_type: !Int
+      - name: inner
+        optional: false
+        data_type: !Node
+
+  - type_id: PARAGRAPH
+    has_children: true
+
+  - type_id: SOFT_BREAK
+    has_children: false

@@ -1,0 +1,5 @@
+for: HEADING
+
+html: String! |
+    <h{{ level }}>{{ inner | safe }}</h{{ level }}>
+markdown:
