@@ -13,6 +13,8 @@ repository = "https://github.com/coursesproject/courses/"
 readme = "README.md"
 
 [dependencies]
+cdoc-base = {version="0.1.0", path="../cdoc-base"}
+
 pest = "2.7.3"
 pest_derive = "2.7.3"
 serde = "1.0.188"

@@ -45,24 +45,24 @@ pub trait Renderer {
 pub struct GenericRenderer {
     tera: Tera,
 }
-
-impl GenericRenderer {
-    fn create_context(&mut self, node: &Node, ctx: &RenderContext) -> Result<Context> {
-        let mut template_context = Context::new();
-        if let Some(children) = &node.children {
-            let inner = self.render_vec_inner(children, ctx)?;
-            template_context.insert("children", &inner);
-        }
-
-        for attr in &node.arguments {}
-
-        Ok(template_context)
-    }
-}
-
-impl Renderer for GenericRenderer {
-    fn render(&mut self, node: &Node, ctx: &RenderContext, buf: impl Write) -> anyhow::Result<()> {
-        self.tera.render(&node.type_id, &Context::new())?;
-        Ok(())
-    }
-}
+//
+// impl GenericRenderer {
+//     fn create_context(&mut self, node: &Node, ctx: &RenderContext) -> Result<Context> {
+//         let mut template_context = Context::new();
+//         if let Some(children) = &node.children {
+//             let inner = self.render_vec_inner(children, ctx)?;
+//             template_context.insert("children", &inner);
+//         }
+//
+//         for attr in &node.arguments {}
+//
+//         Ok(template_context)
+//     }
+// }
+//
+// impl Renderer for GenericRenderer {
+//     fn render(&mut self, node: &Node, ctx: &RenderContext, buf: impl Write) -> anyhow::Result<()> {
+//         self.tera.render(&node.type_id, &Context::new())?;
+//         Ok(())
+//     }
+// }

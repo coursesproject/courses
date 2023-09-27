@@ -39,13 +39,13 @@ impl Package {
                 .provides
                 .node_defs
                 .into_iter()
-                .map(|d| (d.type_id(), d))
+                .map(|d| (d.type_id.clone(), d))
                 .collect(),
             templates: self
                 .provides
                 .templates
                 .into_iter()
-                .map(|t| (t.type_id(), t))
+                .map(|t| (t.type_id.clone(), t))
                 .collect(),
         }
     }

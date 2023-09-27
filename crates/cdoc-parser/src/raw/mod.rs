@@ -11,7 +11,7 @@ use std::io::{BufWriter, Write};
 
 #[derive(Debug, PartialEq, Default)]
 pub struct RawDocument {
-    pub(crate) src: Vec<ElementInfo>,
+    pub src: Vec<ElementInfo>,
     pub(crate) input: CowStr,
     pub(crate) meta: Option<CowStr>,
     pub(crate) references: HashMap<CowStr, Reference>,

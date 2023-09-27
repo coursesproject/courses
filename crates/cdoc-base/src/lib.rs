@@ -1,5 +1,5 @@
-mod module;
-mod node;
+pub mod module;
+pub mod node;
 mod package;
 mod render;
 mod template;
