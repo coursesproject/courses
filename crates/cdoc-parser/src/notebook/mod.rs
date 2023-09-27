@@ -373,7 +373,8 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
 
     let mut doc = Document::try_from(source.as_str())?;
     doc.code_outputs = output_map;
-    doc.meta = doc_meta.unwrap_or_default();
+    doc.meta = doc_meta.unwrap();
+    println!("meta {:#?}", doc.meta);
 
     Ok(Some(doc))
 }
