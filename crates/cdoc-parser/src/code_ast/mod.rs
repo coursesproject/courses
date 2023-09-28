@@ -100,6 +100,7 @@ fn cowstr_from_span(base: &CowStr, span: pest::Span) -> CowStr {
 
 pub fn parse_code_string(content: CowStr) -> Result<CodeContent, Box<pest::error::Error<Rule>>> {
     let mut padded = content.to_string();
+    let src = CowStr::from(padded.trim());
     padded.push('\n');
     let mut p = TaskParser::parse(Rule::doc, &padded)?;
     let p = p.next().expect("no top level").into_inner();
@@ -110,7 +111,7 @@ pub fn parse_code_string(content: CowStr) -> Result<CodeContent, Box<pest::error
         .collect::<anyhow::Result<Vec<CodeElem>, Box<pest::error::Error<Rule>>>>()?;
     let mut hasher = DefaultHasher::new();
     content.hash(&mut hasher);
-    Ok(CodeContent {
+    Ok(CodeContent::Parsed {
         blocks,
         meta,
         hash: hasher.finish(),

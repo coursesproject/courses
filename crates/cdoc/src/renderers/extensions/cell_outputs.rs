@@ -3,6 +3,7 @@ use crate::renderers::generic::GenericRenderer;
 use crate::renderers::RenderContext;
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{CodeBlock, Command, Inline, Parameter, Value};
+use cdoc_parser::code_ast::types::CodeContent;
 use cdoc_parser::document::{CodeOutput, Image, OutputValue};
 use cdoc_parser::Span;
 use serde::{Deserialize, Serialize};
@@ -31,67 +32,69 @@ impl AstVisitor for CellVisitor<'_> {
         let mut offset = 0;
         for (i, inline) in inlines.clone().into_iter().enumerate() {
             if let Inline::CodeBlock(CodeBlock { source, .. }) = inline {
-                if let Some(outputs) = self.outputs.get(&source.hash) {
-                    // println!("got output");
-                    for output in &outputs.values {
-                        match output {
-                            OutputValue::Text(s) => {
-                                let command = Command {
-                                    function: "output_text".into(),
-                                    label: None,
-                                    parameters: vec![Parameter {
-                                        key: Some("value".into()),
-                                        value: Value::String(s.into()),
+                if let CodeContent::Parsed { hash, meta, .. } = &source {
+                    if let Some(outputs) = self.outputs.get(hash) {
+                        // println!("got output");
+                        for output in &outputs.values {
+                            match output {
+                                OutputValue::Text(s) => {
+                                    let command = Command {
+                                        function: "output_text".into(),
+                                        label: None,
+                                        parameters: vec![Parameter {
+                                            key: Some("value".into()),
+                                            value: Value::String(s.into()),
+                                            span: Default::default(),
+                                        }],
+                                        body: None,
                                         span: Default::default(),
-                                    }],
-                                    body: None,
-                                    span: Default::default(),
-                                    global_idx: 0,
-                                };
+                                        global_idx: 0,
+                                    };
 
-                                inlines.insert(i + offset + 1, Inline::Command(command));
-                                offset += 1;
-                            }
-                            OutputValue::Image(img) => {
-                                let mut params = Vec::new();
-                                for (key, val) in source.meta.clone() {
-                                    params.push(Parameter {
-                                        key: Some(key),
-                                        value: Value::String(val),
-                                        span: Span::new(0, 0),
-                                    });
+                                    inlines.insert(i + offset + 1, Inline::Command(command));
+                                    offset += 1;
                                 }
+                                OutputValue::Image(img) => {
+                                    let mut params = Vec::new();
+                                    for (key, val) in meta.clone() {
+                                        params.push(Parameter {
+                                            key: Some(key),
+                                            value: Value::String(val),
+                                            span: Span::new(0, 0),
+                                        });
+                                    }
 
-                                match img {
-                                    Image::Png(png) => params.push(Parameter {
-                                        key: Some("base64".into()),
-                                        value: Value::String(png.into()),
-                                        span: Span::new(0, 0),
-                                    }),
-                                    Image::Svg(svg) => params.push(Parameter {
-                                        key: Some("svg".into()),
-                                        value: Value::String(svg.into()),
-                                        span: Span::new(0, 0),
-                                    }),
+                                    match img {
+                                        Image::Png(png) => params.push(Parameter {
+                                            key: Some("base64".into()),
+                                            value: Value::String(png.into()),
+                                            span: Span::new(0, 0),
+                                        }),
+                                        Image::Svg(svg) => params.push(Parameter {
+                                            key: Some("svg".into()),
+                                            value: Value::String(svg.into()),
+                                            span: Span::new(0, 0),
+                                        }),
+                                    }
+
+                                    let command = Command {
+                                        function: "figure".into(),
+                                        label: meta.get("id").cloned(),
+                                        parameters: params,
+                                        body: None,
+                                        span: Default::default(),
+                                        global_idx: 0,
+                                    };
+
+                                    inlines.insert(i + offset + 1, Inline::Command(command));
+                                    offset += 1;
                                 }
-
-                                let command = Command {
-                                    function: "figure".into(),
-                                    label: source.meta.get("id").cloned(),
-                                    parameters: params,
-                                    body: None,
-                                    span: Default::default(),
-                                    global_idx: 0,
-                                };
-
-                                inlines.insert(i + offset + 1, Inline::Command(command));
-                                offset += 1;
+                                OutputValue::Json(_) => {}
+                                OutputValue::Html(_) => {}
+                                OutputValue::Javascript(_) => {}
+                                OutputValue::Error(_) => {}
+                                OutputValue::Plain(_) => {}
                             }
-                            OutputValue::Json(_) => {}
-                            OutputValue::Html(_) => {}
-                            OutputValue::Javascript(_) => {}
-                            OutputValue::Error(_) => {}
-                            OutputValue::Plain(_) => {}
                         }
                     }
                 }

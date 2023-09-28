@@ -1,4 +1,5 @@
 use crate::ast::Ast;
+use crate::code_ast::types::CodeContent;
 use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Special};
 use anyhow::Result;
 use linked_hash_map::LinkedHashMap;
@@ -74,7 +75,13 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Ast>> {
         .children
         .iter()
         .filter_map(|c| match &c.elem {
-            Special::CodeBlock { inner, .. } => Some((inner.hash, CodeOutput::default())),
+            Special::CodeBlock { inner, .. } => {
+                if let CodeContent::Parsed { hash, .. } = inner {
+                    Some((*hash, CodeOutput::default()))
+                } else {
+                    None
+                }
+            }
             _ => None,
         })
         .collect();

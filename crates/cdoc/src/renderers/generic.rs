@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context as AhContext, Result};
 use serde::{Deserialize, Serialize};
 
 use cdoc_parser::ast::{Block, CodeBlock, Command, Inline, Math, Parameter, Style, Value};
+use cdoc_parser::code_ast::types::CodeContent;
 use cdoc_parser::document::{CodeOutput, Document, Image, OutputValue};
 use cowstr::CowStr;
 use std::io::{Cursor, Write};
@@ -229,6 +230,12 @@ impl RenderElement<Inline> for GenericRenderer {
                         .unwrap_or(ctx.parser_settings.solutions),
                 )?;
 
+                let meta = if let CodeContent::Parsed { meta, .. } = source {
+                    Some(meta)
+                } else {
+                    None
+                };
+
                 // let highlighted = syntect::html::highlighted_html_for_string(
                 //     &code_rendered,
                 //     ctx.syntax_set,
@@ -248,7 +255,7 @@ impl RenderElement<Inline> for GenericRenderer {
                 args.insert("highlighted", &highlighted);
                 args.insert("id", &id);
                 args.insert("attr", &attributes);
-                args.insert("meta", &source.meta);
+                args.insert("meta", &meta);
                 args.insert("num", &num);
                 // args.insert("outputs", &self.render_inner(outputs, ctx)?);
                 // args.insert("outputs", outputs);

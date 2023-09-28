@@ -9,6 +9,7 @@ use pest_derive::Parser;
 pub struct RawDocParser;
 
 use crate::code_ast::parse_code_string;
+use crate::code_ast::types::CodeContent;
 use crate::common::Span;
 use crate::raw::{Element, ElementInfo, Parameter, Special, Value};
 use pest::iterators::Pairs;
@@ -198,7 +199,7 @@ impl RawDocument {
         let lvl = inner.next().expect("missing code_lvl").as_str().to_string();
 
         let maybe_param = inner.next().expect("missing code_src");
-        let (src_pair, params) = if let Rule::code_params = maybe_param.as_rule() {
+        let (src_pair, attributes) = if let Rule::code_params = maybe_param.as_rule() {
             let attributes = self.parse_code_attributes(maybe_param.into_inner());
             (inner.next().expect("missing code_src"), Some(attributes))
         } else {
@@ -219,12 +220,20 @@ impl RawDocument {
             if lvl.len() == 1 {
                 Special::CodeInline { inner: src }
             } else {
-                let content = parse_code_string(src)?;
+                let inner = if attributes
+                    .as_ref()
+                    .map(|a| a.contains(&CowStr::from("no_parse")))
+                    .unwrap_or_default()
+                {
+                    CodeContent::Plain(src)
+                } else {
+                    parse_code_string(src)?
+                };
 
                 Special::CodeBlock {
                     lvl: lvl.len(),
-                    inner: content,
-                    attributes: params.unwrap_or_default(),
+                    inner,
+                    attributes: attributes.unwrap_or_default(),
                 }
             },
         ))

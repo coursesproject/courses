@@ -20,7 +20,7 @@ template (only for formats where it is relevant).
 
 The template folder should have the following structure and base files:
 
-```text
+```yaml, cell
 - templates/
     - builtins/
         - cell.yml (code cell)
@@ -59,22 +59,22 @@ for an example implementation of the builtin templates and layouts.
 The `yml` file for each template follows a common structure as shown below:
 
 ```yaml
-name: <name>
-description: <description>
+name: name
+description: description
 
-type: <builtin/shortcode/layout>
+type: [builtin/shortcode/layout]
 
 examples:
-  - title: <title>
-    body: <markdown body>
+  - title: title
+    body: [markdown body]
 
 
 templates:
   html: !String |
-    <body>
+    [body]
   markdown: !String |
-    <body>
-  latex: !File <path>
+    [body]
+  latex: !File [path]
 ```
 
 The following elements must always be present for the template to be valid:
@@ -105,7 +105,7 @@ source for learning more about how these can be set up.
 Layouts have access to information on the project structure as well as the individual document that is being processed.
 
 The top-level values are:
-```text
+```yaml
 - config
 - ids
 - id_map
@@ -115,7 +115,7 @@ The top-level values are:
 ### Project object
 The project object (simply named `project`) contains the following elements:
 
-```text
+```yaml
 - project_path
 - index (page)
 - content

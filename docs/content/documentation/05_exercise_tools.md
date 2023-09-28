@@ -1,6 +1,6 @@
 ---
 title: Exercise definitions
-exercises: false
+disable_code_parsing: true
 ---
 
 # Code tools
@@ -11,7 +11,7 @@ Courses allows you to tag source code blocks using a special syntax hiding in th
 
 ## Exercise definitions
 
-```
+```python, no_parse
 #| solution <<
 print("solution")
 #| placeholder

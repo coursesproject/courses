@@ -33,34 +33,42 @@ pub enum CodeElem {
     Src(String),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
-pub struct CodeContent {
-    pub blocks: Vec<CodeElem>,
-    pub meta: LinkedHashMap<CowStr, CowStr>,
-    pub hash: u64,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum CodeContent {
+    Plain(CowStr),
+    Parsed {
+        blocks: Vec<CodeElem>,
+        meta: LinkedHashMap<CowStr, CowStr>,
+        hash: u64,
+    },
 }
 
 impl CodeContent {
     pub fn to_string(&self, with_solution: bool) -> anyhow::Result<String> {
         let mut buf = BufWriter::new(Vec::new());
-        for block in &self.blocks {
-            match block {
-                CodeElem::Solution(s) => {
-                    if with_solution {
-                        buf.write_all(s.solution.as_bytes())?;
-                    } else {
-                        s.placeholder
-                            .as_ref()
-                            .map(|p| buf.write(p.as_bytes()))
-                            .transpose()?;
+        match &self {
+            CodeContent::Plain(s) => Ok(s.to_string()),
+            CodeContent::Parsed { blocks, .. } => {
+                for block in blocks {
+                    match block {
+                        CodeElem::Solution(s) => {
+                            if with_solution {
+                                buf.write_all(s.solution.as_bytes())?;
+                            } else {
+                                s.placeholder
+                                    .as_ref()
+                                    .map(|p| buf.write(p.as_bytes()))
+                                    .transpose()?;
+                            }
+                        }
+                        CodeElem::Src(s) => {
+                            buf.write_all(s.as_bytes())?;
+                        }
                     }
                 }
-                CodeElem::Src(s) => {
-                    buf.write_all(s.as_bytes())?;
-                }
+
+                Ok(String::from_utf8(buf.into_inner()?)?)
             }
         }
-
-        Ok(String::from_utf8(buf.into_inner()?)?)
     }
 }

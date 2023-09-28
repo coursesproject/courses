@@ -11,6 +11,7 @@ use cdoc_parser::ast::{CodeBlock, Inline};
 
 use cdoc_parser::document::{CodeOutput, Metadata};
 
+use cdoc_parser::code_ast::types::CodeContent;
 use code_block::ScriptCodeBlock;
 use rhai::{exported_module, CustomType, Engine, EvalAltResult, Scope, TypeBuilder};
 
@@ -137,35 +138,37 @@ impl AstVisitor for ScriptVisitor<'_> {
     }
 
     fn visit_code_block(&mut self, block: &mut CodeBlock) -> Result<()> {
-        let outputs = self.code_outputs.get_mut(&block.source.hash);
-        let cblock = ScriptCodeBlock::new(
-            &block.source,
-            &block.attributes,
-            &outputs,
-            block.display_cell,
-            block.global_idx,
-            &block.span,
-        );
+        if let CodeContent::Parsed { blocks, meta, hash } = &block.source {
+            let outputs = self.code_outputs.get_mut(hash);
+            let cblock = ScriptCodeBlock::new(
+                &block.source,
+                &block.attributes,
+                &outputs,
+                block.display_cell,
+                block.global_idx,
+                &block.span,
+            );
 
-        match self.base.engine.call_fn::<ScriptCodeBlock>(
-            &mut self.state,
-            &self.base.ast,
-            "visit_code_block",
-            (cblock,),
-        ) {
-            Ok(v) => v.apply_changes(
-                &mut block.source,
-                &mut block.attributes,
-                outputs,
-                &mut block.display_cell,
-                &mut block.global_idx,
-            ),
-            Err(e) => match *e {
-                EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
-                EvalAltResult::ErrorRuntime(value, _) => Err(anyhow!(format!("{}", value))),
-                _ => Err(anyhow!(format!("{}", e))),
-            },
-        }?;
+            match self.base.engine.call_fn::<ScriptCodeBlock>(
+                &mut self.state,
+                &self.base.ast,
+                "visit_code_block",
+                (cblock,),
+            ) {
+                Ok(v) => v.apply_changes(
+                    &mut block.source,
+                    &mut block.attributes,
+                    outputs,
+                    &mut block.display_cell,
+                    &mut block.global_idx,
+                ),
+                Err(e) => match *e {
+                    EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
+                    EvalAltResult::ErrorRuntime(value, _) => Err(anyhow!(format!("{}", value))),
+                    _ => Err(anyhow!(format!("{}", e))),
+                },
+            }?;
+        }
 
         Ok(())
     }
