@@ -9,8 +9,10 @@ shortcode:
 
 templates:
   html: !String |
-    ${{ body }}$
+    $$
+    {{ body }}
+    $$
   markdown: !String |
-    ${{body}}$
+    $${{body}}$$
   latex: !String |
-    ${{ body }}$
+    \begin{equation}{{ body }}\end{equation}

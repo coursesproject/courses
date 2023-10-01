@@ -1,5 +1,5 @@
-name: Math
-description: Math block or inline.
+name: Inline code
+description: Inline code.
 
 type: shortcode
 shortcode:
@@ -9,8 +9,8 @@ shortcode:
 
 templates:
   html: !String |
-    ${{ body }}$
+    <code>{{ body }}</code>
   markdown: !String |
-    ${{body}}$
+    `{{body}}`
   latex: !String |
-    ${{ body }}$
+    \mintinline{ {{body}} }

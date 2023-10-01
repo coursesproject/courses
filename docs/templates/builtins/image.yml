@@ -1,17 +1,26 @@
 name: Image
 description: Markdown image.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: url
+      description: ""
+      type: regular
+    - name: alt
+      description: ""
+      type: regular
 
 
 templates:
   html: !String |
     <figure>
       <img src="{{url}}" alt="{{alt}}">
-      {{inner|safe}}
+      {{body|safe}}
     </figure>
   markdown: !String |
-    ![{{inner}}]({{url}})
+    ![{{body}}]({{url}})
   latex: !String |
     \begin{figure}
       \includegraphics{resources/ {{url}} }

@@ -504,16 +504,12 @@ impl Pipeline {
                 // let mut errs = Vec::new();
                 let output: ProjectItemContentVec = output
                     .into_iter()
-                    .filter_map(|item| {
-                        item.unwrap();
-                        // match item {
-                        //     Ok(item) => Some(item),
-                        //     Err(err) => {
-                        //         format_errs.push(err);
-                        //         None
-                        //     }
-                        // }
-                        None
+                    .filter_map(|item| match item {
+                        Ok(item) => Some(item),
+                        Err(err) => {
+                            format_errs.push(err);
+                            None
+                        }
                     })
                     .collect();
 

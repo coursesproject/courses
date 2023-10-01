@@ -174,7 +174,7 @@ impl From<Child> for Element {
                 Element::Node(Node::new(
                     "code_block",
                     attributes,
-                    to_vec_element(inner.blocks),
+                    vec![Element::Plain("not implemented".to_string())],
                 ))
             }
             Special::CodeInline { inner } => Element::Node(Node::new_with_children(
@@ -220,25 +220,15 @@ impl From<ComposedMarkdown> for Vec<Element> {
                         }
                         Tag::List(_) => {}
                         Tag::Item => {}
-                        Tag::Emphasis => current_node.push(Element::Node(Node::new(
-                            "styled",
-                            [(
-                                "style".to_string(),
-                                Attribute::String("emphasis".to_string()),
-                            )],
-                            children,
-                        ))),
-                        Tag::Strong => current_node.push(Element::Node(Node::new(
-                            "styled",
-                            [("style".to_string(), Attribute::String("strong".to_string()))],
-                            children,
-                        ))),
+                        Tag::Emphasis => {
+                            current_node.push(Element::Node(Node::new("emphasis", [], children)))
+                        }
+                        Tag::Strong => {
+                            current_node.push(Element::Node(Node::new("strong", [], children)))
+                        }
                         Tag::Strikethrough => current_node.push(Element::Node(Node::new(
-                            "styled",
-                            [(
-                                "style".to_string(),
-                                Attribute::String("strikethrough".to_string()),
-                            )],
+                            "strikethrough",
+                            [],
                             children,
                         ))),
                         Tag::Link(_, url, alt) => current_node.push(Element::Node(Node::new(
@@ -271,10 +261,7 @@ impl From<ComposedMarkdown> for Vec<Element> {
                         nodes
                             .last_mut()
                             .unwrap()
-                            .push(Element::Node(Node::new_with_children(
-                                "HTML",
-                                vec![Element::Plain(src.to_string())],
-                            )));
+                            .push(Element::Plain(src.to_string()));
                     }
                 }
                 Event::Text(text) => nodes

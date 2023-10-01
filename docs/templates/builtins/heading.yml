@@ -1,0 +1,19 @@
+name: Header
+description: Heading element.
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: level
+      description: ""
+      type: regular
+
+
+templates:
+  html: !String |
+    <h{{level}} class="title is-{{level}}">{{body | safe}}</h{{level}}>
+  markdown: !String |
+    {% for i in range(end=level) %}#{% endfor %} {{body | safe}}
+  latex: !String |
+    \section{ {{body | safe}} }

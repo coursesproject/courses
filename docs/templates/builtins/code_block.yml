@@ -1,0 +1,32 @@
+name: Code cell
+description: Code cell.
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: url
+      description: ""
+      type: regular
+    - name: alt
+      description: ""
+      type: regular
+
+
+templates:
+  html: !String |
+    {% if not tags or tags.folded %}
+    
+    <div hidden>{{body}}</div>
+    <div><pre><code class="language-python">{{body}}</code></pre></div>
+
+    {% endif %}
+
+  markdown: !String |
+    ``` 
+    {{body}}
+    ```
+  latex: !String |
+    \begin{minted}{python}
+    {{body | safe }}
+    \end{minted}

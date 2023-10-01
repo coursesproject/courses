@@ -1,13 +1,22 @@
 name: Link
 description: Markdown link.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: url
+      description: ""
+      type: regular
+    - name: alt
+      description: ""
+      type: regular
 
 
 templates:
   html: !String |
-    <a src="{{url}}" alt="{{alt}}">{{inner|safe}}</a>
+    <a src="{{url}}" alt="{{alt}}">{{body|safe}}</a>
   markdown: !String |
-    [{{inner}}]({{url}})
+    [{{body}}]({{url}})
   latex: !String |
-    \href{ {{url | safe }} }{ {{inner | safe}} }
+    \href{ {{url | safe }} }{ {{body | safe}} }

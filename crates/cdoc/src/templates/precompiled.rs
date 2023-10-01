@@ -33,7 +33,7 @@ impl PrecompiledTemplate {
                 PrecompiledFormat::Html => write!(
                     &mut buf,
                     "<p>{}</p>",
-                    ctx.get("value")
+                    ctx.get("body")
                         .ok_or(anyhow!("missing value"))?
                         .as_str()
                         .unwrap()

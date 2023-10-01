@@ -1,13 +1,16 @@
 name: Strong
 description: Strong/bold text.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters: []
 
 
 templates:
   html: !String |
-    <strong>{{ value | safe }}</strong>
+    <strong>{{ body | safe }}</strong>
   markdown: !String |
-    __{{ value | safe }}__
+    __{{ body | safe }}__
   latex: !String |
-    \textbf{ {{value | safe}} }
+    \textbf{ {{body | safe}} }

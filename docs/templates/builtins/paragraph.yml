@@ -1,12 +1,15 @@
 name: Paragraph
 description: A paragraph.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters: []
 
 
 templates:
   html: !Precompiled [paragraph, html]
   markdown: !String |
-    {{ value | safe }}\n
+    {{ body | safe }}\n
   latex: !String |
-    {{ value | safe }}\n
+    {{ body | safe }}\n

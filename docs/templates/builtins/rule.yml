@@ -1,7 +1,10 @@
 name: Horizontal rule
 description: A horizontal rule.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters: []
 
 
 templates:

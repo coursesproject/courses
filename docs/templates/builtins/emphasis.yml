@@ -1,13 +1,16 @@
 name: Emphasis
 description: Text emphasis.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters: []
 
 
 templates:
   html: !String |
-    <em>{{value | safe}}</em>
+    <em>{{body | safe}}</em>
   markdown: !String |
-    _{{value | safe }}_
+    _{{body | safe }}_
   latex: !String |
-    \emph{ {{value | safe }} }
+    \emph{ {{body | safe }} }
