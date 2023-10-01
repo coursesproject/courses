@@ -4,14 +4,18 @@ use cdoc_parser::ast::{Ast, CodeBlock, Inline};
 use cdoc_parser::document::{CodeOutput, Document};
 use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
 
+use cdoc_base::node::visitor::ElementVisitor;
+use cdoc_base::node::{Element, Node};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufWriter;
 
 use crate::renderers::extensions::RenderExtension;
-use crate::renderers::generic::GenericRenderer;
-use crate::renderers::{DocumentRenderer, RenderContext, RenderElement, RenderResult};
+use crate::renderers::newrenderer::{ElementRenderer, ElementRendererConfig};
+use crate::renderers::{
+    DocumentRenderer, RenderContext, RenderElement, RenderResult, RendererConfig,
+};
 
 pub struct NotebookRendererBuilder;
 
@@ -19,16 +23,22 @@ pub struct NotebookRendererBuilder;
 pub struct NotebookRenderer;
 
 #[typetag::serde(name = "notebook")]
+impl RendererConfig for NotebookRenderer {
+    fn build(&self) -> Result<Box<dyn DocumentRenderer>> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
 impl DocumentRenderer for NotebookRenderer {
     fn render_doc(
         &mut self,
         ctx: &mut RenderContext,
         extensions: Vec<Box<dyn RenderExtension>>,
     ) -> Result<Document<RenderResult>> {
-        let renderer = GenericRenderer::default();
+        let renderer = ElementRenderer::new("")?;
 
         for mut ext in extensions {
-            ext.process(ctx, renderer.clone())?;
+            ext.process(ctx, &renderer)?;
         }
 
         let writer = NotebookWriter {
@@ -162,11 +172,11 @@ pub struct NotebookWriter<'a> {
     pub outputs: HashMap<u64, CodeOutput>,
     pub code_cells: Vec<Cell>,
     pub ctx: &'a RenderContext<'a>,
-    pub renderer: GenericRenderer,
+    pub renderer: ElementRenderer<'a>,
 }
 
 impl NotebookWriter<'_> {
-    fn convert(mut self, mut ast: Ast) -> Result<Notebook> {
+    fn convert(mut self, mut elements: Vec<Element>) -> Result<Notebook> {
         let cell_meta = CellMeta {
             jupyter: Some(JupyterLabMeta {
                 outputs_hidden: None,
@@ -192,11 +202,11 @@ HTML(f"""
             outputs: vec![],
         };
 
-        self.walk_ast(&mut ast.blocks)?;
+        self.walk_elements(&mut elements)?;
 
         let mut buf = BufWriter::new(Vec::new());
 
-        self.renderer.render(&ast.blocks, self.ctx, &mut buf)?;
+        self.renderer.render(&elements, self.ctx, &mut buf)?;
 
         let out_str = String::from_utf8(buf.into_inner()?)?;
 
@@ -228,35 +238,60 @@ HTML(f"""
 
 const CODE_SPLIT: &str = "--+code+--";
 
-impl AstVisitor for NotebookWriter<'_> {
-    fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        if let Inline::CodeBlock(CodeBlock {
-            source, attributes, ..
-        }) = inline
-        {
-            if attributes.contains(&"cell".into()) {
-                let rendered = source.to_string(
-                    self.ctx
-                        .doc
-                        .meta
-                        .code_solutions
-                        .unwrap_or(self.ctx.parser_settings.solutions),
-                )?;
+impl ElementVisitor for NotebookWriter<'_> {
+    fn visit_element(&mut self, element: &mut Element) -> Result<()> {
+        if let Element::Node(node) = element {
+            if node.type_id == "code_block" {
+                if node.attributes.contains_key("is_cell") {
+                    let rendered = "temp".to_string();
 
-                self.code_cells.push(Cell::Code {
-                    common: CellCommon {
-                        id: nanoid!(),
-                        metadata: Default::default(),
-                        source: rendered.trim().to_string(),
-                    },
-                    execution_count: Some(0),
-                    outputs: vec![], // TODO: fix outputs
-                });
-
-                *inline = Inline::Text(CODE_SPLIT.into());
+                    self.code_cells.push(Cell::Code {
+                        common: CellCommon {
+                            id: nanoid!(),
+                            metadata: Default::default(),
+                            source: rendered.trim().to_string(),
+                        },
+                        execution_count: Some(0),
+                        outputs: vec![], // TODO: fix outputs
+                    });
+                }
             }
-        }
 
+            *element = Element::Plain(CODE_SPLIT.into())
+        }
         Ok(())
     }
 }
+
+// impl AstVisitor for NotebookWriter<'_> {
+//     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
+//         if let Inline::CodeBlock(CodeBlock {
+//             source, attributes, ..
+//         }) = inline
+//         {
+//             if attributes.contains(&"cell".into()) {
+//                 let rendered = source.to_string(
+//                     self.ctx
+//                         .doc
+//                         .meta
+//                         .code_solutions
+//                         .unwrap_or(self.ctx.parser_settings.solutions),
+//                 )?;
+//
+//                 self.code_cells.push(Cell::Code {
+//                     common: CellCommon {
+//                         id: nanoid!(),
+//                         metadata: Default::default(),
+//                         source: rendered.trim().to_string(),
+//                     },
+//                     execution_count: Some(0),
+//                     outputs: vec![], // TODO: fix outputs
+//                 });
+//
+//                 *inline = Inline::Text(CODE_SPLIT.into());
+//             }
+//         }
+//
+//         Ok(())
+//     }
+// }

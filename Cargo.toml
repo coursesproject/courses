@@ -40,6 +40,7 @@ debug = true
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
+cdoc-base = {path = "crates/cdoc-base", version = "0.1.0"}
 cdoc-parser = { path = "crates/cdoc-parser", version = "0.1.0" }
 cdoc = { path = "crates/cdoc", version = "0.8.0" }
 

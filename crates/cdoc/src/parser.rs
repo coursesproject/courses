@@ -1,3 +1,4 @@
+use cdoc_base::node::Element;
 use cdoc_parser::ast::Ast;
 use cdoc_parser::document::Document;
 use serde::{Deserialize, Serialize};
@@ -28,9 +29,9 @@ pub struct ParserSettings {
 impl Parser {
     pub fn parse(
         &self,
-        doc: Document<Ast>,
+        doc: Document<Vec<Element>>,
         ctx: &PreprocessorContext,
-    ) -> Result<Document<Ast>, anyhow::Error> {
+    ) -> Result<Document<Vec<Element>>, anyhow::Error> {
         let doc_ast = self.run_ast_processors(doc.clone(), ctx)?;
 
         Ok(doc_ast)
@@ -38,9 +39,9 @@ impl Parser {
 
     pub fn run_ast_processors(
         &self,
-        doc: Document<Ast>,
+        doc: Document<Vec<Element>>,
         ctx: &PreprocessorContext,
-    ) -> Result<Document<Ast>, anyhow::Error> {
+    ) -> Result<Document<Vec<Element>>, anyhow::Error> {
         let mut built = self
             .preprocessors
             .iter()

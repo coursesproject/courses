@@ -24,6 +24,7 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
 cdoc-parser = { path = "../cdoc-parser", version = "0.1.0", features = ["scripting"] }
+cdoc-base = { path="../cdoc-base", version = "0.1.0"}
 
 # Serialization
 serde = "1.0.150"

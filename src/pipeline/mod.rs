@@ -25,7 +25,6 @@ use cdoc::templates::TemplateManager;
 use image::io::Reader as ImageReader;
 use mover::Mover;
 
-use cdoc::renderers::generic::GenericRenderer;
 use rayon::prelude::*;
 
 use crate::generators::Generator;
@@ -37,6 +36,8 @@ use crate::project::{
 
 use crate::project::caching::Cache;
 use cdoc::renderers::extensions::build_extensions;
+use cdoc::renderers::newrenderer::{ElementRenderer, ElementRendererConfig};
+use cdoc_base::node::Element;
 use cdoc_parser::ast::Ast;
 use cdoc_parser::document::Document;
 use cowstr::CowStr;
@@ -209,7 +210,7 @@ impl Pipeline {
                     .expect("problems!");
 
                     let mut ctx = self.get_render_context(&mut doc, format.borrow()).unwrap();
-                    let mut renderer = GenericRenderer::default();
+                    let mut renderer = ElementRenderer::new("").unwrap();
                     let res = renderer
                         .render_doc(
                             &mut ctx,
@@ -233,7 +234,7 @@ impl Pipeline {
 
     fn get_render_context<'a>(
         &'a self,
-        doc: &'a mut Document<Ast>,
+        doc: &'a mut Document<Vec<Element>>,
         format: &'a dyn Format,
     ) -> anyhow::Result<RenderContext<'a>> {
         let mut meta = Context::default();
@@ -503,12 +504,16 @@ impl Pipeline {
                 // let mut errs = Vec::new();
                 let output: ProjectItemContentVec = output
                     .into_iter()
-                    .filter_map(|item| match item {
-                        Ok(item) => Some(item),
-                        Err(err) => {
-                            format_errs.push(err);
-                            None
-                        }
+                    .filter_map(|item| {
+                        item.unwrap();
+                        // match item {
+                        //     Ok(item) => Some(item),
+                        //     Err(err) => {
+                        //         format_errs.push(err);
+                        //         None
+                        //     }
+                        // }
+                        None
                     })
                     .collect();
 
@@ -738,7 +743,7 @@ impl Pipeline {
                         // let res = print_err(res)?;
 
                         let mut ctx = self.get_render_context(&mut res, format)?;
-                        let mut renderer = format.renderer();
+                        let mut renderer = format.renderer().build()?;
 
                         Ok(Some(
                             renderer.render_doc(

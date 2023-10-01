@@ -11,6 +11,8 @@ md_val          =  { (command | code_def | math_block | verbatim_def | string)* 
 string_v        = _{ ("\"" | "“") ~ string ~ ("\"" | "”") }
 markdown_string = _{ "{" ~ md_val ~ "}" }
 basic_val       =  { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | WHITESPACE | "#" | " " | "-" | "/" | "*" | "_" | "." | ":" | ";" | "%" | "^" | "$" | "\\" | "<" | ">" | "{" | "}" | "?" | "'")* }
+integer = { DECIMAL_NUMBER+ }
+float = { DECIMAL_NUMBER+ ~ "." ~ DECIMAL_NUMBER+ }
 
 ident = { ASCII_ALPHANUMERIC ~ (ASCII_ALPHANUMERIC | "_" | "-" | ":")* }
 key   = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
@@ -18,19 +20,25 @@ key   = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 flag     =  { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 flag_def = _{ ":" ~ flag }
 
-value = _{ basic_val | string_v | markdown_string | flag_def }
+value = _{ float | integer | basic_val | string_v | markdown_string | flag_def }
 param =  { (key ~ "=" ~ value) | value }
 
 parameters = { "(" ~ ANY_SPACE* ~ param ~ ("," ~ ANY_SPACE* ~ param)* ~ ANY_SPACE* ~ ")" }
 
 body              = ${ "#" | (!"}" ~ !"\\{" ~ command_disallow ~ !"`" ~ !"$" ~ ANY)+ }
-body_inner        = _{ (code_def | math_block | command | verbatim_def | body)* }
+body_inner        = _{ (code_def | math_block | script | command | verbatim_def | body)* }
 body_def_tagged   = _{ "{" ~ body_inner ~ "}" ~ (POP ~ SHORTCODE_SIGIL) }
 body_def_untagged = _{ "{" ~ body_inner ~ "}" ~ DROP }
 body_def          =  { body_def_tagged | body_def_untagged }
 
 label_def = _{ "|" ~ label }
 label     = ${ ident }
+
+script_keywords =  { "let" | "if" | "while" | "for" | "fn" }
+script_src      =  { (!"[" ~ !";" ~ ANY)+ }
+script_escape   =  { "[" ~ element+ ~ "]" }
+script_body     =  { (script_src | script_escape)* }
+script          = ${ SHORTCODE_SIGIL ~ script_keywords ~ script_body ~ ";" }
 
 command_name = ${ SHORTCODE_SIGIL ~ PUSH(ident) }
 command      =  { command_name ~ !")" ~ label_def? ~ parameters? ~ (body_def | DROP) ~ !"(" ~ !")" }
@@ -41,7 +49,7 @@ math_lvl   = { PUSH("$"+) }
 
 math_chars       = { (!PEEK ~ !"{" ~ !"}" ~ ("\\{" | "\\}" | ANY))+ }
 math_block_curly = { "{" ~ math ~ "}" }
-// math_block_bracket =  { "[" ~ math ~ "]" }
+// math_block_bracket =  { "[" ~ kmath ~ "]" }
 // math_block_paren   =  { "(" ~ math ~ ")" }
 math         = _{ (math_chars | math_block_curly)* }
 verbatim_def = _{ "\\{" ~ verbatim ~ "\\}" }
@@ -54,9 +62,10 @@ code_lvl    =  { PUSH("`"+) }
 code        =  { (!PEEK ~ ANY)+ }
 
 verbatim =  { (!"\\}" ~ ANY)+ }
-src      = ${ ("#"+ ~ WHITESPACE) | "#" | (command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ ANY)+ }
+link     = _{ "[" ~ (!"]" ~ ANY)+ ~ "]" }
+src      = ${ ("#"+ ~ WHITESPACE) | "#" | (link? ~ command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ !";" ~ !"[" ~ !"]" ~ ANY)+ }
 
-element = _{ math_block | code_def | verbatim_def | command | src }
+element = _{ math_block | code_def | verbatim_def | script | command | src }
 
 meta     =  { (!(NEWLINE ~ "---") ~ ANY)* }
 meta_def = _{ ("---" ~ NEWLINE) ~ meta ~ (NEWLINE ~ "---") }

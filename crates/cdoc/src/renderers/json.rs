@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct JsonRenderer;
 
-#[typetag::serde(name = "json")]
+// #[typetag::serde(name = "json")]
 impl DocumentRenderer for JsonRenderer {
     fn render_doc(
         &mut self,

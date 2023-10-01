@@ -346,6 +346,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "base64 0.21.4",
+ "cdoc-base",
  "cdoc-parser",
  "clap",
  "cowstr",
@@ -378,6 +379,7 @@ name = "cdoc-base"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "rhai",
  "semver",
  "serde",
  "serde_json",
@@ -625,6 +627,7 @@ dependencies = [
  "built",
  "bytes",
  "cdoc",
+ "cdoc-base",
  "cdoc-parser",
  "clap",
  "console",

@@ -1,14 +1,16 @@
+pub mod into_rhai;
+pub mod visitor;
 pub mod xml_writer;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 
-pub struct Document {
-    content: Vec<Element>,
-    meta: HashMap<String, Value>,
-    data: HashMap<String, DataValue>,
-}
+// pub struct Document {
+//     content: Vec<Element>,
+//     meta: HashMap<String, Value>,
+//     data: HashMap<String, DataValue>,
+// }
 
 pub enum DataValue {
     String { kind: String, value: String },
@@ -22,13 +24,21 @@ pub enum Image {
     Svg(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Element {
     Plain(String),
     Node(Node),
+    Script(Script),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Script {
+    pub id: String,
+    pub src: String,
+    pub elements: Vec<Vec<Element>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     pub type_id: String,
     pub attributes: BTreeMap<String, Attribute>,
@@ -72,12 +82,13 @@ impl Node {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Attribute {
     Int(i64),
     Float(f64),
     String(String),
     Enum(String),
+    Compound(Vec<Element>),
     Flag,
 }
 

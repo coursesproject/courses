@@ -1,5 +1,5 @@
 use crate::module::Module;
-use crate::node::{Document, Node};
+use crate::node::Node;
 use anyhow::Result;
 use std::io::Write;
 use tera::{Context, Tera};
@@ -8,9 +8,9 @@ pub struct RenderContext {
     module: Module,
 }
 
-pub trait DocumentRenderer {
-    fn render(&mut self, doc: &Document, ctx: &RenderContext, buf: impl Write);
-}
+// pub trait DocumentRenderer {
+//     fn render(&mut self, doc: &Document, ctx: &RenderContext, buf: impl Write);
+// }
 
 pub trait Renderer {
     fn render(&mut self, node: &Node, ctx: &RenderContext, buf: impl Write) -> anyhow::Result<()>;

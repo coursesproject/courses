@@ -1,8 +1,10 @@
 use crate::raw::{RawDocument, Reference};
 use cowstr::CowStr;
+use nanoid::nanoid;
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
+use std::num::{ParseFloatError, ParseIntError};
 
 #[derive(Parser)]
 #[grammar = "grammars/raw_doc.pest"]
@@ -10,7 +12,7 @@ pub struct RawDocParser;
 
 use crate::code_ast::parse_code_string;
 use crate::common::Span;
-use crate::raw::{Element, ElementInfo, Parameter, Special, Value};
+use crate::raw::{ArgumentVal, Element, ElementInfo, Parameter, Special};
 use pest::iterators::Pairs;
 use thiserror::Error;
 
@@ -20,7 +22,15 @@ pub enum ParserError {
     CodeError(#[from] Box<pest::error::Error<crate::code_ast::Rule>>),
     #[error("document parsing error")]
     DocError(#[from] Box<pest::error::Error<Rule>>),
+    #[error("integer parsing error")]
+    ParseIntError(#[from] ParseIntError),
+    #[error("float parsing error")]
+    ParseFloatError(#[from] ParseFloatError),
 }
+
+const ALPHABET: [char; 16] = [
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f',
+];
 
 impl RawDocument {
     fn parse_doc(&mut self, mut pairs: Pairs<Rule>) -> Result<(), ParserError> {
@@ -51,6 +61,7 @@ impl RawDocument {
 
         let element = match pair.as_rule() {
             Rule::command => self.parse_command(pair)?,
+            Rule::script => self.parse_script(pair)?,
             Rule::math_block => self.parse_math_block(pair),
             Rule::code_def => self.parse_code(pair)?,
             Rule::verbatim => self.parse_verbatim(pair),
@@ -64,6 +75,37 @@ impl RawDocument {
     fn parse_src(&mut self, pair: Pair<Rule>) -> Element {
         let value = pair.as_str();
         Element::Markdown(value.into())
+    }
+
+    fn parse_script(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
+        let mut inner = pair.into_inner();
+        let kw = inner.next().unwrap().as_str();
+
+        let mut src = String::from(kw);
+        let mut children = vec![];
+
+        let id = nanoid!(10, &ALPHABET);
+        for elem in inner.next().unwrap().into_inner() {
+            match elem.as_rule() {
+                Rule::script_src => src.push_str(elem.as_str()),
+                Rule::script_escape => {
+                    src.push_str(&format!(" e_{}[{}] ", id, children.len()));
+                    children.push(self.parse_elements(elem.into_inner())?)
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        src.push(';');
+
+        Ok(Element::Special(
+            None,
+            Special::Script {
+                id,
+                src: src.into(),
+                children,
+            },
+        ))
     }
 
     fn parse_command(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
@@ -133,11 +175,13 @@ impl RawDocument {
         })
     }
 
-    fn parse_value(&mut self, pair: Pair<Rule>) -> Result<Value, ParserError> {
+    fn parse_value(&mut self, pair: Pair<Rule>) -> Result<ArgumentVal, ParserError> {
         Ok(match pair.as_rule() {
-            Rule::basic_val | Rule::string => Value::String(pair.as_str().into()),
-            Rule::md_val => Value::Content(self.parse_elements(pair.into_inner())?),
-            Rule::flag => Value::Flag(pair.as_str().into()),
+            Rule::basic_val | Rule::string => ArgumentVal::String(pair.as_str().into()),
+            Rule::md_val => ArgumentVal::Content(self.parse_elements(pair.into_inner())?),
+            Rule::flag => ArgumentVal::Flag(pair.as_str().into()),
+            Rule::integer => ArgumentVal::Int(pair.as_str().parse()?),
+            Rule::float => ArgumentVal::Float(pair.as_str().parse()?),
             _ => unreachable!(),
         })
     }
@@ -287,7 +331,7 @@ mod tests {
     use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::Span;
     use crate::raw::{
-        parse_to_doc, Element, ElementInfo, Parameter, RawDocument, Reference, Special, Value,
+        parse_to_doc, ArgumentVal, Element, ElementInfo, Parameter, RawDocument, Reference, Special,
     };
     use cowstr::CowStr;
     use std::collections::HashMap;
@@ -467,23 +511,23 @@ code
                 element: Element::Special(None, Special::Command {
                     function: "func".into(),
                     parameters: vec![
-                        Parameter { key: None, value: Value::String("basic".into()), span: Span::new(6, 11) },
-                        Parameter { key: None, value: Value::String("quoted".into()), span: Span::new(13, 21) },
-                        Parameter { key: None, value: Value::Content(vec![
+                        Parameter { key: None, value: ArgumentVal::String("basic".into()), span: Span::new(6, 11) },
+                        Parameter { key: None, value: ArgumentVal::String("quoted".into()), span: Span::new(13, 21) },
+                        Parameter { key: None, value: ArgumentVal::Content(vec![
                             ElementInfo {
                                 element: Element::Markdown("content".into()),
                                 span: Span::new(24, 31)
                             }
                         ]), span: Span::new(23, 32) },
-                        Parameter { key: Some("key".into()), value: Value::String("basic".into()), span: Span::new(34, 43) },
-                        Parameter { key: Some("key".into()), value: Value::String("quoted".into()), span: Span::new(45, 57) },
-                        Parameter { key: Some("key".into()), value: Value::Content(vec![
+                        Parameter { key: Some("key".into()), value: ArgumentVal::String("basic".into()), span: Span::new(34, 43) },
+                        Parameter { key: Some("key".into()), value: ArgumentVal::String("quoted".into()), span: Span::new(45, 57) },
+                        Parameter { key: Some("key".into()), value: ArgumentVal::Content(vec![
                             ElementInfo {
                                 element: Element::Markdown("content".into()),
                                 span: Span::new(64, 71)
                             }
                         ]), span: Span::new( 59, 72) },
-                        Parameter { key: None, value: Value::Flag("flag".into()), span: Span::new(74, 79) }
+                        Parameter { key: None, value: ArgumentVal::Flag("flag".into()), span: Span::new(74, 79) }
                     ],
                     body: None,
                 }),
@@ -495,7 +539,7 @@ code
                 element: Element::Special(None, Special::Command {
                     function: "func".into(),
                     parameters: vec![
-                        Parameter { key: None, value: Value::String("c".into()), span: Span::new(6, 7)}
+                        Parameter { key: None, value: ArgumentVal::String("c".into()), span: Span::new(6, 7)}
                     ],
                     body: Some(vec![
                         ElementInfo {

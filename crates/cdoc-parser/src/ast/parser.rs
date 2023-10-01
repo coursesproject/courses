@@ -1,9 +1,10 @@
 use crate::ast::*;
 
 use crate::raw;
-use crate::raw::{Child, ComposedMarkdown, Special};
+use crate::raw::{ArgumentVal, Child, ComposedMarkdown, Special};
 use anyhow::anyhow;
 use cowstr::ToCowStr;
+use lazy_static::lazy_static;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
 use std::str::FromStr;
@@ -55,12 +56,14 @@ impl InnerContent {
     }
 }
 
-impl From<raw::Value> for Value {
-    fn from(value: raw::Value) -> Self {
+impl From<raw::ArgumentVal> for Value {
+    fn from(value: raw::ArgumentVal) -> Self {
         match value {
-            raw::Value::Flag(f) => Value::Flag(f),
-            raw::Value::Content(c) => Value::Content(ComposedMarkdown::from(c).into()),
-            raw::Value::String(s) => Value::String(s),
+            raw::ArgumentVal::Flag(f) => Value::Flag(f),
+            raw::ArgumentVal::Content(c) => Value::Content(ComposedMarkdown::from(c).into()),
+            raw::ArgumentVal::String(s) => Value::String(s),
+            ArgumentVal::Int(i) => Value::String(i.to_string().into()),
+            ArgumentVal::Float(f) => Value::String(f.to_string().into()),
         }
     }
 }
@@ -107,6 +110,7 @@ impl From<Child> for Inline {
                 global_idx: value.identifier,
                 span: value.span,
             }),
+            Special::Script { src, .. } => Inline::Code(src),
             Special::CodeInline { inner } => Inline::Code(inner),
             Special::Command {
                 function,
@@ -130,10 +134,14 @@ impl From<Child> for Inline {
     }
 }
 
+lazy_static! {
+    static ref r: Regex = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
+}
+
 impl From<ComposedMarkdown> for Vec<Block> {
     fn from(composed: ComposedMarkdown) -> Self {
         let parser: MdParser = MdParser::new(&composed.src);
-        let r = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
+
         let mut inners = vec![InnerContent::Blocks(Vec::new())];
 
         for event in parser {

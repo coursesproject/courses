@@ -1,7 +1,8 @@
 use crate::code_ast::types::CodeElem;
-use crate::raw::{Child, ComposedMarkdown, Special, Value};
+use crate::raw::{ArgumentVal, Child, ComposedMarkdown, Special};
 use cdoc_base::module::Module;
-use cdoc_base::node::{Attribute, ChildType, Element, Node};
+use cdoc_base::node::{Attribute, ChildType, Element, Node, Script};
+use lazy_static::lazy_static;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
 use std::str::FromStr;
@@ -56,41 +57,102 @@ impl From<Child> for Element {
                     ))
                 }
             }
+            Special::Script { id, src, children } => {
+                let elements = children
+                    .into_iter()
+                    .map(|c| ComposedMarkdown::from(c).into())
+                    .collect();
+                Element::Script(Script {
+                    id,
+                    src: src.to_string(),
+                    elements,
+                })
+            }
             Special::Command {
                 function,
                 parameters,
                 body,
             } => {
                 let mut children = vec![];
-                for parameter in parameters {
+                for (i, parameter) in parameters.into_iter().enumerate() {
                     match parameter.value {
-                        Value::Flag(f) => {
+                        ArgumentVal::Flag(f) => {
                             attributes.push((f.to_string(), Attribute::Flag));
                         }
-                        Value::Content(c) => {
+                        ArgumentVal::Content(c) => {
                             let composed = ComposedMarkdown::from(c);
-                            children.push(Element::Node(Node::new(
-                                format!("parameter:{}", parameter.key.as_ref().unwrap()),
-                                [(
-                                    "name".to_string(),
-                                    Attribute::String(parameter.key.unwrap().to_string()),
-                                )],
-                                composed.into(),
-                            )));
+                            let mut elems: Vec<Element> = composed.into();
+
+                            let el = if elems.len() == 1 {
+                                if let Element::Node(n) = elems.remove(0) {
+                                    if n.type_id == "paragraph" {
+                                        n.children.unwrap()
+                                    } else {
+                                        vec![Element::Node(n)]
+                                    }
+                                } else {
+                                    elems
+                                }
+                            } else {
+                                elems
+                            };
+
+                            attributes.push((
+                                parameter.key.unwrap().to_string(),
+                                Attribute::Compound(el),
+                            ));
+                            // children.push(Element::Node(Node::new(
+                            //     format!("parameter:{}", parameter.key.as_ref().unwrap()),
+                            //     [(
+                            //         "name".to_string(),
+                            //         Attribute::String(parameter.key.unwrap().to_string()),
+                            //     )],
+                            //     composed.into(),
+                            // )));
                         }
-                        Value::String(s) => attributes.push((
+                        ArgumentVal::String(s) => attributes.push((
                             parameter
                                 .key
                                 .map(|k| k.to_string())
-                                .unwrap_or("positional".to_string()),
+                                .unwrap_or(format!("pos_{}", i)),
                             Attribute::String(s.to_string()),
+                        )),
+                        ArgumentVal::Int(i) => attributes.push((
+                            parameter
+                                .key
+                                .map(|k| k.to_string())
+                                .unwrap_or(format!("pos_{}", i)),
+                            Attribute::Int(i),
+                        )),
+                        ArgumentVal::Float(f) => attributes.push((
+                            parameter
+                                .key
+                                .map(|k| k.to_string())
+                                .unwrap_or(format!("pos_{}", i)),
+                            Attribute::Float(f),
                         )),
                     }
                 }
                 if let Some(body) = body {
                     let composed = ComposedMarkdown::from(body);
-                    let elems: Vec<Element> = composed.into();
-                    children.extend(elems);
+                    let mut elems: Vec<Element> = composed.into();
+
+                    let el = if elems.len() == 1 {
+                        // TODO: Truly horrific
+                        if let Element::Node(n) = elems.remove(0) {
+                            if n.type_id == "paragraph" {
+                                n.children.unwrap()
+                            } else {
+                                vec![Element::Node(n)]
+                            }
+                        } else {
+                            elems
+                        }
+                    } else {
+                        elems
+                    };
+
+                    children.extend(el);
                 }
 
                 Element::Node(Node::new(function.to_string(), attributes, children))
@@ -124,10 +186,13 @@ impl From<Child> for Element {
     }
 }
 
+lazy_static! {
+    static ref r: Regex = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
+}
+
 impl From<ComposedMarkdown> for Vec<Element> {
     fn from(value: ComposedMarkdown) -> Self {
         let parser: MdParser = MdParser::new(&value.src);
-        let r = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
         let mut nodes = vec![Vec::new()];
 
         for event in parser {

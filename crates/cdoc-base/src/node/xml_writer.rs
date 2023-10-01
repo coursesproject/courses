@@ -1,23 +1,23 @@
-use crate::node::{Attribute, Document, Element};
+use crate::node::{Attribute, Element};
 use std::io;
 use std::io::Write;
 use xml::writer::Result;
 use xml::writer::XmlEvent;
 use xml::{EmitterConfig, EventWriter};
 
-impl Document {
-    pub fn write_xml(&self, writer: impl Write) -> Result<()> {
-        let mut writer = EmitterConfig::new()
-            .perform_indent(true)
-            .create_writer(writer);
-
-        for element in &self.content {
-            element.write_xml(&mut writer)?;
-        }
-
-        Ok(())
-    }
-}
+// impl Document {
+//     pub fn write_xml(&self, writer: impl Write) -> Result<()> {
+//         let mut writer = EmitterConfig::new()
+//             .perform_indent(true)
+//             .create_writer(writer);
+//
+//         for element in &self.content {
+//             element.write_xml(&mut writer)?;
+//         }
+//
+//         Ok(())
+//     }
+// }
 
 pub fn write_elements_to_xml(elements: &Vec<Element>, writer: impl Write) -> Result<()> {
     let mut writer = EmitterConfig::new()
@@ -44,6 +44,7 @@ impl Attribute {
             Attribute::String(s) => s.clone(),
             Attribute::Enum(v) => v.clone(),
             Attribute::Flag => "".to_string(),
+            Attribute::Compound(x) => "".to_string(),
         }
     }
 }
@@ -74,6 +75,24 @@ impl Element {
                 }
                 writer.write(XmlEvent::end_element())
             }
+            Element::Script(script) => {
+                writer.write(XmlEvent::start_element("rhai_script"))?;
+                for (i, elem) in script.elements.iter().enumerate() {
+                    writer
+                        .write(XmlEvent::start_element("element").attr("index", &i.to_string()))?;
+                    for child in elem {
+                        child.write_xml(writer)?;
+                    }
+                    writer.write(XmlEvent::end_element())?;
+                }
+
+                writer.write(XmlEvent::start_element("src"))?;
+                writer.write(XmlEvent::characters(&script.src))?;
+                writer.write(XmlEvent::end_element())?;
+
+                writer.write(XmlEvent::end_element())
+            }
+            _ => Ok(()),
         }
     }
 }

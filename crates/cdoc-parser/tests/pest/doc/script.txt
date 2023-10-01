@@ -1,0 +1,25 @@
+Code Cell
+
+=======
+#let a = 2;
+#if x > 2 {
+    [output]
+};
+=======
+
+(doc
+    (script
+        (script_keywords: "let")
+        (script_body
+            (script_src: " a = 2")
+    )
+    (src: "\n")
+    (script
+        (script_keywords: "if")
+        (script_body
+            (script_src: " x > 2 {\n    ")
+            (script_escape (src: "output"))
+            (script_src: "\n")
+        )
+    )
+)

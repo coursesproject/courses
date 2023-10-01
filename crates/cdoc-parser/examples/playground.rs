@@ -10,6 +10,11 @@ fn main() -> anyhow::Result<()> {
     let composed = ComposedMarkdown::from(raw.src);
     let nodes: Vec<Element> = Vec::from(composed);
 
+    // if let Element::Node(node) = &nodes[0] {
+    //     println!("node {}", node.type_id);
+    // }
+
+    println!("writing output");
     let mut file = File::create("sample_out.xml")?;
     write_elements_to_xml(&nodes, &mut file)?;
 

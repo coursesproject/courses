@@ -106,10 +106,12 @@ nodest:
       - name: level
         type: Enum[easy, medium, hard]
     children:
-      - type: !Is TASK_TITLE
+      - type: !Is task:parameter_caption
         count: zero_or_one
+      - type: !Any
+        count: zero_or_many
 
-  - type_id: TASK_TITLE
+  - type_id: task:parameter_caption
     children:
       - type: !Collection inline
         count: one_or_many

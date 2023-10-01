@@ -7,7 +7,6 @@ use cdoc::config::Format;
 use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
 
-use cdoc::renderers::extensions::structure::DocStructureConfig;
 use cdoc::renderers::extensions::RenderExtensionConfig;
 use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
@@ -93,14 +92,13 @@ fn default_profiles() -> HashMap<String, Profile> {
                 settings: ParserSettings { solutions: true },
             },
             formats: vec![],
-            render_extensions: HashMap::from([(
-                "html".to_string(),
-                vec![Box::new(DocStructureConfig {
-                    max_heading_level: 0,
-                    included_commands: vec![],
-                })
-                    as Box<dyn RenderExtensionConfig + 'static>],
-            )]),
+            render_extensions: HashMap::from([("html".to_string(), vec![])]),
+            //     vec![Box::new(DocStructureConfig {
+            //         max_heading_level: 0,
+            //         included_commands: vec![],
+            //     })
+            //         as Box<dyn RenderExtensionConfig + 'static>],
+            // )]),
             create_filters: true,
         },
     );
@@ -114,14 +112,13 @@ fn default_profiles() -> HashMap<String, Profile> {
                 settings: ParserSettings { solutions: false },
             },
             formats: vec![],
-            render_extensions: HashMap::from([(
-                "html".to_string(),
-                vec![Box::new(DocStructureConfig {
-                    max_heading_level: 0,
-                    included_commands: vec![],
-                })
-                    as Box<dyn RenderExtensionConfig + 'static>],
-            )]),
+            render_extensions: HashMap::from([("html".to_string(), vec![])]),
+            //     vec![Box::new(DocStructureConfig {
+            //         max_heading_level: 0,
+            //         included_commands: vec![],
+            //     })
+            //         as Box<dyn RenderExtensionConfig + 'static>],
+            // )]),
             create_filters: false,
         },
     );

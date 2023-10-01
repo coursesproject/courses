@@ -1,6 +1,6 @@
 
 courses:
-  version: "0.8.*"
+  version: ^0.9
 
 url_prefix: /courses
 
@@ -40,18 +40,18 @@ profiles:
     mode: draft
     parser: # Parser settings
       preprocessors:
-        - cells: null
+#        - cells: null
 #        - script:
 #            name: "link_checker.rhai"
       solutions: false # Don't include exercise solutions
     formats:
       - html: {}
-      - dynamic:
-          name: ast
-          extension: json
-          template_prefix: html
-          renderer:
-            json:
+#      - dynamic:
+#          name: ast
+#          extension: json
+#          template_prefix: html
+#          renderer:
+#            json:
 
 notebook_meta:
   kernelspec:

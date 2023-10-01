@@ -2,6 +2,7 @@ use dyn_clone::DynClone;
 use std::fmt::{Debug, Display};
 use std::path::PathBuf;
 
+use cdoc_base::node::Element;
 use cdoc_parser::ast::Ast;
 use cdoc_parser::document::Document;
 use thiserror::Error;
@@ -34,7 +35,7 @@ pub struct PreprocessorContext<'a> {
 
 pub trait AstPreprocessor: Display {
     fn name(&self) -> String;
-    fn process(&mut self, input: Document<Ast>) -> Result<Document<Ast>, Error>;
+    fn process(&mut self, input: Document<Vec<Element>>) -> Result<Document<Vec<Element>>, Error>;
 }
 
 #[typetag::serde]

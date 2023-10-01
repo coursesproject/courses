@@ -17,5 +17,7 @@ tera = "1.19.1"
 
 xml-rs = {version = "0.8.19", optional = true}
 
+rhai = {version = "1.16.2", features = ["internals"]}
+
 [features]
 default = ["xml-rs"]

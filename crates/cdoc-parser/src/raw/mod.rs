@@ -60,6 +60,11 @@ pub enum Special {
         parameters: Vec<Parameter>,
         body: Option<Vec<ElementInfo>>,
     },
+    Script {
+        id: String,
+        src: CowStr,
+        children: Vec<Vec<ElementInfo>>,
+    },
     Verbatim {
         inner: CowStr,
     },
@@ -80,12 +85,12 @@ pub struct ElementInfo {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
     pub key: Option<CowStr>,
-    pub value: Value,
+    pub value: ArgumentVal,
     pub span: Span,
 }
 
 impl Parameter {
-    pub fn with_value(value: Value, pos: Span) -> Self {
+    pub fn with_value(value: ArgumentVal, pos: Span) -> Self {
         Self {
             key: None,
             value,
@@ -93,7 +98,7 @@ impl Parameter {
         }
     }
 
-    pub fn with_key<C: Into<CowStr>>(key: C, value: Value, pos: Span) -> Self {
+    pub fn with_key<C: Into<CowStr>>(key: C, value: ArgumentVal, pos: Span) -> Self {
         Self {
             key: Some(key.into()),
             value,
@@ -103,18 +108,22 @@ impl Parameter {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Value {
+pub enum ArgumentVal {
     Flag(CowStr),
     Content(Vec<ElementInfo>),
     String(CowStr),
+    Int(i64),
+    Float(f64),
 }
 
-impl ToString for Value {
+impl ToString for ArgumentVal {
     fn to_string(&self) -> String {
         match self {
-            Value::Flag(k) => format!("Flag: {k}"),
-            Value::Content(_) => "Content".to_string(),
-            Value::String(s) => s.to_string(),
+            ArgumentVal::Flag(k) => format!("Flag: {k}"),
+            ArgumentVal::Content(_) => "Content".to_string(),
+            ArgumentVal::String(s) => s.to_string(),
+            ArgumentVal::Int(i) => i.to_string(),
+            ArgumentVal::Float(f) => f.to_string(),
         }
     }
 }
@@ -173,6 +182,10 @@ impl From<Vec<ElementInfo>> for ComposedMarkdown {
                             0
                         }
                         Special::CodeInline { .. } => {
+                            extra_idx += 1;
+                            0
+                        }
+                        Special::Script { .. } => {
                             extra_idx += 1;
                             0
                         }

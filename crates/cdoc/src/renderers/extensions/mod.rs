@@ -1,16 +1,19 @@
 pub mod cell_outputs;
 pub mod structure;
 
-use crate::renderers::generic::GenericRenderer;
 use crate::renderers::RenderContext;
 
+use crate::renderers::newrenderer::ElementRenderer;
 use dyn_clone::DynClone;
 use std::fmt::Debug;
 
 pub trait RenderExtension {
     fn name(&self) -> String;
-    fn process(&mut self, ctx: &mut RenderContext, renderer: GenericRenderer)
-        -> anyhow::Result<()>;
+    fn process(
+        &mut self,
+        ctx: &mut RenderContext,
+        renderer: &ElementRenderer,
+    ) -> anyhow::Result<()>;
 }
 
 #[typetag::serde]

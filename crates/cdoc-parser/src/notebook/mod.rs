@@ -8,6 +8,7 @@ use crate::ast::Ast;
 use crate::document::{CodeOutput, Document, Image, Metadata};
 
 use crate::document;
+use cdoc_base::node::Element;
 use linked_hash_map::LinkedHashMap;
 use nanoid::nanoid;
 use serde::de::Error;
@@ -327,7 +328,7 @@ impl From<Vec<CellOutput>> for CodeOutput {
     }
 }
 
-pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Document<Ast>>> {
+pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Document<Vec<Element>>>> {
     let mut writer = BufWriter::new(Vec::new());
 
     let mut output_map = HashMap::new();

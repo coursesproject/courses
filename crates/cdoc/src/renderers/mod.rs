@@ -13,6 +13,7 @@ use crate::parser::ParserSettings;
 use crate::renderers::extensions::RenderExtension;
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
+use cdoc_base::node::Element;
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Reference};
 use cdoc_parser::document::Document;
@@ -24,6 +25,7 @@ use crate::templates::TemplateManager;
 pub mod extensions;
 pub mod generic;
 pub mod json;
+pub mod newrenderer;
 pub mod notebook;
 mod parameter_resolution;
 mod references;
@@ -34,7 +36,7 @@ pub type RenderResult = CowStr;
 /// Context that is passed to the render functions.
 pub struct RenderContext<'a> {
     /// The document that is being rendered
-    pub doc: &'a mut Document<Ast>,
+    pub doc: &'a mut Document<Vec<Element>>,
     pub templates: &'a TemplateManager,
     /// Extra arguments (this type is essentially a wrapped HashMap)
     pub extra_args: Context,
@@ -50,7 +52,7 @@ pub struct RenderContext<'a> {
 
 impl<'a> RenderContext<'a> {
     pub fn new(
-        doc: &'a mut Document<Ast>,
+        doc: &'a mut Document<Vec<Element>>,
         templates: &'a TemplateManager,
         mut extra_args: Context,
         // syntax_set: &'a SyntaxSet,
@@ -59,15 +61,15 @@ impl<'a> RenderContext<'a> {
         format: &'a dyn Format,
         parser_settings: ParserSettings,
     ) -> Result<Self> {
-        let mut parameter_resolution = ParameterResolution { templates };
-        parameter_resolution.walk_ast(&mut doc.content.blocks)?;
-
-        let mut ref_visit = ReferenceVisitor::new();
-        ref_visit.walk_ast(&mut doc.content.blocks)?;
-        let rbt = references_by_type(&mut ref_visit.references);
-
-        extra_args.insert("refs", &ref_visit.references);
-        extra_args.insert("refs_by_type", &rbt);
+        // let mut parameter_resolution = ParameterResolution { templates };
+        // parameter_resolution.walk_ast(&mut doc.content.blocks)?;
+        //
+        // let mut ref_visit = ReferenceVisitor::new();
+        // ref_visit.walk_ast(&mut doc.content.blocks)?;
+        // let rbt = references_by_type(&mut ref_visit.references);
+        //
+        // extra_args.insert("refs", &ref_visit.references);
+        // extra_args.insert("refs_by_type", &rbt);
         extra_args.insert("defs", &templates.definitions);
         // args.insert("refs", &ctx.references);
         // println!("{:?}", &ctx.references);
@@ -82,8 +84,8 @@ impl<'a> RenderContext<'a> {
             notebook_output_meta,
             format,
             parser_settings,
-            references: ref_visit.references,
-            references_by_type: rbt,
+            references: LinkedHashMap::new(), //ref_visit.references,
+            references_by_type: HashMap::new(), //rbt,
         })
     }
 }
@@ -103,10 +105,16 @@ pub fn references_by_type(
     type_map
 }
 
+#[typetag::serde]
+pub trait RendererConfig: DynClone + Debug + Send + Sync {
+    fn build(&self) -> Result<Box<dyn DocumentRenderer>>;
+}
+
+dyn_clone::clone_trait_object!(RendererConfig);
+
 /// Trait used for rendering a whole document. The trait is used for configuring custom formats in
 /// the courses project.
-#[typetag::serde]
-pub trait DocumentRenderer: DynClone + Debug + Send + Sync {
+pub trait DocumentRenderer {
     fn render_doc(
         &mut self,
         ctx: &mut RenderContext,
@@ -114,7 +122,7 @@ pub trait DocumentRenderer: DynClone + Debug + Send + Sync {
     ) -> Result<Document<RenderResult>>;
 }
 
-dyn_clone::clone_trait_object!(DocumentRenderer);
+// dyn_clone::clone_trait_object!(DocumentRenderer);
 
 /// The base trait that renderers should implement for each type used by [create::ast::Ast].
 pub trait RenderElement<T> {
@@ -124,7 +132,7 @@ pub trait RenderElement<T> {
     /// Convenience function for creating a buffer, rendering the element into the buffer, and
     /// returning the result as a string. This is useful when an inner element needs to be rendered
     /// first to be used in an outer element, hence the name.
-    fn render_inner(&mut self, elem: &T, ctx: &RenderContext) -> Result<CowStr> {
+    fn render_inner(&mut self, elem: &T, ctx: &RenderContext) -> Result<String> {
         let mut buf = Vec::new();
         self.render(elem, ctx, &mut buf)?;
         Ok(String::from_utf8(buf)?.into())
