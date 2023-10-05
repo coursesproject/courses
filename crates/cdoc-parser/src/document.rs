@@ -1,7 +1,7 @@
 use crate::ast::Ast;
 use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Special};
 use anyhow::Result;
-use cdoc_base::node::Element;
+use cdoc_base::node::Node;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -70,7 +70,7 @@ pub enum Image {
     Svg(String),
 }
 
-fn parse_raw(doc: RawDocument) -> Result<Document<Vec<Element>>> {
+fn parse_raw(doc: RawDocument) -> Result<Document<Vec<Node>>> {
     let composed = ComposedMarkdown::from(doc.src);
     let code_outputs = composed
         .children
@@ -81,7 +81,7 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Vec<Element>>> {
         })
         .collect();
 
-    let nodes: Vec<Element> = Vec::from(composed);
+    let nodes: Vec<Node> = Vec::from(composed);
 
     let doc = Document {
         content: nodes,
@@ -95,7 +95,7 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Vec<Element>>> {
     Ok(doc)
 }
 
-impl TryFrom<&str> for Document<Vec<Element>> {
+impl TryFrom<&str> for Document<Vec<Node>> {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {

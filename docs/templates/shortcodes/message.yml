@@ -23,10 +23,12 @@ shortcode:
 
 templates:
   html: !String |
-    <article class="message is-{{color}}">
-      <div class="message-header">{{ title | default(value=color) | capitalize }}</div>
-      <div class="message-body">{{ body|safe }}</div>
-    </article>
+    <div class="alert alert-{{color}} not-prose">
+      <div>
+        <h3 class="font-bold">{{ title | default(value=color) | capitalize }}</h3>
+        <div class="text-xs">{{ body|safe }}</div>
+      </div>
+    </div>
   markdown: !String |
     ```
     **{{ title | default(value=color) | capitalize }}**

@@ -1,7 +1,8 @@
 pub mod module;
 pub mod node;
 mod package;
-mod render;
+
+pub mod extension;
 mod template;
 
 pub fn add(left: usize, right: usize) -> usize {

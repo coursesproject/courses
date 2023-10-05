@@ -1,41 +1,41 @@
 use crate::code_ast::types::CodeElem;
 use crate::raw::{ArgumentVal, Child, ComposedMarkdown, Special};
 use cdoc_base::module::Module;
-use cdoc_base::node::{Attribute, ChildType, Element, Node, Script};
+use cdoc_base::node::{Attribute, ChildType, Compound, Node, Script};
 use lazy_static::lazy_static;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;
 use std::str::FromStr;
 
-fn to_vec_element<T>(vec: Vec<T>) -> Vec<Element>
+fn to_vec_element<T>(vec: Vec<T>) -> Vec<Node>
 where
-    Element: From<T>,
+    Node: From<T>,
 {
-    vec.into_iter().map(Element::from).collect()
+    vec.into_iter().map(Node::from).collect()
 }
 
-impl From<CodeElem> for Element {
+impl From<CodeElem> for Node {
     fn from(value: CodeElem) -> Self {
         match value {
             CodeElem::Solution(s) => {
-                let mut children = vec![Element::Node(Node::new_with_children(
+                let mut children = vec![Node::Compound(Compound::new_with_children(
                     "solution",
-                    vec![Element::Plain(s.solution.to_string())],
+                    vec![Node::Plain(s.solution.to_string())],
                 ))];
                 if let Some(placeholder) = s.placeholder {
-                    children.push(Element::Node(Node::new_with_children(
+                    children.push(Node::Compound(Compound::new_with_children(
                         "placeholder",
-                        vec![Element::Plain(placeholder.to_string())],
+                        vec![Node::Plain(placeholder.to_string())],
                     )))
                 }
-                Element::Node(Node::new_with_children("solution_block", children))
+                Node::Compound(Compound::new_with_children("solution_block", children))
             }
-            CodeElem::Src(s) => Element::Plain(s),
+            CodeElem::Src(s) => Node::Plain(s),
         }
     }
 }
 
-impl From<Child> for Element {
+impl From<Child> for Node {
     fn from(value: Child) -> Self {
         let mut attributes = vec![];
         if let Some(label) = value.label {
@@ -44,16 +44,16 @@ impl From<Child> for Element {
         match value.elem {
             Special::Math { inner, is_block } => {
                 if is_block {
-                    Element::Node(Node::new(
+                    Node::Compound(Compound::new(
                         "math_block",
                         attributes,
-                        vec![Element::Plain(inner.to_string())],
+                        vec![Node::Plain(inner.to_string())],
                     ))
                 } else {
-                    Element::Node(Node::new(
+                    Node::Compound(Compound::new(
                         "math",
                         attributes,
-                        vec![Element::Plain(inner.to_string())],
+                        vec![Node::Plain(inner.to_string())],
                     ))
                 }
             }
@@ -62,7 +62,7 @@ impl From<Child> for Element {
                     .into_iter()
                     .map(|c| ComposedMarkdown::from(c).into())
                     .collect();
-                Element::Script(Script {
+                Node::Script(Script {
                     id,
                     src: src.to_string(),
                     elements,
@@ -81,14 +81,14 @@ impl From<Child> for Element {
                         }
                         ArgumentVal::Content(c) => {
                             let composed = ComposedMarkdown::from(c);
-                            let mut elems: Vec<Element> = composed.into();
+                            let mut elems: Vec<Node> = composed.into();
 
                             let el = if elems.len() == 1 {
-                                if let Element::Node(n) = elems.remove(0) {
+                                if let Node::Compound(n) = elems.remove(0) {
                                     if n.type_id == "paragraph" {
                                         n.children.unwrap()
                                     } else {
-                                        vec![Element::Node(n)]
+                                        vec![Node::Compound(n)]
                                     }
                                 } else {
                                     elems
@@ -135,15 +135,15 @@ impl From<Child> for Element {
                 }
                 if let Some(body) = body {
                     let composed = ComposedMarkdown::from(body);
-                    let mut elems: Vec<Element> = composed.into();
+                    let mut elems: Vec<Node> = composed.into();
 
                     let el = if elems.len() == 1 {
                         // TODO: Truly horrific
-                        if let Element::Node(n) = elems.remove(0) {
+                        if let Node::Compound(n) = elems.remove(0) {
                             if n.type_id == "paragraph" {
                                 n.children.unwrap()
                             } else {
-                                vec![Element::Node(n)]
+                                vec![Node::Compound(n)]
                             }
                         } else {
                             elems
@@ -155,7 +155,7 @@ impl From<Child> for Element {
                     children.extend(el);
                 }
 
-                Element::Node(Node::new(function.to_string(), attributes, children))
+                Node::Compound(Compound::new(function.to_string(), attributes, children))
             }
             Special::CodeBlock {
                 lvl,
@@ -171,17 +171,17 @@ impl From<Child> for Element {
                 inner.meta.iter().for_each(|(k, v)| {
                     attributes.push((k.to_string(), Attribute::String(v.to_string())))
                 });
-                Element::Node(Node::new(
+                Node::Compound(Compound::new(
                     "code_block",
                     attributes,
-                    vec![Element::Plain("not implemented".to_string())],
+                    vec![Node::Plain("not implemented".to_string())],
                 ))
             }
-            Special::CodeInline { inner } => Element::Node(Node::new_with_children(
+            Special::CodeInline { inner } => Node::Compound(Compound::new_with_children(
                 "code",
-                vec![Element::Plain(inner.to_string())],
+                vec![Node::Plain(inner.to_string())],
             )),
-            Special::Verbatim { inner } => Element::Plain(inner.to_string()),
+            Special::Verbatim { inner } => Node::Plain(inner.to_string()),
         }
     }
 }
@@ -190,7 +190,7 @@ lazy_static! {
     static ref r: Regex = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
 }
 
-impl From<ComposedMarkdown> for Vec<Element> {
+impl From<ComposedMarkdown> for Vec<Node> {
     fn from(value: ComposedMarkdown) -> Self {
         let parser: MdParser = MdParser::new(&value.src);
         let mut nodes = vec![Vec::new()];
@@ -202,8 +202,8 @@ impl From<ComposedMarkdown> for Vec<Element> {
                     let children = nodes.pop().expect("Missing children");
                     let current_node = nodes.last_mut().unwrap();
                     match t {
-                        Tag::Paragraph => current_node.push(Element::Node(
-                            Node::new_with_children("paragraph", children),
+                        Tag::Paragraph => current_node.push(Node::Compound(
+                            Compound::new_with_children("paragraph", children),
                         )),
                         Tag::Heading(level, label, _) => {
                             let mut attributes = vec![];
@@ -215,23 +215,26 @@ impl From<ComposedMarkdown> for Vec<Element> {
                             }
                             attributes
                                 .push(("level".to_string(), Attribute::Int(heading_to_lvl(level))));
-                            current_node
-                                .push(Element::Node(Node::new("heading", attributes, children)))
+                            current_node.push(Node::Compound(Compound::new(
+                                "heading", attributes, children,
+                            )))
                         }
                         Tag::List(_) => {}
                         Tag::Item => {}
-                        Tag::Emphasis => {
-                            current_node.push(Element::Node(Node::new("emphasis", [], children)))
-                        }
+                        Tag::Emphasis => current_node.push(Node::Compound(Compound::new(
+                            "emphasis",
+                            [],
+                            children,
+                        ))),
                         Tag::Strong => {
-                            current_node.push(Element::Node(Node::new("strong", [], children)))
+                            current_node.push(Node::Compound(Compound::new("strong", [], children)))
                         }
-                        Tag::Strikethrough => current_node.push(Element::Node(Node::new(
+                        Tag::Strikethrough => current_node.push(Node::Compound(Compound::new(
                             "strikethrough",
                             [],
                             children,
                         ))),
-                        Tag::Link(_, url, alt) => current_node.push(Element::Node(Node::new(
+                        Tag::Link(_, url, alt) => current_node.push(Node::Compound(Compound::new(
                             "link",
                             [
                                 ("url".to_string(), Attribute::String(url.to_string())),
@@ -239,14 +242,16 @@ impl From<ComposedMarkdown> for Vec<Element> {
                             ],
                             children,
                         ))),
-                        Tag::Image(_, url, alt) => current_node.push(Element::Node(Node::new(
-                            "image",
-                            [
-                                ("url".to_string(), Attribute::String(url.to_string())),
-                                ("alt".to_string(), Attribute::String(alt.to_string())),
-                            ],
-                            children,
-                        ))),
+                        Tag::Image(_, url, alt) => {
+                            current_node.push(Node::Compound(Compound::new(
+                                "image",
+                                [
+                                    ("url".to_string(), Attribute::String(url.to_string())),
+                                    ("alt".to_string(), Attribute::String(alt.to_string())),
+                                ],
+                                children,
+                            )))
+                        }
                         _ => {} // Missing on purpose/so far
                     }
                 }
@@ -258,28 +263,25 @@ impl From<ComposedMarkdown> for Vec<Element> {
                         let elem = value.children[idx].clone();
                         nodes.last_mut().unwrap().push(elem.into());
                     } else {
-                        nodes
-                            .last_mut()
-                            .unwrap()
-                            .push(Element::Plain(src.to_string()));
+                        nodes.last_mut().unwrap().push(Node::Plain(src.to_string()));
                     }
                 }
                 Event::Text(text) => nodes
                     .last_mut()
                     .unwrap()
-                    .push(Element::Plain(text.to_string())),
+                    .push(Node::Plain(text.to_string())),
                 Event::SoftBreak => nodes
                     .last_mut()
                     .unwrap()
-                    .push(Element::Node(Node::new_empty("soft_break"))),
+                    .push(Node::Compound(Compound::new_empty("soft_break"))),
                 Event::HardBreak => nodes
                     .last_mut()
                     .unwrap()
-                    .push(Element::Node(Node::new_empty("hard_break"))),
+                    .push(Node::Compound(Compound::new_empty("hard_break"))),
                 Event::Rule => nodes
                     .last_mut()
                     .unwrap()
-                    .push(Element::Node(Node::new_empty("rule"))),
+                    .push(Node::Compound(Compound::new_empty("rule"))),
                 _ => {} // Missing on purpose
             }
         }

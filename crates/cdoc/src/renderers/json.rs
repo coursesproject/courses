@@ -1,6 +1,6 @@
 use crate::renderers::extensions::RenderExtension;
-use crate::renderers::{DocumentRenderer, RenderContext, RenderResult};
-use cdoc_parser::document::Document;
+use crate::renderers::{Document, DocumentRenderer, RenderContext, RenderResult};
+use cdoc_base::node::Node;
 use cowstr::CowStr;
 use serde::{Deserialize, Serialize};
 
@@ -11,11 +11,11 @@ pub struct JsonRenderer;
 impl DocumentRenderer for JsonRenderer {
     fn render_doc(
         &mut self,
+        doc: &Document<Vec<Node>>,
         ctx: &mut RenderContext,
-        _extensions: Vec<Box<dyn RenderExtension>>,
     ) -> anyhow::Result<Document<RenderResult>> {
-        let d = ctx.doc.clone();
-        let new_content: CowStr = serde_json::to_string_pretty(&ctx.doc)?.into();
+        let d = doc.clone();
+        let new_content: CowStr = serde_json::to_string_pretty(&doc)?.into();
         Ok(d.map(|_| new_content.clone()))
     }
 }

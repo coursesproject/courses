@@ -1,6 +1,5 @@
 pub mod into_rhai;
 pub mod newparser;
-pub mod parser;
 pub mod visitor;
 
 use crate::code_ast::types::CodeContent;

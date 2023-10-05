@@ -1,7 +1,7 @@
 use cdoc::renderers::newrenderer::ElementRenderer;
 use cdoc_base::node::visitor::ElementVisitor;
 use cdoc_base::node::xml_writer::write_elements_to_xml;
-use cdoc_base::node::Element;
+use cdoc_base::node::Node;
 use cdoc_parser::raw::{parse_to_doc, ComposedMarkdown};
 use std::fs;
 use std::fs::File;
@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
 
     let raw = parse_to_doc(src)?;
     let composed = ComposedMarkdown::from(raw.src);
-    let mut nodes: Vec<Element> = Vec::from(composed);
+    let mut nodes: Vec<Node> = Vec::from(composed);
 
     let mut file = File::create("sample_out.xml")?;
     write_elements_to_xml(&nodes, &mut file)?;

@@ -13,7 +13,7 @@ use crate::parser::ParserSettings;
 use crate::renderers::extensions::RenderExtension;
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
-use cdoc_base::node::Element;
+use cdoc_base::node::Node;
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Reference};
 use cdoc_parser::document::Document;
@@ -35,8 +35,6 @@ pub type RenderResult = CowStr;
 
 /// Context that is passed to the render functions.
 pub struct RenderContext<'a> {
-    /// The document that is being rendered
-    pub doc: &'a mut Document<Vec<Element>>,
     pub templates: &'a TemplateManager,
     /// Extra arguments (this type is essentially a wrapped HashMap)
     pub extra_args: Context,
@@ -52,7 +50,6 @@ pub struct RenderContext<'a> {
 
 impl<'a> RenderContext<'a> {
     pub fn new(
-        doc: &'a mut Document<Vec<Element>>,
         templates: &'a TemplateManager,
         mut extra_args: Context,
         // syntax_set: &'a SyntaxSet,
@@ -76,7 +73,6 @@ impl<'a> RenderContext<'a> {
         // args.insert("refs_by_type", &ctx.references_by_type);
 
         Ok(RenderContext {
-            doc,
             templates,
             extra_args,
             // syntax_set,
@@ -117,8 +113,8 @@ dyn_clone::clone_trait_object!(RendererConfig);
 pub trait DocumentRenderer {
     fn render_doc(
         &mut self,
+        doc: &Document<Vec<Node>>,
         ctx: &mut RenderContext,
-        extensions: Vec<Box<dyn RenderExtension>>,
     ) -> Result<Document<RenderResult>>;
 }
 
@@ -127,12 +123,12 @@ pub trait DocumentRenderer {
 /// The base trait that renderers should implement for each type used by [create::ast::Ast].
 pub trait RenderElement<T> {
     /// Render the element to a buffer
-    fn render(&mut self, elem: &T, ctx: &RenderContext, buf: impl Write) -> Result<()>;
+    fn render(&mut self, elem: &T, ctx: &mut RenderContext, buf: impl Write) -> Result<()>;
 
     /// Convenience function for creating a buffer, rendering the element into the buffer, and
     /// returning the result as a string. This is useful when an inner element needs to be rendered
     /// first to be used in an outer element, hence the name.
-    fn render_inner(&mut self, elem: &T, ctx: &RenderContext) -> Result<String> {
+    fn render_inner(&mut self, elem: &T, ctx: &mut RenderContext) -> Result<String> {
         let mut buf = Vec::new();
         self.render(elem, ctx, &mut buf)?;
         Ok(String::from_utf8(buf)?.into())
@@ -142,7 +138,12 @@ pub trait RenderElement<T> {
 /// Implementation for vectors of elements. Automatically implemented for any type that implements
 /// the trait.
 impl<T: RenderElement<R>, R> RenderElement<Vec<R>> for T {
-    fn render(&mut self, elem: &Vec<R>, ctx: &RenderContext, mut buf: impl Write) -> Result<()> {
+    fn render(
+        &mut self,
+        elem: &Vec<R>,
+        ctx: &mut RenderContext,
+        mut buf: impl Write,
+    ) -> Result<()> {
         elem.iter().try_for_each(|e| self.render(e, ctx, &mut buf))
     }
 }

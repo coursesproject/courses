@@ -37,9 +37,9 @@ use crate::project::{
 use crate::project::caching::Cache;
 use cdoc::renderers::extensions::build_extensions;
 use cdoc::renderers::newrenderer::{ElementRenderer, ElementRendererConfig};
-use cdoc_base::node::Element;
+use cdoc_base::node::Node;
 use cdoc_parser::ast::Ast;
-use cdoc_parser::document::Document;
+use cdoc_parser::document::{Document, Metadata};
 use cowstr::CowStr;
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
@@ -182,70 +182,69 @@ impl Pipeline {
 
         let p2 = pipeline.clone();
 
-        pipeline
-            .templates
-            .tera
-            .register_function("render", p2.create_render_source());
+        // pipeline
+        //     .templates
+        //     .tera
+        //     .register_function("render", p2.create_render_source());
 
         Ok(pipeline)
     }
 
-    fn create_render_source(self) -> impl Function {
-        Box::new(
-            move |args: &HashMap<String, Value>| -> tera::Result<Value> {
-                let val = args
-                    .get("body")
-                    .ok_or(tera::Error::msg("missing argument 'body'"))?;
-                if let Value::String(s) = val {
-                    let mut doc = Document::try_from(s.as_str()).map_err(tera::Error::msg)?;
-
-                    let fstring = args
-                        .get("format")
-                        .ok_or(tera::Error::msg("missing argument 'format'"))?
-                        .to_string();
-                    let format: Box<dyn Format> = serde_json::from_str(&format!(
-                        "{{\"{}\": {{}}}}",
-                        &fstring[1..fstring.len() - 1]
-                    ))
-                    .expect("problems!");
-
-                    let mut ctx = self.get_render_context(&mut doc, format.borrow()).unwrap();
-                    let mut renderer = ElementRenderer::new("").unwrap();
-                    let res = renderer
-                        .render_doc(
-                            &mut ctx,
-                            build_extensions(
-                                self.profile
-                                    .render_extensions
-                                    .get(&fstring)
-                                    .unwrap_or(&vec![]),
-                            )
-                            .map_err(tera::Error::msg)?,
-                        )
-                        .map_err(tera::Error::msg)?;
-                    let val = res.content;
-                    Ok(Value::String(val.to_string()))
-                } else {
-                    Err(tera::Error::msg("invalid type for 'body'"))
-                }
-            },
-        )
-    }
+    // fn create_render_source(self) -> impl Function { //TODO
+    //     Box::new(
+    //         move |args: &HashMap<String, Value>| -> tera::Result<Value> {
+    //             let val = args
+    //                 .get("body")
+    //                 .ok_or(tera::Error::msg("missing argument 'body'"))?;
+    //             if let Value::String(s) = val {
+    //                 let mut doc = Document::try_from(s.as_str()).map_err(tera::Error::msg)?;
+    //
+    //                 let fstring = args
+    //                     .get("format")
+    //                     .ok_or(tera::Error::msg("missing argument 'format'"))?
+    //                     .to_string();
+    //                 let format: Box<dyn Format> = serde_json::from_str(&format!(
+    //                     "{{\"{}\": {{}}}}",
+    //                     &fstring[1..fstring.len() - 1]
+    //                 ))
+    //                 .expect("problems!");
+    //
+    //                 let mut ctx = self.get_render_context(&mut doc, format.borrow()).unwrap();
+    //                 let mut renderer = ElementRenderer::new("").unwrap();
+    //                 let res = renderer
+    //                     .render_doc(
+    //                         &mut ctx,
+    //                         build_extensions(
+    //                             self.profile
+    //                                 .render_extensions
+    //                                 .get(&fstring)
+    //                                 .unwrap_or(&vec![]),
+    //                         )
+    //                         .map_err(tera::Error::msg)?,
+    //                     )
+    //                     .map_err(tera::Error::msg)?;
+    //                 let val = res.content;
+    //                 Ok(Value::String(val.to_string()))
+    //             } else {
+    //                 Err(tera::Error::msg("invalid type for 'body'"))
+    //             }
+    //         },
+    //     )
+    // }
 
     fn get_render_context<'a>(
         &'a self,
-        doc: &'a mut Document<Vec<Element>>,
+        meta: Metadata,
         format: &'a dyn Format,
     ) -> anyhow::Result<RenderContext<'a>> {
-        let mut meta = Context::default();
-        meta.insert("config", &self.project_config);
+        let mut ctx = Context::default();
+        ctx.insert("config", &self.project_config);
         // meta.insert("references", &doc.references);
-        meta.insert("doc_meta", &doc.meta);
+        ctx.insert("doc_meta", &meta);
         let _ts = &DEFAULT_THEME;
         RenderContext::new(
-            doc,
             &self.templates,
-            meta,
+            ctx,
             // &DEFAULT_SYNTAX,
             // &ts.themes["base16-ocean.light"],
             self.project_config.notebook_meta.as_ref().unwrap(),
@@ -738,20 +737,18 @@ impl Pipeline {
 
                         // let res = print_err(res)?;
 
-                        let mut ctx = self.get_render_context(&mut res, format)?;
-                        let mut renderer = format.renderer().build()?;
+                        let mut ctx = self.get_render_context(res.meta.clone(), format)?;
+                        let empty = vec![];
+                        let ext = self
+                            .profile
+                            .render_extensions
+                            .get(format.name())
+                            .unwrap_or(&empty);
 
-                        Ok(Some(
-                            renderer.render_doc(
-                                &mut ctx,
-                                build_extensions(
-                                    self.profile
-                                        .render_extensions
-                                        .get(format.name())
-                                        .unwrap_or(&vec![]),
-                                )?,
-                            )?,
-                        ))
+                        let mut renderer = ElementRenderer::new("", build_extensions(ext)?)?;
+                        // let mut renderer = format.renderer().build()?;
+
+                        Ok(Some(renderer.render_doc(&res, &mut ctx)?))
                     } else {
                         Ok(None)
                     }

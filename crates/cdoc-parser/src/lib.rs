@@ -7,6 +7,7 @@ pub mod document;
 pub mod notebook;
 pub mod raw;
 
+pub mod parser;
 #[cfg(feature = "scripting")]
 pub mod scripting;
 

@@ -4,7 +4,7 @@ layout:
     hide_sidebar: true
 ---
 
-#figure(url=logo.svg, width=35%)
+#figure(url=logo.svg, width="35%")
 
 
 #hero(

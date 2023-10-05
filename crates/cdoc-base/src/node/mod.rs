@@ -25,9 +25,9 @@ pub enum Image {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Element {
+pub enum Node {
     Plain(String),
-    Node(Node),
+    Compound(Compound),
     Script(Script),
 }
 
@@ -35,21 +35,21 @@ pub enum Element {
 pub struct Script {
     pub id: String,
     pub src: String,
-    pub elements: Vec<Vec<Element>>,
+    pub elements: Vec<Vec<Node>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Node {
+pub struct Compound {
     pub type_id: String,
     pub attributes: BTreeMap<String, Attribute>,
-    pub children: Option<Vec<Element>>,
+    pub children: Option<Vec<Node>>,
 }
 
-impl Node {
+impl Compound {
     pub fn new<S: Into<String>, B: IntoIterator<Item = (String, Attribute)>>(
         type_id: S,
         attributes: B,
-        children: Vec<Element>,
+        children: Vec<Node>,
     ) -> Self {
         Self {
             type_id: type_id.into(),
@@ -58,7 +58,7 @@ impl Node {
         }
     }
 
-    pub fn new_with_children<S: Into<String>>(type_id: S, children: Vec<Element>) -> Self {
+    pub fn new_with_children<S: Into<String>>(type_id: S, children: Vec<Node>) -> Self {
         Self::new(type_id, BTreeMap::new(), children)
     }
 
@@ -88,7 +88,7 @@ pub enum Attribute {
     Float(f64),
     String(String),
     Enum(String),
-    Compound(Vec<Element>),
+    Compound(Vec<Node>),
     Flag,
 }
 

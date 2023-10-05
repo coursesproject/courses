@@ -1,4 +1,4 @@
-use crate::node::{Attribute, Element};
+use crate::node::{Attribute, Node};
 use std::io;
 use std::io::Write;
 use xml::writer::Result;
@@ -19,7 +19,7 @@ use xml::{EmitterConfig, EventWriter};
 //     }
 // }
 
-pub fn write_elements_to_xml(elements: &Vec<Element>, writer: impl Write) -> Result<()> {
+pub fn write_elements_to_xml(elements: &Vec<Node>, writer: impl Write) -> Result<()> {
     let mut writer = EmitterConfig::new()
         .perform_indent(true)
         .create_writer(writer);
@@ -49,15 +49,15 @@ impl Attribute {
     }
 }
 
-impl Element {
+impl Node {
     pub fn write_xml<W: Write>(&self, writer: &mut EventWriter<W>) -> Result<()> {
         match self {
-            Element::Plain(s) => {
+            Node::Plain(s) => {
                 writer.write(XmlEvent::start_element("text"))?;
                 writer.write(XmlEvent::characters(s.as_str()))?;
                 writer.write(XmlEvent::end_element())
             }
-            Element::Node(node) => {
+            Node::Compound(node) => {
                 let mut start = XmlEvent::start_element(node.type_id.as_str());
                 let attr: Vec<(String, String)> = node
                     .attributes
@@ -75,7 +75,7 @@ impl Element {
                 }
                 writer.write(XmlEvent::end_element())
             }
-            Element::Script(script) => {
+            Node::Script(script) => {
                 writer.write(XmlEvent::start_element("rhai_script"))?;
                 for (i, elem) in script.elements.iter().enumerate() {
                     writer

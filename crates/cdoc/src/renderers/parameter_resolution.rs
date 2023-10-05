@@ -1,7 +1,7 @@
 use crate::templates::{TemplateManager, TemplateType};
 use anyhow::anyhow;
 use cdoc_base::node::visitor::ElementVisitor;
-use cdoc_base::node::Node;
+use cdoc_base::node::Compound;
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::Command;
 

@@ -1,7 +1,7 @@
 use crate::parser::ParserSettings;
 use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
 use cdoc_base::node::visitor::ElementVisitor;
-use cdoc_base::node::{Element, Node};
+use cdoc_base::node::{Compound, Node};
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Ast, Block, Inline};
 use cdoc_parser::document::Document;
@@ -31,10 +31,7 @@ impl AstPreprocessor for MdLabels {
         todo!()
     }
 
-    fn process(
-        &mut self,
-        mut input: Document<Vec<Element>>,
-    ) -> Result<Document<Vec<Element>>, Error> {
+    fn process(&mut self, mut input: Document<Vec<Node>>) -> Result<Document<Vec<Node>>, Error> {
         self.walk_elements(&mut input.content)?;
         Ok(input)
     }
@@ -47,7 +44,7 @@ impl Display for MdLabels {
 }
 
 impl ElementVisitor for MdLabels {
-    fn visit_node(&mut self, node: &mut Node) -> anyhow::Result<()> {
+    fn visit_node(&mut self, node: &mut Compound) -> anyhow::Result<()> {
         if node.type_id == "heading" {}
 
         Ok(())

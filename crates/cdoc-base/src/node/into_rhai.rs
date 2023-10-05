@@ -46,23 +46,23 @@
 //     }
 // }
 
-use crate::node::{Element, Node};
+use crate::node::{Compound, Node};
 use rhai::{Array, Dynamic, Engine};
 use std::any::TypeId;
 
-impl Into<Element> for &'_ Dynamic {
-    fn into(self) -> Element {
+impl Into<Node> for &'_ Dynamic {
+    fn into(self) -> Node {
         match self.type_name() {
             "array" => {
                 let a: Array = self.clone().into_array().unwrap();
-                let elems: Vec<Element> = a.into_iter().map(|e| e.cast::<Element>()).collect();
-                Element::Node(Node {
+                let elems: Vec<Node> = a.into_iter().map(|e| e.cast::<Node>()).collect();
+                Node::Compound(Compound {
                     type_id: "plain".to_string(),
                     attributes: Default::default(),
                     children: Some(elems),
                 })
             }
-            _ => Element::Plain(self.to_string()),
+            _ => Node::Plain(self.to_string()),
         }
     }
 }
@@ -71,6 +71,6 @@ impl Into<Element> for &'_ Dynamic {
 // pub struct ElementChildren(Vec<ElementVec>);
 
 pub fn build_types(engine: &mut Engine) {
-    engine.register_type::<Element>();
+    engine.register_type::<Node>();
     // engine.register_type::<ElementChildren>();
 }

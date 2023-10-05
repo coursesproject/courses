@@ -47,15 +47,11 @@ Here's an example of what a project's directory may look like:
 
 ## Content organisation
 
-Courses projects are currently limited to four levels of documents: *the project*, *parts*, *chapters*, and *sections* (this may change in the future). Each level has a corresponding document. In the case of parts, chapters, or an entire project, these documents are always named `index` (and then either the `.md` or `.ipynb` extension) inside the corresponding level folder. Since *sections* do not have children, they are placed on the same level as chapter documents but with arbitrary names. The above example have folders named after their respective levels to exemplify how this works in practice. 
+Courses projects are currently limited to four levels of documents: *the project*, *parts*, *chapters*, and *sections* (this may change in the future). Each level has a corresponding document. In the case of parts, chapters, or an entire project, these documents are always named `index` (and then either the `.md` or `.ipynb` extension) inside the corresponding level folder. Since *sections* do not have children, they are placed on the same level as chapter documents but with arbitrary names. The above example have folders named after their respective levels to exemplify how this works in practice.
 
-#math|eq:xx{
-\frac{2}{3}
-}
-
-{% message(title=Note, color=info) %}
+#message(title=Note, color=info){
 The name `index` is used because these documents are often used as overview pages for the next document level. 
-{% end %}
+}
 
 
 ## Configuring content

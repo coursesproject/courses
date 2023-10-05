@@ -5,7 +5,7 @@ use cdoc_parser::document::{CodeOutput, Document};
 use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
 
 use cdoc_base::node::visitor::ElementVisitor;
-use cdoc_base::node::{Element, Node};
+use cdoc_base::node::{Compound, Node};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -22,45 +22,42 @@ pub struct NotebookRendererBuilder;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NotebookRenderer;
 
-#[typetag::serde(name = "notebook")]
-impl RendererConfig for NotebookRenderer {
-    fn build(&self) -> Result<Box<dyn DocumentRenderer>> {
-        Ok(Box::new(self.clone()))
-    }
-}
+// #[typetag::serde(name = "notebook")]
+// impl RendererConfig for NotebookRenderer {
+//     fn build(&self) -> Result<Box<dyn DocumentRenderer>> {
+//         Ok(Box::new(self.clone()))
+//     }
+// }
 
-impl DocumentRenderer for NotebookRenderer {
-    fn render_doc(
-        &mut self,
-        ctx: &mut RenderContext,
-        extensions: Vec<Box<dyn RenderExtension>>,
-    ) -> Result<Document<RenderResult>> {
-        let renderer = ElementRenderer::new("")?;
-
-        for mut ext in extensions {
-            ext.process(ctx, &renderer)?;
-        }
-
-        let writer = NotebookWriter {
-            notebook_meta: ctx.notebook_output_meta.clone(),
-            outputs: ctx.doc.code_outputs.clone(),
-            code_cells: vec![],
-            ctx,
-            renderer,
-        };
-
-        let notebook: Notebook = writer.convert(ctx.doc.content.clone())?;
-        let output = serde_json::to_string_pretty(&notebook)
-            .expect("Invalid notebook (this is a bug)")
-            .into();
-
-        Ok(Document {
-            content: output,
-            meta: ctx.doc.meta.clone(),
-            code_outputs: ctx.doc.code_outputs.clone(),
-        })
-    }
-}
+// impl DocumentRenderer for NotebookRenderer {
+//     fn render_doc(
+//         &mut self,
+//         doc: &Document<Vec<Node>>,
+//         ctx: &mut RenderContext,
+//         extensions: Vec<Box<dyn RenderExtension>>,
+//     ) -> Result<Document<RenderResult>> {
+//         let renderer = ElementRenderer::new("")?;
+//
+//         let writer = NotebookWriter {
+//             notebook_meta: ctx.notebook_output_meta.clone(),
+//             outputs: doc.code_outputs.clone(),
+//             code_cells: vec![],
+//             ctx,
+//             renderer,
+//         };
+//
+//         let notebook: Notebook = writer.convert(doc.content.clone())?;
+//         let output = serde_json::to_string_pretty(&notebook)
+//             .expect("Invalid notebook (this is a bug)")
+//             .into();
+//
+//         Ok(Document {
+//             content: output,
+//             meta: doc.meta.clone(),
+//             code_outputs: doc.code_outputs.clone(),
+//         })
+//     }
+// }
 //
 // pub fn heading_num(h: HeadingLevel) -> usize {
 //     match h {
@@ -171,12 +168,12 @@ pub struct NotebookWriter<'a> {
     pub notebook_meta: NotebookMeta,
     pub outputs: HashMap<u64, CodeOutput>,
     pub code_cells: Vec<Cell>,
-    pub ctx: &'a RenderContext<'a>,
+    pub ctx: &'a mut RenderContext<'a>,
     pub renderer: ElementRenderer<'a>,
 }
 
 impl NotebookWriter<'_> {
-    fn convert(mut self, mut elements: Vec<Element>) -> Result<Notebook> {
+    fn convert(mut self, mut elements: Vec<Node>) -> Result<Notebook> {
         let cell_meta = CellMeta {
             jupyter: Some(JupyterLabMeta {
                 outputs_hidden: None,
@@ -239,8 +236,8 @@ HTML(f"""
 const CODE_SPLIT: &str = "--+code+--";
 
 impl ElementVisitor for NotebookWriter<'_> {
-    fn visit_element(&mut self, element: &mut Element) -> Result<()> {
-        if let Element::Node(node) = element {
+    fn visit_element(&mut self, element: &mut Node) -> Result<()> {
+        if let Node::Compound(node) = element {
             if node.type_id == "code_block" {
                 if node.attributes.contains_key("is_cell") {
                     let rendered = "temp".to_string();
@@ -257,7 +254,7 @@ impl ElementVisitor for NotebookWriter<'_> {
                 }
             }
 
-            *element = Element::Plain(CODE_SPLIT.into())
+            *element = Node::Plain(CODE_SPLIT.into())
         }
         Ok(())
     }

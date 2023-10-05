@@ -1,5 +1,5 @@
 use crate::renderers::extensions::{RenderExtension, RenderExtensionConfig};
-use crate::renderers::{RenderContext, RenderElement};
+use crate::renderers::{Document, RenderElement};
 use cdoc_parser::ast::visitor::AstVisitor;
 use cdoc_parser::ast::{Block, Command};
 use cowstr::CowStr;
