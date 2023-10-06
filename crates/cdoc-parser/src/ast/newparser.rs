@@ -35,12 +35,33 @@ impl From<CodeElem> for Node {
     }
 }
 
+// impl From<CodeElem> for Node {
+//     fn from(value: CodeElem) -> Self {
+//         match value {
+//             CodeElem::Solution(solution) => {
+//                 let mut children = vec![];
+//                 if let Some(pc) = solution.placeholder {
+//                     children.push(Node::Compound(Compound::new_with_children(
+//                         "placeholder",
+//                         vec![Node::Plain(pc.to_string())],
+//                     )));
+//                 }
+//                 children.push(Node::Plain(solution.solution.to_string()));
+//                 Node::Compound(Compound::new_with_children("solution", children))
+//             }
+//             CodeElem::Src(s) => Node::Plain(s),
+//         }
+//     }
+// }
+
 impl From<Child> for Node {
     fn from(value: Child) -> Self {
         let mut attributes = vec![];
-        if let Some(label) = value.label {
-            attributes.push(("label".to_string(), Attribute::String(label.to_string())));
-        }
+        attributes.push((
+            "label".to_string(),
+            Attribute::String(value.label.to_string()),
+        ));
+
         match value.elem {
             Special::Math { inner, is_block } => {
                 if is_block {
@@ -86,7 +107,7 @@ impl From<Child> for Node {
                             let el = if elems.len() == 1 {
                                 if let Node::Compound(n) = elems.remove(0) {
                                     if n.type_id == "paragraph" {
-                                        n.children.unwrap()
+                                        n.children
                                     } else {
                                         vec![Node::Compound(n)]
                                     }
@@ -141,7 +162,7 @@ impl From<Child> for Node {
                         // TODO: Truly horrific
                         if let Node::Compound(n) = elems.remove(0) {
                             if n.type_id == "paragraph" {
-                                n.children.unwrap()
+                                n.children
                             } else {
                                 vec![Node::Compound(n)]
                             }
@@ -174,7 +195,7 @@ impl From<Child> for Node {
                 Node::Compound(Compound::new(
                     "code_block",
                     attributes,
-                    vec![Node::Plain("not implemented".to_string())],
+                    inner.blocks.into_iter().map(|e| e.into()).collect(),
                 ))
             }
             Special::CodeInline { inner } => Node::Compound(Compound::new_with_children(

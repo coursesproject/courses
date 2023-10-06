@@ -351,11 +351,10 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
                     .unwrap_or(String::new());
                 let full = format!("#| tags: {}\n{}\n", attr, common.source);
 
-                write!(&mut writer, "\n```python, cell\n{}```\n", full)?;
+                let label = nanoid!();
+                write!(&mut writer, "\n```python, cell\n{}```|{}\n", full, label)?;
 
-                let mut hasher = DefaultHasher::new();
-                full.hash(&mut hasher);
-                output_map.insert(hasher.finish(), CodeOutput::from(outputs.clone()));
+                output_map.insert(label, CodeOutput::from(outputs.clone()));
             }
             Cell::Raw { common } => {
                 if let Ok(meta) = serde_yaml::from_str::<Metadata>(&common.source) {

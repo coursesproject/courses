@@ -68,11 +68,11 @@ impl Node {
                     start = start.attr(k.as_str(), &v);
                 }
                 writer.write(start)?;
-                if let Some(children) = &node.children {
-                    for c in children {
-                        c.write_xml(writer)?;
-                    }
+
+                for c in &node.children {
+                    c.write_xml(writer)?;
                 }
+
                 writer.write(XmlEvent::end_element())
             }
             Node::Script(script) => {

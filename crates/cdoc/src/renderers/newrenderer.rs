@@ -90,12 +90,7 @@ impl ElementVisitor for ElementRenderer<'_> {
                     .iter()
                     .map(|(k, v)| Ok((k.into(), self.attribute_to_dynamic(v)?)))
                     .collect::<anyhow::Result<rhai::Map>>()?;
-                let body = node
-                    .children
-                    .as_ref()
-                    .map(|c| self.render_vec_element(c))
-                    .transpose()?
-                    .unwrap_or_default();
+                let body = self.render_vec_element(&mut node.children)?;
 
                 let res: Dynamic =
                     self.engine
@@ -160,12 +155,7 @@ impl ElementRenderer<'_> {
                     .iter()
                     .map(|(k, v)| Ok((k.into(), self.attribute_to_dynamic(v)?)))
                     .collect::<anyhow::Result<rhai::Map>>()?;
-                let body = node
-                    .children
-                    .as_ref()
-                    .map(|c| self.render_vec_element(c))
-                    .transpose()?
-                    .unwrap_or_default();
+                let body = self.render_vec_element(&node.children)?;
 
                 Ok(self
                     .engine
@@ -259,10 +249,8 @@ impl RenderElement<Compound> for ElementRenderer<'_> {
 
             add_args(&mut args, rendered)?;
 
-            if let Some(children) = &elem.children {
-                let body = self.render_inner(children, ctx)?;
-                args.insert("body", &body);
-            }
+            let body = self.render_inner(&elem.children, ctx)?;
+            args.insert("body", &body);
 
             ctx.templates.render(
                 &elem.type_id,

@@ -59,7 +59,7 @@ impl Into<Node> for &'_ Dynamic {
                 Node::Compound(Compound {
                     type_id: "plain".to_string(),
                     attributes: Default::default(),
-                    children: Some(elems),
+                    children: elems,
                 })
             }
             _ => Node::Plain(self.to_string()),

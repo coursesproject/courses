@@ -42,7 +42,7 @@ pub struct Script {
 pub struct Compound {
     pub type_id: String,
     pub attributes: BTreeMap<String, Attribute>,
-    pub children: Option<Vec<Node>>,
+    pub children: Vec<Node>,
 }
 
 impl Compound {
@@ -54,7 +54,7 @@ impl Compound {
         Self {
             type_id: type_id.into(),
             attributes: attributes.into_iter().collect(),
-            children: Some(children),
+            children,
         }
     }
 
@@ -69,7 +69,7 @@ impl Compound {
         Self {
             type_id: type_id.into(),
             attributes: attributes.into_iter().collect(),
-            children: None,
+            children: vec![],
         }
     }
 
@@ -77,7 +77,25 @@ impl Compound {
         Self {
             type_id: type_id.into(),
             attributes: BTreeMap::new(),
-            children: None,
+            children: vec![],
+        }
+    }
+}
+
+impl Node {
+    pub fn get_compound(&self) -> &Compound {
+        if let Node::Compound(c) = self {
+            c
+        } else {
+            panic!()
+        }
+    }
+
+    pub fn get_plain(&self) -> &String {
+        if let Node::Plain(s) = self {
+            s
+        } else {
+            panic!()
         }
     }
 }
@@ -90,6 +108,16 @@ pub enum Attribute {
     Enum(String),
     Compound(Vec<Node>),
     Flag,
+}
+
+impl Attribute {
+    pub fn get_string(&self) -> &str {
+        if let Attribute::String(s) = self {
+            s
+        } else {
+            panic!()
+        }
+    }
 }
 
 #[derive(Deserialize)]

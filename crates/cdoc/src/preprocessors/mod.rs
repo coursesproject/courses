@@ -12,8 +12,10 @@ use crate::config::Format;
 use crate::parser::ParserSettings;
 use crate::templates::TemplateManager;
 
+pub mod cell_outputs;
 pub mod md_labels;
 pub mod script;
+pub mod solutions;
 
 #[derive(Error, Debug)]
 pub enum Error {

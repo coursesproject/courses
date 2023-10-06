@@ -49,7 +49,7 @@ how many linebreaks there is between arguments.
 
 ## Codes in the default template
 
-#shortcode_docs
+# shortcode_docs
 
 ## Custom shortcodes
 

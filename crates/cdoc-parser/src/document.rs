@@ -11,7 +11,7 @@ use std::collections::HashMap;
 pub struct Document<T: Serialize> {
     pub meta: Metadata,
     pub content: T,
-    pub code_outputs: HashMap<u64, CodeOutput>,
+    pub code_outputs: HashMap<String, CodeOutput>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -76,7 +76,7 @@ fn parse_raw(doc: RawDocument) -> Result<Document<Vec<Node>>> {
         .children
         .iter()
         .filter_map(|c| match &c.elem {
-            Special::CodeBlock { inner, .. } => Some((inner.hash, CodeOutput::default())),
+            Special::CodeBlock { inner, .. } => Some((c.label.to_string(), CodeOutput::default())),
             _ => None,
         })
         .collect();

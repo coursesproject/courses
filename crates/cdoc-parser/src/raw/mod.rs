@@ -38,7 +38,7 @@ pub enum Reference {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Element {
     Markdown(CowStr),
-    Special(Option<CowStr>, Special),
+    Special(CowStr, Special),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -132,7 +132,7 @@ impl ToString for ArgumentVal {
 pub struct Child {
     pub elem: Special,
     pub span: Span,
-    pub label: Option<CowStr>,
+    pub label: CowStr,
     pub identifier: usize,
 }
 

@@ -14,6 +14,10 @@ pub trait ElementVisitor {
         }
     }
 
+    fn walk_node(&mut self, node: &mut Compound) -> Result<()> {
+        self.walk_elements(&mut node.children)
+    }
+
     fn visit_element(&mut self, element: &mut Node) -> Result<()> {
         self.walk_element(element)
     }
@@ -27,10 +31,6 @@ pub trait ElementVisitor {
     }
 
     fn visit_node(&mut self, node: &mut Compound) -> Result<()> {
-        if let Some(children) = &mut node.children {
-            self.walk_elements(children)?;
-        }
-
-        Ok(())
+        self.walk_node(node)
     }
 }

@@ -1,8 +1,10 @@
 name: Output text
 description: Code cell text output.
 
-type: builtin
-
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
 
 templates:
   html: !String |
