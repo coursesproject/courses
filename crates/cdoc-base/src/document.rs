@@ -1,13 +1,10 @@
-use crate::ast::Ast;
-use crate::raw::{parse_to_doc, ComposedMarkdown, RawDocument, Special};
 use anyhow::Result;
-use cdoc_base::node::Node;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Document<T: Serialize> {
     pub meta: Metadata,
     pub content: T,
@@ -68,40 +65,6 @@ pub enum OutputValue {
 pub enum Image {
     Png(String),
     Svg(String),
-}
-
-fn parse_raw(doc: RawDocument) -> Result<Document<Vec<Node>>> {
-    let composed = ComposedMarkdown::from(doc.src);
-    let code_outputs = composed
-        .children
-        .iter()
-        .filter_map(|c| match &c.elem {
-            Special::CodeBlock { inner, .. } => Some((c.label.to_string(), CodeOutput::default())),
-            _ => None,
-        })
-        .collect();
-
-    let nodes: Vec<Node> = Vec::from(composed);
-
-    let doc = Document {
-        content: nodes,
-        meta: doc.meta.map_or(
-            Ok::<Metadata, serde_yaml::Error>(Metadata::default()),
-            |meta| serde_yaml::from_str(&meta),
-        )?,
-        code_outputs,
-    };
-
-    Ok(doc)
-}
-
-impl TryFrom<&str> for Document<Vec<Node>> {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let raw = parse_to_doc(value)?;
-        parse_raw(raw)
-    }
 }
 
 impl<T: Serialize> Document<T> {

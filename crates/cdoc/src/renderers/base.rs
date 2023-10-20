@@ -3,17 +3,16 @@ use crate::parser::ParserSettings;
 use crate::renderers::extensions::{RenderExtension, RenderExtensionContext};
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::{
-    Document, DocumentRenderer, RenderContext, RenderElement, RenderResult, RendererConfig,
+    DocumentRenderer, RenderContext, RenderElement, RenderResult, RendererConfig,
 };
 use crate::templates::{TemplateDefinition, TemplateManager, TemplateType};
 use anyhow::{Context as Ctx, Result};
-use cdoc_base::node::into_rhai::build_types;
-use cdoc_base::node::visitor::ElementVisitor;
+// use cdoc_base::node::into_rhai::build_types;
+use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::{Attribute, Compound, Node};
-use cdoc_parser::ast::Reference;
-use cdoc_parser::notebook::NotebookMeta;
-use cdoc_parser::raw::{ArgumentVal, Parameter};
-use cowstr::CowStr;
+
+use crate::renderers::references::Reference;
+use cdoc_base::document::Document;
 use linked_hash_map::LinkedHashMap;
 use rhai::{Array, Dynamic, Engine, ImmutableString, Scope, AST};
 use serde::{Deserialize, Serialize};
@@ -48,61 +47,63 @@ pub struct ElementRenderer<'a> {
     extensions: HashMap<String, Box<dyn RenderExtension>>,
 }
 
-impl ElementVisitor for ElementRenderer<'_> {
-    fn visit_element(&mut self, element: &mut Node) -> anyhow::Result<()> {
-        if let Node::Script(script) = element {
-            if !script.elements.is_empty() {
-                let dyna: Array = script
-                    .elements
-                    .iter()
-                    .map(|e| {
-                        e.iter()
-                            .map(|e| Dynamic::from(e.clone()))
-                            .collect::<Array>()
-                            .into()
-                    })
-                    .collect::<Array>()
-                    .into();
-                self.scope.push(format!("e_{}", script.id), dyna);
-            }
-
-            println!("src: {}", &script.src);
-            let ast = self.engine.compile(&script.src)?;
-            println!("ast: {:?}", &ast);
-            self.fns
-                .extend(ast.iter_functions().map(|m| m.name.to_string()));
-
-            let result: Dynamic = self.engine.eval_ast_with_scope(&mut self.scope, &ast)?;
-
-            self.ast += ast;
-
-            println!("fns {:?}", self.fns);
-
-            *element = (&result).into();
-        }
-
-        if let Node::Compound(node) = element {
-            if let Some(v) = self.scope.get(&node.type_id) {
-                *element = v.into();
-            } else if self.fns.contains(&node.type_id) {
-                let args: rhai::Map = node
-                    .attributes
-                    .iter()
-                    .map(|(k, v)| Ok((k.into(), self.attribute_to_dynamic(v)?)))
-                    .collect::<anyhow::Result<rhai::Map>>()?;
-                let body = self.render_vec_element(&mut node.children)?;
-
-                let res: Dynamic =
-                    self.engine
-                        .call_fn(&mut self.scope, &self.ast, &node.type_id, (args, body))?;
-
-                *element = (&res).into();
-            }
-        }
-
-        self.walk_element(element)
-    }
-}
+// todo
+// impl NodeVisitor for ElementRenderer<'_> {
+//     fn visit_element(&mut self, element: &mut Node) -> anyhow::Result<()> {
+//         if let Node::Script(script) = element {
+//
+//             if !script.elements.is_empty() {
+//                 let dyna: Array = script
+//                     .elements
+//                     .iter()
+//                     .map(|e| {
+//                         e.iter()
+//                             .map(|e| Dynamic::from(e.clone()))
+//                             .collect::<Array>()
+//                             .into()
+//                     })
+//                     .collect::<Array>()
+//                     .into();
+//                 self.scope.push(format!("e_{}", script.id), dyna);
+//             }
+//
+//             println!("src: {}", &script.src);
+//             let ast = self.engine.compile(&script.src)?;
+//             println!("ast: {:?}", &ast);
+//             self.fns
+//                 .extend(ast.iter_functions().map(|m| m.name.to_string()));
+//
+//             let result: Dynamic = self.engine.eval_ast_with_scope(&mut self.scope, &ast)?;
+//
+//             self.ast += ast;
+//
+//             println!("fns {:?}", self.fns);
+//
+//             *element = (&result).into();
+//         }
+//
+//         if let Node::Compound(node) = element {
+//             if let Some(v) = self.scope.get(&node.type_id) {
+//                 *element = v.into();
+//             } else if self.fns.contains(&node.type_id) {
+//                 let args: rhai::Map = node
+//                     .attributes
+//                     .iter()
+//                     .map(|(k, v)| Ok((k.into(), self.attribute_to_dynamic(v)?)))
+//                     .collect::<anyhow::Result<rhai::Map>>()?;
+//                 let body = self.render_vec_element(&mut node.children)?;
+//
+//                 let res: Dynamic =
+//                     self.engine
+//                         .call_fn(&mut self.scope, &self.ast, &node.type_id, (args, body))?;
+//
+//                 *element = (&res).into();
+//             }
+//         }
+//
+//         self.walk_element(element)
+//     }
+// }
 
 pub fn references_by_type(
     refs: &mut LinkedHashMap<String, Reference>,
@@ -122,7 +123,7 @@ pub fn references_by_type(
 impl ElementRenderer<'_> {
     pub fn new(src: &str, extensions: Vec<Box<dyn RenderExtension>>) -> Result<Self> {
         let mut engine = Engine::new();
-        build_types(&mut engine);
+        // build_types(&mut engine);
         let ast = engine.compile(src)?;
         let mut scope = Scope::new();
         engine.run_ast_with_scope(&mut scope, &ast)?;

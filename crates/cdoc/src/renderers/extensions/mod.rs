@@ -2,18 +2,16 @@ pub mod cell_outputs;
 pub mod solutions;
 pub mod structure;
 
-use crate::renderers::Document;
-
-use crate::renderers::newrenderer::ElementRenderer;
+use crate::renderers::base::ElementRenderer;
 use anyhow::Result;
-use cdoc_base::node::{Compound, Node};
-use cdoc_parser::ast::Value;
+use cdoc_base::node::{Attribute, Compound, Node};
+
 use dyn_clone::DynClone;
 use linked_hash_map::LinkedHashMap;
 use std::fmt::Debug;
 
 pub struct RenderExtensionContext {
-    meta: LinkedHashMap<String, Value>,
+    meta: LinkedHashMap<String, Attribute>,
 }
 
 impl RenderExtensionContext {

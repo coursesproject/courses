@@ -14,18 +14,18 @@ use crate::renderers::extensions::RenderExtension;
 use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::references::ReferenceVisitor;
 use cdoc_base::node::Node;
-use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Reference};
-use cdoc_parser::document::Document;
+
+use crate::renderers::references::Reference;
+
+use cdoc_base::document::Document;
 use cdoc_parser::notebook::NotebookMeta;
 use tera::Context;
 
 use crate::templates::TemplateManager;
 
+pub mod base;
 pub mod extensions;
-pub mod generic;
 pub mod json;
-pub mod newrenderer;
 pub mod notebook;
 mod parameter_resolution;
 mod references;

@@ -45,32 +45,33 @@
 //         }
 //     }
 // }
-
-use crate::node::{Compound, Node};
-use rhai::{Array, Dynamic, Engine};
-use std::any::TypeId;
-
-impl Into<Node> for &'_ Dynamic {
-    fn into(self) -> Node {
-        match self.type_name() {
-            "array" => {
-                let a: Array = self.clone().into_array().unwrap();
-                let elems: Vec<Node> = a.into_iter().map(|e| e.cast::<Node>()).collect();
-                Node::Compound(Compound {
-                    type_id: "plain".to_string(),
-                    attributes: Default::default(),
-                    children: elems,
-                })
-            }
-            _ => Node::Plain(self.to_string()),
-        }
-    }
-}
-
-// pub struct ElementVec(Vec<Element>);
-// pub struct ElementChildren(Vec<ElementVec>);
-
-pub fn build_types(engine: &mut Engine) {
-    engine.register_type::<Node>();
-    // engine.register_type::<ElementChildren>();
-}
+//
+// use crate::node::{Compound, Node};
+// use rhai::{Array, Dynamic, Engine};
+// use std::any::TypeId;
+//
+// impl Into<Node> for &'_ Dynamic {
+//     fn into(self) -> Node {
+//         match self.type_name() {
+//             "array" => {
+//                 let a: Array = self.clone().into_array().unwrap();
+//                 let elems: Vec<Node> = a.into_iter().map(|e| e.cast::<Node>()).collect();
+//                 Node::Compound(Compound {
+//                     type_id: "plain".to_string(),
+//                     id: None,
+//                     attributes: Default::default(),
+//                     children: elems,
+//                 })
+//             }
+//             _ => Node::Plain(self.to_string()),
+//         }
+//     }
+// }
+//
+// // pub struct ElementVec(Vec<Element>);
+// // pub struct ElementChildren(Vec<ElementVec>);
+//
+// pub fn build_types(engine: &mut Engine) {
+//     engine.register_type::<Node>();
+//     // engine.register_type::<ElementChildren>();
+// }

@@ -19,6 +19,8 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/cdoc-base/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/cdoc-parser/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/cdoc/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/cdoc-extension/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/extensions/base/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.idea/codeStyles" />
       <excludeFolder url="file://$MODULE_DIR$/crates/cdoc-wasm/pkg" />
       <excludeFolder url="file://$MODULE_DIR$/crates/github-package-repo" />

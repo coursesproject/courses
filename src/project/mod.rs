@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use cdoc::config::InputFormat;
 use cdoc::renderers::RenderResult;
-use cdoc_parser::document::Document;
+use cdoc_base::document::Document;
 
 pub mod caching;
 pub mod config;

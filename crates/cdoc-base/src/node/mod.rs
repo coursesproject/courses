@@ -41,6 +41,7 @@ pub struct Script {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Compound {
     pub type_id: String,
+    pub id: Option<String>,
     pub attributes: BTreeMap<String, Attribute>,
     pub children: Vec<Node>,
 }
@@ -48,34 +49,43 @@ pub struct Compound {
 impl Compound {
     pub fn new<S: Into<String>, B: IntoIterator<Item = (String, Attribute)>>(
         type_id: S,
+        id: Option<&str>,
         attributes: B,
         children: Vec<Node>,
     ) -> Self {
         Self {
             type_id: type_id.into(),
+            id: id.map(String::from),
             attributes: attributes.into_iter().collect(),
             children,
         }
     }
 
-    pub fn new_with_children<S: Into<String>>(type_id: S, children: Vec<Node>) -> Self {
-        Self::new(type_id, BTreeMap::new(), children)
+    pub fn new_with_children<S: Into<String>>(
+        type_id: S,
+        id: Option<&str>,
+        children: Vec<Node>,
+    ) -> Self {
+        Self::new(type_id, id, BTreeMap::new(), children)
     }
 
     pub fn new_with_attributes<S: Into<String>, B: IntoIterator<Item = (String, Attribute)>>(
         type_id: S,
+        id: Option<&str>,
         attributes: B,
     ) -> Self {
         Self {
             type_id: type_id.into(),
+            id: id.map(String::from),
             attributes: attributes.into_iter().collect(),
             children: vec![],
         }
     }
 
-    pub fn new_empty<S: Into<String>>(type_id: S) -> Self {
+    pub fn new_empty<S: Into<String>>(type_id: S, id: Option<&str>) -> Self {
         Self {
             type_id: type_id.into(),
+            id: id.map(String::from),
             attributes: BTreeMap::new(),
             children: vec![],
         }
@@ -83,19 +93,19 @@ impl Compound {
 }
 
 impl Node {
-    pub fn get_compound(&self) -> &Compound {
+    pub fn get_compound(&self) -> Option<&Compound> {
         if let Node::Compound(c) = self {
-            c
+            Some(c)
         } else {
-            panic!()
+            None
         }
     }
 
-    pub fn get_plain(&self) -> &String {
+    pub fn get_plain(&self) -> Option<&String> {
         if let Node::Plain(s) = self {
-            s
+            Some(s)
         } else {
-            panic!()
+            None
         }
     }
 }

@@ -6,11 +6,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, Result};
 
-use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{CodeBlock, Inline};
-
-use cdoc_parser::document::{CodeOutput, Metadata};
-
+use cdoc_base::document::{CodeOutput, Metadata};
 use code_block::ScriptCodeBlock;
 use rhai::{exported_module, CustomType, Engine, EvalAltResult, Scope, TypeBuilder};
 
@@ -49,34 +45,35 @@ pub struct ScriptEngine {
     ast: rhai::AST,
 }
 
-impl ScriptEngine {
-    pub fn new(project_dir: &Path, script: &str) -> Result<Self> {
-        let mut engine = Engine::new();
-        engine.set_max_expr_depths(1000, 1000);
-        engine.build_type::<Response>();
-        engine.build_type::<Metadata>();
-        engine.build_type::<ScriptCodeBlock>();
-        engine.register_fn("get_url", get_url);
-
-        let module = exported_module!(types::rhai_inline_type);
-        engine.register_global_module(module.into());
-
-        engine
-            .definitions()
-            .with_headers(true)
-            .include_standard_packages(false)
-            .write_to_dir(project_dir.join(".cache"))?;
-
-        let ast = engine.compile(script)?;
-
-        engine.run_ast(&ast).map_err(|e| anyhow!(e.to_string()))?;
-        // engine
-        //     .call_fn(&mut state, &ast, "init", ())
-        //     .map_err(|e| anyhow!(e.to_string()))?;
-
-        Ok(ScriptEngine { ast, engine })
-    }
-}
+// TODO: Implement
+// impl ScriptEngine {
+//     pub fn new(project_dir: &Path, script: &str) -> Result<Self> {
+//         let mut engine = Engine::new();
+//         engine.set_max_expr_depths(1000, 1000);
+//         engine.build_type::<Response>();
+//         engine.build_type::<Metadata>();
+//         engine.build_type::<ScriptCodeBlock>();
+//         engine.register_fn("get_url", get_url);
+//
+//         let module = exported_module!(types::rhai_inline_type);
+//         engine.register_global_module(module.into());
+//
+//         engine
+//             .definitions()
+//             .with_headers(true)
+//             .include_standard_packages(false)
+//             .write_to_dir(project_dir.join(".cache"))?;
+//
+//         let ast = engine.compile(script)?;
+//
+//         engine.run_ast(&ast).map_err(|e| anyhow!(e.to_string()))?;
+//         // engine
+//         //     .call_fn(&mut state, &ast, "init", ())
+//         //     .map_err(|e| anyhow!(e.to_string()))?;
+//
+//         Ok(ScriptEngine { ast, engine })
+//     }
+// }
 
 pub struct ScriptVisitor<'a> {
     base: &'a mut ScriptEngine,
@@ -112,61 +109,61 @@ impl<'a> ScriptVisitor<'a> {
     }
 }
 
-impl AstVisitor for ScriptVisitor<'_> {
-    fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
-        match self.base.engine.call_fn::<Inline>(
-            &mut self.state,
-            &self.base.ast,
-            "visit_inline",
-            (inline.clone(),),
-        ) {
-            Ok(v) => {
-                *inline = v;
-                Ok(())
-            }
-            Err(e) => match *e {
-                EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
-                EvalAltResult::ErrorRuntime(value, _) => {
-                    Err(anyhow!(format!("script error: {}", value)))
-                }
-                _ => Err(anyhow!(format!("{}", e))),
-            },
-        }?;
-
-        self.walk_inline(inline)
-    }
-
-    fn visit_code_block(&mut self, block: &mut CodeBlock) -> Result<()> {
-        let outputs = self.code_outputs.get_mut(&block.source.hash);
-        let cblock = ScriptCodeBlock::new(
-            &block.source,
-            &block.attributes,
-            &outputs,
-            block.display_cell,
-            block.global_idx,
-            &block.span,
-        );
-
-        match self.base.engine.call_fn::<ScriptCodeBlock>(
-            &mut self.state,
-            &self.base.ast,
-            "visit_code_block",
-            (cblock,),
-        ) {
-            Ok(v) => v.apply_changes(
-                &mut block.source,
-                &mut block.attributes,
-                outputs,
-                &mut block.display_cell,
-                &mut block.global_idx,
-            ),
-            Err(e) => match *e {
-                EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
-                EvalAltResult::ErrorRuntime(value, _) => Err(anyhow!(format!("{}", value))),
-                _ => Err(anyhow!(format!("{}", e))),
-            },
-        }?;
-
-        Ok(())
-    }
-}
+// impl AstVisitor for ScriptVisitor<'_> {
+//     fn visit_inline(&mut self, inline: &mut Inline) -> Result<()> {
+//         match self.base.engine.call_fn::<Inline>(
+//             &mut self.state,
+//             &self.base.ast,
+//             "visit_inline",
+//             (inline.clone(),),
+//         ) {
+//             Ok(v) => {
+//                 *inline = v;
+//                 Ok(())
+//             }
+//             Err(e) => match *e {
+//                 EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
+//                 EvalAltResult::ErrorRuntime(value, _) => {
+//                     Err(anyhow!(format!("script error: {}", value)))
+//                 }
+//                 _ => Err(anyhow!(format!("{}", e))),
+//             },
+//         }?;
+//
+//         self.walk_inline(inline)
+//     }
+//
+//     fn visit_code_block(&mut self, block: &mut CodeBlock) -> Result<()> {
+//         let outputs = self.code_outputs.get_mut(&block.source.hash);
+//         let cblock = ScriptCodeBlock::new(
+//             &block.source,
+//             &block.attributes,
+//             &outputs,
+//             block.display_cell,
+//             block.global_idx,
+//             &block.span,
+//         );
+//
+//         match self.base.engine.call_fn::<ScriptCodeBlock>(
+//             &mut self.state,
+//             &self.base.ast,
+//             "visit_code_block",
+//             (cblock,),
+//         ) {
+//             Ok(v) => v.apply_changes(
+//                 &mut block.source,
+//                 &mut block.attributes,
+//                 outputs,
+//                 &mut block.display_cell,
+//                 &mut block.global_idx,
+//             ),
+//             Err(e) => match *e {
+//                 EvalAltResult::ErrorFunctionNotFound(_, _) => Ok(()),
+//                 EvalAltResult::ErrorRuntime(value, _) => Err(anyhow!(format!("{}", value))),
+//                 _ => Err(anyhow!(format!("{}", e))),
+//             },
+//         }?;
+//
+//         Ok(())
+//     }
+// }

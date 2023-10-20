@@ -19,7 +19,8 @@ build="build.rs"
 
 exclude = [
     "applications/*",
-    "docs/*"
+    "docs/*",
+    "extensions/*"
 ]
 
 [workspace]

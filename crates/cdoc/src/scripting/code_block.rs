@@ -1,9 +1,10 @@
 use cdoc_parser::code_ast::types::CodeContent;
-use cdoc_parser::document::CodeOutput;
+
 use cowstr::CowStr;
 
 use cdoc_parser::Span;
 
+use cdoc_base::document::CodeOutput;
 use rhai::serde::{from_dynamic, to_dynamic};
 use rhai::{CustomType, Dynamic, TypeBuilder};
 

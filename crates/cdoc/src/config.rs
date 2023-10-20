@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 
-use crate::renderers::newrenderer::{ElementRenderer, ElementRendererConfig};
+use crate::renderers::base::{ElementRenderer, ElementRendererConfig};
 use crate::renderers::notebook::NotebookRenderer;
 use crate::renderers::{DocumentRenderer, RendererConfig};
 

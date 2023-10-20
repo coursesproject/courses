@@ -10,7 +10,7 @@ anyhow = "1.0.75"
 
 serde = {version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-linked-hash-map = "0.5.6"
+linked-hash-map = {version = "0.5.6", features = ["serde_impl"]}
 
 semver = {version = "1.0.19", features = ["serde"]}
 
@@ -18,7 +18,9 @@ tera = "1.19.1"
 
 xml-rs = {version = "0.8.19", optional = true}
 
-rhai = {version = "1.16.2", features = ["internals"]}
+#rhai = {version = "1.16.2", features = ["internals"]}
 
 [features]
 default = ["xml-rs"]
+#wasm = ["rhai/wasm-bindgen"]
+wasm = []

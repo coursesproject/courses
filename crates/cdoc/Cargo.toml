@@ -61,5 +61,7 @@ reqwest = { version = "0.11.18", features = ["blocking"] }
 
 clap = { version = "4.0.29", features = ["derive"] }
 
+extism = "0.5.2"
+
 
 

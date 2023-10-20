@@ -1,8 +1,9 @@
 use crate::parser::ParserSettings;
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
-use cdoc_base::node::visitor::ElementVisitor;
+use crate::preprocessors::{AstPreprocessorConfig, Error, PreprocessorContext, Processor};
+use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::{Attribute, Compound, Node};
-use cdoc_parser::document::Document;
+
+use cdoc_base::document::Document;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Pointer};
 
@@ -15,14 +16,14 @@ impl AstPreprocessorConfig for SolutionsConfig {
         &self,
         ctx: &PreprocessorContext,
         settings: &ParserSettings,
-    ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
+    ) -> anyhow::Result<Box<dyn Processor>> {
         Ok(Box::new(Solutions {}))
     }
 }
 
 pub struct Solutions {}
 
-impl AstPreprocessor for Solutions {
+impl Processor for Solutions {
     fn name(&self) -> String {
         "solutions".to_string()
     }
@@ -33,8 +34,8 @@ impl AstPreprocessor for Solutions {
     }
 }
 
-impl ElementVisitor for Solutions {
-    fn visit_node(&mut self, node: &mut Compound) -> anyhow::Result<()> {
+impl NodeVisitor for Solutions {
+    fn visit_compound(&mut self, node: &mut Compound) -> anyhow::Result<()> {
         if &node.type_id == "code_block" {
             self.parse_content(node)?;
         }
@@ -54,8 +55,8 @@ impl Solutions {
                 Node::Compound(solution_block) => {
                     let inners = &mut solution_block.children;
                     for mut inner in inners {
-                        let inner = inner.get_compound();
-                        let val = inner.children[0].get_plain();
+                        let inner = inner.get_compound().unwrap();
+                        let val = inner.children[0].get_plain().unwrap();
                         match inner.type_id.as_str() {
                             "placeholder" => {
                                 placeholder.push_str(val);

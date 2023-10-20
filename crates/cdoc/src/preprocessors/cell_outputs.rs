@@ -1,8 +1,9 @@
 use crate::parser::ParserSettings;
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
-use cdoc_base::node::visitor::ElementVisitor;
+use crate::preprocessors::{AstPreprocessorConfig, Error, PreprocessorContext, Processor};
+use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::{Attribute, Compound, Node};
-use cdoc_parser::document::{CodeOutput, Document, Image, OutputValue};
+
+use cdoc_base::document::{CodeOutput, Document, Image, OutputValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -16,7 +17,7 @@ impl AstPreprocessorConfig for CellOutputConfig {
         &self,
         ctx: &PreprocessorContext,
         settings: &ParserSettings,
-    ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
+    ) -> anyhow::Result<Box<dyn Processor>> {
         Ok(Box::new(CellProcessor))
     }
 }
@@ -28,19 +29,17 @@ pub struct CellVisitor<'a> {
     outputs: &'a HashMap<String, CodeOutput>,
 }
 
-impl ElementVisitor for CellVisitor<'_> {
-    fn visit_node(&mut self, node: &mut Compound) -> anyhow::Result<()> {
+impl NodeVisitor for CellVisitor<'_> {
+    fn visit_compound(&mut self, node: &mut Compound) -> anyhow::Result<()> {
         if node.type_id == "code_block" {
-            if let Some(outputs) = self
-                .outputs
-                .get(node.attributes.get("label").unwrap().get_string())
-            {
+            if let Some(outputs) = self.outputs.get(node.id.as_ref().unwrap()) {
                 let mut output_nodes = vec![];
                 for output in &outputs.values {
                     match output {
                         OutputValue::Text(s) => {
                             let node = Compound::new_with_attributes(
                                 "output_text",
+                                None,
                                 [("value".to_string(), Attribute::String(s.into()))],
                             );
 
@@ -56,7 +55,7 @@ impl ElementVisitor for CellVisitor<'_> {
                                     .insert("svg".to_string(), Attribute::String(svg.into())),
                             };
 
-                            let node = Compound::new_with_attributes("figure", attributes);
+                            let node = Compound::new_with_attributes("figure", None, attributes);
 
                             output_nodes.push(Node::Compound(node));
                         }
@@ -76,7 +75,7 @@ impl ElementVisitor for CellVisitor<'_> {
     }
 }
 
-impl AstPreprocessor for CellProcessor {
+impl Processor for CellProcessor {
     fn name(&self) -> String {
         "cells".to_string()
     }

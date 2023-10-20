@@ -4,10 +4,9 @@ use std::collections::hash_map::DefaultHasher;
 
 use anyhow::Result;
 
-use crate::ast::Ast;
-use crate::document::{CodeOutput, Document, Image, Metadata};
-
-use crate::document;
+use crate::try_doc_from_str;
+use cdoc_base::document;
+use cdoc_base::document::{CodeOutput, Document, Image, Metadata};
 use cdoc_base::node::Node;
 use linked_hash_map::LinkedHashMap;
 use nanoid::nanoid;
@@ -286,46 +285,44 @@ where
     serializer.collect_str(&engine.encode(value))
 }
 
-impl From<Vec<CellOutput>> for CodeOutput {
-    fn from(value: Vec<CellOutput>) -> Self {
-        let mut outputs = Vec::new();
-        for output in value {
-            match output {
-                CellOutput::Stream { text, .. } => {
-                    outputs.push(document::OutputValue::Text(text));
-                }
-                CellOutput::Data { data, .. } => {
-                    for v in data {
-                        match v {
-                            OutputValue::Plain(s) => {
-                                outputs.push(document::OutputValue::Plain(s.join("")));
-                            }
-                            OutputValue::Image(i) => {
-                                outputs.push(document::OutputValue::Image(Image::Png(i.join(""))));
-                            }
-                            OutputValue::Svg(i) => {
-                                outputs.push(document::OutputValue::Image(Image::Svg(i.join(""))));
-                            }
-                            OutputValue::Json(s) => {
-                                outputs.push(document::OutputValue::Json(s));
-                            }
-                            OutputValue::Html(s) => {
-                                outputs.push(document::OutputValue::Html(s.join("")));
-                            }
-                            OutputValue::Javascript(s) => {
-                                outputs.push(document::OutputValue::Javascript(s));
-                            }
+pub fn code_output_from_cell(value: Vec<CellOutput>) -> CodeOutput {
+    let mut outputs = Vec::new();
+    for output in value {
+        match output {
+            CellOutput::Stream { text, .. } => {
+                outputs.push(document::OutputValue::Text(text));
+            }
+            CellOutput::Data { data, .. } => {
+                for v in data {
+                    match v {
+                        OutputValue::Plain(s) => {
+                            outputs.push(document::OutputValue::Plain(s.join("")));
+                        }
+                        OutputValue::Image(i) => {
+                            outputs.push(document::OutputValue::Image(Image::Png(i.join(""))));
+                        }
+                        OutputValue::Svg(i) => {
+                            outputs.push(document::OutputValue::Image(Image::Svg(i.join(""))));
+                        }
+                        OutputValue::Json(s) => {
+                            outputs.push(document::OutputValue::Json(s));
+                        }
+                        OutputValue::Html(s) => {
+                            outputs.push(document::OutputValue::Html(s.join("")));
+                        }
+                        OutputValue::Javascript(s) => {
+                            outputs.push(document::OutputValue::Javascript(s));
                         }
                     }
                 }
-                CellOutput::Error { evalue, .. } => {
-                    outputs.push(document::OutputValue::Error(evalue));
-                }
+            }
+            CellOutput::Error { evalue, .. } => {
+                outputs.push(document::OutputValue::Error(evalue));
             }
         }
-
-        CodeOutput { values: outputs }
     }
+
+    CodeOutput { values: outputs }
 }
 
 pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Document<Vec<Node>>>> {
@@ -354,7 +351,7 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
                 let label = nanoid!();
                 write!(&mut writer, "\n```python, cell\n{}```|{}\n", full, label)?;
 
-                output_map.insert(label, CodeOutput::from(outputs.clone()));
+                output_map.insert(label, code_output_from_cell(outputs.clone()));
             }
             Cell::Raw { common } => {
                 if let Ok(meta) = serde_yaml::from_str::<Metadata>(&common.source) {
@@ -371,7 +368,7 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
     let source = String::from_utf8(writer.into_inner()?)?;
     // println!("{source}");
 
-    let mut doc = Document::try_from(source.as_str())?;
+    let mut doc = try_doc_from_str(source.as_str())?;
     doc.code_outputs = output_map;
     doc.meta = doc_meta.unwrap_or_default();
 

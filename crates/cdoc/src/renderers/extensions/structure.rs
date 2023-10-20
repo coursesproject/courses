@@ -1,14 +1,12 @@
 use crate::renderers::extensions::{RenderExtension, RenderExtensionConfig};
-use crate::renderers::{Document, RenderElement};
-use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Block, Command};
+
 use cowstr::CowStr;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::renderers::newrenderer::ElementRenderer;
+use crate::renderers::base::ElementRenderer;
 use serde::{Deserialize, Serialize};
 //
 // #[derive(Debug, Serialize, Deserialize, Clone)]

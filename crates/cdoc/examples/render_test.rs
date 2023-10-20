@@ -1,5 +1,5 @@
-use cdoc::renderers::newrenderer::ElementRenderer;
-use cdoc_base::node::visitor::ElementVisitor;
+use cdoc::renderers::base::ElementRenderer;
+use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::xml_writer::write_elements_to_xml;
 use cdoc_base::node::Node;
 use cdoc_parser::raw::{parse_to_doc, ComposedMarkdown};

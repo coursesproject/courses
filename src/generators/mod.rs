@@ -3,7 +3,6 @@ use anyhow::{anyhow, Context as AContext};
 use cdoc::config::Format;
 use cdoc::renderers::RenderResult;
 use cdoc::templates::{TemplateManager, TemplateType};
-use cdoc_parser::document::Document;
 use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
 use std::fs;
@@ -12,6 +11,7 @@ use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use cdoc_base::document::Document;
 use tera::Context;
 
 use crate::project::config::ProjectConfig;

@@ -1,12 +1,9 @@
 use crate::parser::ParserSettings;
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
-use cdoc_base::node::visitor::ElementVisitor;
+use crate::preprocessors::{AstPreprocessorConfig, Error, PreprocessorContext, Processor};
+use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::{Compound, Node};
-use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::{Ast, Block, Inline};
-use cdoc_parser::document::Document;
-use cowstr::CowStr;
-use nanoid::nanoid;
+
+use cdoc_base::document::Document;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -21,12 +18,12 @@ impl AstPreprocessorConfig for MdLabelsConfig {
         &self,
         _ctx: &PreprocessorContext,
         _settings: &ParserSettings,
-    ) -> anyhow::Result<Box<dyn AstPreprocessor>> {
+    ) -> anyhow::Result<Box<dyn Processor>> {
         Ok(Box::new(MdLabels))
     }
 }
 
-impl AstPreprocessor for MdLabels {
+impl Processor for MdLabels {
     fn name(&self) -> String {
         todo!()
     }
@@ -43,30 +40,22 @@ impl Display for MdLabels {
     }
 }
 
-impl ElementVisitor for MdLabels {
-    fn visit_node(&mut self, node: &mut Compound) -> anyhow::Result<()> {
-        if node.type_id == "heading" {}
+// TODO: Implement
 
-        Ok(())
-    }
-}
-
-impl AstVisitor for MdLabels {
-    fn visit_block(&mut self, block: &mut Block) -> anyhow::Result<()> {
-        if let Block::Heading { id, inner, .. } = block {
-            if let Some(cmd) = inner.iter_mut().find(|i| match i {
-                Inline::Command(c) => c.function.as_str() == "label",
-                _ => false,
+impl NodeVisitor for MdLabels {
+    fn visit_compound(&mut self, node: &mut Compound) -> anyhow::Result<()> {
+        if node.type_id == "heading" {
+            if let Some(label) = node.children.iter_mut().find(|i| {
+                i.get_compound()
+                    .map(|c| c.type_id == "label")
+                    .unwrap_or_default()
             }) {
-                if let Inline::Command(label) = cmd {
-                    *id = label.label.clone();
-                }
-                *cmd = Inline::Text(CowStr::new());
-            } else {
-                *id = Some(CowStr::from(nanoid!()));
+                let label_val = label.get_compound().unwrap();
+                node.id = label_val.id.clone();
+                *label = Node::Plain(String::new());
             }
         }
 
-        self.walk_block(block)
+        Ok(())
     }
 }

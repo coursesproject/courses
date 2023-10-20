@@ -3,8 +3,8 @@ use std::fmt::{Debug, Display};
 use std::path::PathBuf;
 
 use cdoc_base::node::Node;
-use cdoc_parser::ast::Ast;
-use cdoc_parser::document::Document;
+
+use cdoc_base::document::Document;
 use thiserror::Error;
 
 use crate::config::Format;
@@ -13,6 +13,7 @@ use crate::parser::ParserSettings;
 use crate::templates::TemplateManager;
 
 pub mod cell_outputs;
+pub mod extism;
 pub mod md_labels;
 pub mod script;
 pub mod solutions;
@@ -35,7 +36,7 @@ pub struct PreprocessorContext<'a> {
     pub output_format: &'a dyn Format,
 }
 
-pub trait AstPreprocessor: Display {
+pub trait Processor: Display {
     fn name(&self) -> String;
     fn process(&mut self, input: Document<Vec<Node>>) -> Result<Document<Vec<Node>>, Error>;
 }
@@ -46,7 +47,7 @@ pub trait AstPreprocessorConfig: Debug + Send + Sync + DynClone {
         &self,
         ctx: &PreprocessorContext,
         settings: &ParserSettings,
-    ) -> anyhow::Result<Box<dyn AstPreprocessor>>;
+    ) -> anyhow::Result<Box<dyn Processor>>;
 }
 
 dyn_clone::clone_trait_object!(AstPreprocessorConfig);

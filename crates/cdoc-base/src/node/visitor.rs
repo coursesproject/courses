@@ -1,7 +1,7 @@
 use crate::node::{Compound, Node, Script};
 use anyhow::Result;
 
-pub trait ElementVisitor {
+pub trait NodeVisitor {
     fn walk_elements(&mut self, elements: &mut [Node]) -> Result<()> {
         elements.iter_mut().try_for_each(|e| self.visit_element(e))
     }
@@ -9,7 +9,7 @@ pub trait ElementVisitor {
     fn walk_element(&mut self, element: &mut Node) -> Result<()> {
         match element {
             Node::Plain(text) => self.visit_plain(text),
-            Node::Compound(node) => self.visit_node(node),
+            Node::Compound(node) => self.visit_compound(node),
             Node::Script(script) => self.visit_script(script),
         }
     }
@@ -30,7 +30,7 @@ pub trait ElementVisitor {
         Ok(())
     }
 
-    fn visit_node(&mut self, node: &mut Compound) -> Result<()> {
+    fn visit_compound(&mut self, node: &mut Compound) -> Result<()> {
         self.walk_node(node)
     }
 }

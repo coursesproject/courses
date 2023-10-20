@@ -5,6 +5,8 @@ mod package;
 pub mod extension;
 mod template;
 
+pub mod document;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }

@@ -1,10 +1,10 @@
 use cdoc_base::node::Node;
-use cdoc_parser::ast::Ast;
-use cdoc_parser::document::Document;
+
+use cdoc_base::document::Document;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, PreprocessorContext};
+use crate::preprocessors::{AstPreprocessorConfig, PreprocessorContext, Processor};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Parser {
@@ -46,7 +46,7 @@ impl Parser {
             .preprocessors
             .iter()
             .map(|p| p.build(ctx, &self.settings))
-            .collect::<anyhow::Result<Vec<Box<dyn AstPreprocessor>>>>()?;
+            .collect::<anyhow::Result<Vec<Box<dyn Processor>>>>()?;
 
         let doc = built
             .iter_mut()

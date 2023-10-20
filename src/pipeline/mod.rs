@@ -35,11 +35,10 @@ use crate::project::{
 };
 
 use crate::project::caching::Cache;
+use cdoc::renderers::base::{ElementRenderer, ElementRendererConfig};
 use cdoc::renderers::extensions::build_extensions;
-use cdoc::renderers::newrenderer::{ElementRenderer, ElementRendererConfig};
-use cdoc_base::node::Node;
-use cdoc_parser::ast::Ast;
-use cdoc_parser::document::{Document, Metadata};
+
+use cdoc_base::document::{Document, Metadata};
 use cowstr::CowStr;
 use lazy_static::lazy_static;
 use std::borrow::Borrow;
@@ -522,7 +521,7 @@ impl Pipeline {
                     .collect::<anyhow::Result<ProjectItemVec>>()
                     .unwrap();
 
-                // format_errs.append(&mut errs.lock().unwrap());
+                // format_errs.append(&mut errs.lock().unwrap())
 
                 let project_full = from_vec(&proj);
                 let context = Generator {

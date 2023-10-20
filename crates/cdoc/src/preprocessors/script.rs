@@ -1,11 +1,9 @@
 use crate::parser::ParserSettings;
-use crate::preprocessors::{AstPreprocessor, AstPreprocessorConfig, Error, PreprocessorContext};
+use crate::preprocessors::{AstPreprocessorConfig, Error, PreprocessorContext, Processor};
 // use crate::scripting::ScriptedVisitor;
 use crate::scripting::{ScriptEngine, ScriptVisitor};
 use anyhow::Context;
-use cdoc_parser::ast::visitor::AstVisitor;
-use cdoc_parser::ast::Ast;
-use cdoc_parser::document::Document;
+
 use cdoc_parser::raw::Element;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -20,6 +18,9 @@ pub struct ScriptPreprocessor {
     name: String,
     engine: ScriptEngine,
 }
+
+// TODO: Implement
+
 //
 // #[typetag::serde(name = "script")]
 // impl AstPreprocessorConfig for ScriptConfig {
