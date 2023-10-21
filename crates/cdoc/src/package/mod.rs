@@ -1,3 +1,4 @@
+
 use crate::templates::{Example, ShortcodeDefinition, TemplateSource, TemplateType};
 
 use serde::{Deserialize, Serialize};

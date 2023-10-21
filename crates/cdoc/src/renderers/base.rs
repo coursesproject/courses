@@ -147,7 +147,7 @@ impl ElementRenderer<'_> {
         })
     }
 
-    pub fn render_element(&mut self, element: &Node) -> anyhow::Result<String> {
+    pub fn render_element(&mut self, element: &Node) -> Result<String> {
         match element {
             Node::Plain(t) => Ok(t.to_string()),
             Node::Compound(node) => {

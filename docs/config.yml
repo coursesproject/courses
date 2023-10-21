@@ -46,7 +46,7 @@ profiles:
 #        - extism:
 #            file: C:\Users\Anton\CLionProjects\courses\extensions\asc\build\release.wasm
         - extism:
-            file: C:\Users\Anton\CLionProjects\courses\target\wasm32-unknown-unknown\release\base.wasm
+            file: /home/anton/git/personal/courses/extensions/base/target/wasm32-unknown-unknown/release/base.wasm
 #        - script:
 #            name: "link_checker.rhai"
       solutions: false # Don't include exercise solutions
