@@ -8,8 +8,8 @@ use regex::Regex;
 use std::str::FromStr;
 
 fn to_vec_element<T>(vec: Vec<T>) -> Vec<Node>
-where
-    Node: From<T>,
+    where
+        Node: From<T>,
 {
     vec.into_iter().map(Node::from).collect()
 }
@@ -232,8 +232,20 @@ impl From<ComposedMarkdown> for Vec<Node> {
                                 "heading", None, attributes, children,
                             )))
                         }
-                        Tag::List(_) => {}
-                        Tag::Item => {}
+                        Tag::List(idx) => current_node.push(
+                            Node::Compound(Compound::new(
+                                "list",
+                                None,
+                                idx.map(|idx| [idx]).unwrap_or_default(),
+                                children)
+                            )),
+                        Tag::Item => current_node.push(
+                            Node::Compound(Compound::new_with_children(
+                                "list_item",
+                                None,
+                                children,
+                            ))
+                        ),
                         Tag::Emphasis => current_node.push(Node::Compound(Compound::new(
                             "emphasis",
                             None,

@@ -1,4 +1,3 @@
-use crate::renderers::extensions::RenderExtension;
 use crate::renderers::{DocumentRenderer, RenderContext, RenderResult};
 use cdoc_base::document::Document;
 use cdoc_base::node::Node;

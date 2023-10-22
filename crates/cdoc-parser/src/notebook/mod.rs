@@ -379,13 +379,12 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
 mod tests {
     use super::*;
 
-    use crate::ast;
-    use crate::ast::{Block, Command, Inline};
     use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::Span;
     use std::fs::File;
     use std::io::BufReader;
     use std::path::PathBuf;
+    use cdoc_base::node::Compound;
 
     #[test]
     fn deserialize() {
@@ -429,42 +428,50 @@ mod tests {
 
         let expected = Document {
             meta: Default::default(),
-            content: Ast {
-                blocks: vec![
-                    Block::Heading {
-                        lvl: 1,
-                        id: None,
-                        classes: vec![],
-                        inner: vec![Inline::Text("Heading".into())],
-                    },
-                    Block::Plain(vec![Inline::Command(Command {
-                        function: "func".into(),
-                        label: None,
-                        parameters: vec![],
-                        body: None,
-                        span: Span::new(11, 16),
-                        global_idx: 0,
-                    })]),
-                    Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
-                        label: None,
-                        source: CodeContent {
-                            blocks: vec![CodeElem::Src("print('x')\n\n".into())],
-                            meta: LinkedHashMap::from_iter(
-                                [("tags".into(), "".into())].into_iter(),
-                            ),
-                            hash: 14521985544978239724,
-                        },
-                        attributes: vec!["python".into(), "cell".into()],
-                        display_cell: false,
-                        global_idx: 0,
-                        span: Span::new(18, 58),
-                    })]),
-                ],
-                source: "\n# Heading\n#func\n\n```python, cell\n#| tags: \nprint('x')\n```\n"
-                    .into(),
-            },
+            content: vec![
+                Node::Compound(Compound {
+                    type_id: "heading".to_string(),
+                    id: None,
+                    attributes: Default::default(),
+                    children: vec![Node::Plain("Heading".into())],
+                })
+            ],
+            // content: Ast {
+            //     blocks: vec![
+            //         Block::Heading {
+            //             lvl: 1,
+            //             id: None,
+            //             classes: vec![],
+            //             inner: vec![Inline::Text("Heading".into())],
+            //         },
+            //         Block::Plain(vec![Inline::Command(Command {
+            //             function: "func".into(),
+            //             label: None,
+            //             parameters: vec![],
+            //             body: None,
+            //             span: Span::new(11, 16),
+            //             global_idx: 0,
+            //         })]),
+            //         Block::Plain(vec![Inline::CodeBlock(ast::CodeBlock {
+            //             label: None,
+            //             source: CodeContent {
+            //                 blocks: vec![CodeElem::Src("print('x')\n\n".into())],
+            //                 meta: LinkedHashMap::from_iter(
+            //                     [("tags".into(), "".into())].into_iter(),
+            //                 ),
+            //                 hash: 14521985544978239724,
+            //             },
+            //             attributes: vec!["python".into(), "cell".into()],
+            //             display_cell: false,
+            //             global_idx: 0,
+            //             span: Span::new(18, 58),
+            //         })]),
+            //     ],
+            //     source: "\n# Heading\n#func\n\n```python, cell\n#| tags: \nprint('x')\n```\n"
+            //         .into(),
+            // },
             code_outputs: HashMap::from([(
-                14521985544978239724,
+                "test".to_string(),
                 CodeOutput {
                     values: vec![document::OutputValue::Plain("x".into())],
                 },

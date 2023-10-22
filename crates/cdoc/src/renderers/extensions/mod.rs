@@ -1,5 +1,4 @@
-pub mod cell_outputs;
-pub mod solutions;
+
 pub mod structure;
 
 use crate::renderers::base::ElementRenderer;

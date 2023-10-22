@@ -17,6 +17,6 @@ pub mod preprocessors;
 pub mod renderers;
 
 pub mod package;
-mod scripting;
+
 /// Provides a template manager for easily rendering the different types of templates supported by cdoc.
 pub mod templates;

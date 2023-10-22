@@ -359,7 +359,7 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Special(
-                    None,
+                    "".into(),
                     Special::CodeBlock {
                         lvl: 3,
                         inner: CodeContent {
@@ -388,7 +388,7 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Special(
-                    None,
+                    "".into(),
                     Special::CodeBlock {
                         lvl: 3,
                         inner: CodeContent {
@@ -415,7 +415,7 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Special(
-                    None,
+                    "".into(),
                     Special::Math {
                         is_block: false,
                         inner: "inline".into(),
@@ -437,7 +437,7 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Special(
-                    None,
+                    "".into(),
                     Special::Verbatim {
                         inner: "verbatim".into(),
                     },
@@ -474,7 +474,7 @@ code
         let expected = RawDocument {
             src: vec![ElementInfo {
                 element: Element::Special(
-                    Some("id".into()),
+                    "id".into(),
                     Special::Command {
                         function: "call".into(),
                         parameters: vec![],
@@ -498,7 +498,7 @@ code
         command
         no_params_no_body: ("#func",  vec![
             ElementInfo {
-                element: Element::Special(None, Special::Command {
+                element: Element::Special("".into(), Special::Command {
                     function: "func".into(),
                     parameters: vec![],
                     body: None,
@@ -508,7 +508,7 @@ code
         ]),
         with_params_no_body: (CMD_WITH_PARAMS_NO_BODY,  vec![
             ElementInfo {
-                element: Element::Special(None, Special::Command {
+                element: Element::Special("".into(), Special::Command {
                     function: "func".into(),
                     parameters: vec![
                         Parameter { key: None, value: ArgumentVal::String("basic".into()), span: Span::new(6, 11) },
@@ -536,7 +536,7 @@ code
         ]),
         with_params_with_body: ("#func(c){x}", vec![
             ElementInfo {
-                element: Element::Special(None, Special::Command {
+                element: Element::Special("".into(), Special::Command {
                     function: "func".into(),
                     parameters: vec![
                         Parameter { key: None, value: ArgumentVal::String("c".into()), span: Span::new(6, 7)}
@@ -553,7 +553,7 @@ code
         ]),
         no_params_with_body: ("#func{x}", vec![
             ElementInfo {
-                element: Element::Special(None, Special::Command {
+                element: Element::Special("".into(), Special::Command {
                     function: "func".into(),
                     parameters: vec![],
                     body: Some(vec![
@@ -568,11 +568,11 @@ code
         ]),
         body_nested: ("#func1{#func2}", vec![
             ElementInfo {
-                element: Element::Special(None, Special::Command {
+                element: Element::Special("".into(), Special::Command {
                     function: "func1".into(),
                     parameters: vec![],
                     body: Some(vec![ElementInfo {
-                            element: Element::Special(None, Special::Command{
+                            element: Element::Special("".into(), Special::Command{
                                 function: "func2".into(),
                                 parameters: vec![],
                                 body: None,

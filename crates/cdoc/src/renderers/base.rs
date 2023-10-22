@@ -28,14 +28,7 @@ pub struct ElementRendererConfig {
     counters: HashMap<String, usize>,
 }
 
-// #[typetag::serde(name = "elements")]
-// impl RendererConfig for ElementRendererConfig {
-//     fn build(&self) -> Result<Box<dyn DocumentRenderer>> {
-//         Ok(Box::new(ElementRenderer::new("")?))
-//     }
-// }
 
-// #[derive(Debug)]
 pub struct ElementRenderer<'a> {
     engine: Engine,
     ast: AST,
@@ -46,64 +39,6 @@ pub struct ElementRenderer<'a> {
     counters: HashMap<String, usize>,
     extensions: HashMap<String, Box<dyn RenderExtension>>,
 }
-
-// todo
-// impl NodeVisitor for ElementRenderer<'_> {
-//     fn visit_element(&mut self, element: &mut Node) -> anyhow::Result<()> {
-//         if let Node::Script(script) = element {
-//
-//             if !script.elements.is_empty() {
-//                 let dyna: Array = script
-//                     .elements
-//                     .iter()
-//                     .map(|e| {
-//                         e.iter()
-//                             .map(|e| Dynamic::from(e.clone()))
-//                             .collect::<Array>()
-//                             .into()
-//                     })
-//                     .collect::<Array>()
-//                     .into();
-//                 self.scope.push(format!("e_{}", script.id), dyna);
-//             }
-//
-//             println!("src: {}", &script.src);
-//             let ast = self.engine.compile(&script.src)?;
-//             println!("ast: {:?}", &ast);
-//             self.fns
-//                 .extend(ast.iter_functions().map(|m| m.name.to_string()));
-//
-//             let result: Dynamic = self.engine.eval_ast_with_scope(&mut self.scope, &ast)?;
-//
-//             self.ast += ast;
-//
-//             println!("fns {:?}", self.fns);
-//
-//             *element = (&result).into();
-//         }
-//
-//         if let Node::Compound(node) = element {
-//             if let Some(v) = self.scope.get(&node.type_id) {
-//                 *element = v.into();
-//             } else if self.fns.contains(&node.type_id) {
-//                 let args: rhai::Map = node
-//                     .attributes
-//                     .iter()
-//                     .map(|(k, v)| Ok((k.into(), self.attribute_to_dynamic(v)?)))
-//                     .collect::<anyhow::Result<rhai::Map>>()?;
-//                 let body = self.render_vec_element(&mut node.children)?;
-//
-//                 let res: Dynamic =
-//                     self.engine
-//                         .call_fn(&mut self.scope, &self.ast, &node.type_id, (args, body))?;
-//
-//                 *element = (&res).into();
-//             }
-//         }
-//
-//         self.walk_element(element)
-//     }
-// }
 
 pub fn references_by_type(
     refs: &mut LinkedHashMap<String, Reference>,
@@ -144,40 +79,6 @@ impl ElementRenderer<'_> {
             current_list_idx: vec![],
             counters: Default::default(),
             extensions,
-        })
-    }
-
-    pub fn render_element(&mut self, element: &Node) -> Result<String> {
-        match element {
-            Node::Plain(t) => Ok(t.to_string()),
-            Node::Compound(node) => {
-                let args: rhai::Map = node
-                    .attributes
-                    .iter()
-                    .map(|(k, v)| Ok((k.into(), self.attribute_to_dynamic(v)?)))
-                    .collect::<anyhow::Result<rhai::Map>>()?;
-                let body = self.render_vec_element(&node.children)?;
-
-                Ok(self
-                    .engine
-                    .call_fn(&mut self.scope, &self.ast, &node.type_id, (args, body))?)
-            }
-            _ => Ok(String::new()),
-        }
-    }
-
-    pub fn render_vec_element(&mut self, elements: &[Node]) -> anyhow::Result<String> {
-        elements.iter().map(|e| self.render_element(e)).collect()
-    }
-
-    pub fn attribute_to_dynamic(&mut self, attribute: &Attribute) -> anyhow::Result<Dynamic> {
-        Ok(match attribute {
-            Attribute::Int(v) => Dynamic::from(*v),
-            Attribute::Float(v) => Dynamic::from(*v),
-            Attribute::String(v) => Dynamic::from(v.clone()),
-            Attribute::Enum(v) => Dynamic::from(v.clone()),
-            Attribute::Compound(c) => Dynamic::from(self.render_vec_element(c)?),
-            Attribute::Flag => Dynamic::from_bool(true),
         })
     }
 

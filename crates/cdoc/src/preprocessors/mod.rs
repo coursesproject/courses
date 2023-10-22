@@ -15,7 +15,6 @@ use crate::templates::TemplateManager;
 pub mod cell_outputs;
 pub mod extism;
 pub mod md_labels;
-pub mod script;
 pub mod solutions;
 
 #[derive(Error, Debug)]
