@@ -1,22 +1,10 @@
 package:
   name: base
-  description: Contains templates for the various builtin elements for HTML, Markdown, and LaTeX formats.
+  description: |
+    Contains templates for the various builtin elements for HTML, Markdown, and LaTeX formats. This package forms the
+    base of most courses projects, hence its name.
+    
+
   version: 0.1
   authors:
     - Anton Mølbjerg Eskildsen
-
-dependencies: [ ]
-
-features:
-  html:
-    template_prefixes:
-      - html
-  markdown:
-    template_prefixes:
-      - markdown
-  tex:
-    template_prefixes:
-      - tex
-  shortcodes:
-    include_files:
-      - templates/shortcodes/*

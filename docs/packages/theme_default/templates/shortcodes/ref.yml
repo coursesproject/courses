@@ -1,9 +1,0 @@
-extends: ref
-
-templates:
-  html: !String >-
-    <a href="#{{ id }}">{{ id_map[id][1].name | capitalize }} {{ id_map[id][0] }}</a>
-  markdown: !String >-
-    [{{ id_map[id][1].name | capitalize }} {{ id_map[id][0] }}](#{{ id }})
-  latex: !String |
-    \cref{ {{id}} }

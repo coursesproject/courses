@@ -1,11 +1,24 @@
-name: emphasis
-description: Text emphasis.
 
-type: builtin
+paragraph:
+  templates:
+    html: !Precompiled [ paragraph, html ]
+    markdown: !String |
+      {{ value | safe }}\n
+    latex: !String |
+      {{ value | safe }}\n
 
+soft_break:
+  templates:
+    html: !String ""
+    markdown: !String ""
+    latex: !String ""
 
-templates:
-  html: !Precompiled [emphasis, html]
-  markdown: !Precompiled [emphasis, markdown]
-  latex: !String |
-    \emph{ {{value | safe }} }
+hard_break:
+  templates:
+    html: !String |
+      <br>
+    markdown: !String |
+      \n
+    latex: !String |
+      \\
+yjut

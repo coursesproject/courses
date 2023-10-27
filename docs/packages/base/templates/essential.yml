@@ -1,0 +1,192 @@
+# Templates for essential definitions
+#
+# This file contains the default templates provided for the essential elements used by the default
+# source file parser.
+#
+# Modifying this file directly is discouraged since it is much easier to overwrite the templates
+# directly in your own project or package.
+
+paragraph:
+  templates:
+    html: !Precompiled [ paragraph, html ]
+    markdown: !String |
+      {{ body | safe }}\n
+    latex: !String |
+      {{ body | safe }}\n
+
+
+soft_break:
+  templates:
+    html: ""
+    markdown: ""
+    latex: ""
+
+
+hard_break:
+  templates:
+    html: <br>
+    markdown: \n
+    latex: \\
+
+
+rule:
+  templates:
+    html: !String |
+      <hr>
+    markdown: !String |
+      ---
+    latex: !String |
+      \hrule
+      
+
+strong:
+  templates:
+    html: !String |
+      <strong>{{ body | safe }}</strong>
+    markdown: !String |
+      __{{ body | safe }}__
+    latex: !String |
+      \textbf{ {{body | safe}} }    
+
+
+emphasis:
+  templates:
+    html: !String |
+      <em>{{body | safe}}</em>
+    markdown: !String |
+      _{{body | safe }}_
+    latex: !String |
+      \emph{ {{body | safe }} }
+
+
+link:
+  templates:
+    html: !String |
+      <a src="{{url}}" alt="{{alt}}">{{body|safe}}</a>
+    markdown: !String |
+      [{{body}}]({{url}})
+    latex: !String |
+      \href{ {{url | safe }} }{ {{body | safe}} }
+
+
+image:
+  templates:
+    html: !String |
+      <figure>
+        <img src="{{url}}" alt="{{alt}}">
+        {{body|safe}}
+      </figure>
+    markdown: !String |
+      ![{{body}}]({{url}})
+    latex: !String |
+      \begin{figure}
+        \includegraphics{resources/ {{url}} }
+        \caption{ {{alt}} }
+      \end{figure}
+
+
+list:
+  templates:
+    html: !String |
+      <ol start="{{ start }}">{{ value | safe }}</ol>
+    markdown: !String |
+      {{ value | safe }}
+    latex: !String |
+      \begin{enumerate}
+      {{ value | safe }}
+      \end{enumerate}
+
+
+list_item:
+  templates:
+    html: !String |
+      <li>{{ value | safe }}</li>
+    markdown: !String |
+      {% if idx %}{{idx}}.{% else %}-{% endif %} {{ value | safe }}
+    latex: !String |
+      \item {{ value | safe }}
+
+
+header:
+  templates:
+    html: !String |
+      <h{{level}} class="title is-{{level}}">{{body | safe}}</h{{level}}>
+    markdown: !String |
+      {% for i in range(end=level) %}#{% endfor %} {{body | safe}}
+    latex: !String |
+      \section{ {{body | safe}} }
+
+
+math:
+  templates:
+    html: !String |
+      ${{ body }}$
+    markdown: !String |
+      ${{body}}$
+    latex: !String |
+      ${{ body }}$
+
+
+math_block:
+  templates:
+    html: !String |
+      $$
+      {{ body }}
+      $$
+    markdown: !String |
+      $${{body}}$$
+    latex: !String |
+      \begin{equation}{{ body }}\end{equation}
+
+
+code:
+  templates:
+    html: <pre><code>{{body | safe}}</code></pre>
+    markdown: `{{body | safe}}`
+    latex: \mintinline{ {{body | safe}} }
+
+
+code_block:
+  templates:
+    html: !String |
+      <div><pre><code class="language-python">{{placeholder | safe}}</code></pre></div>
+      <h5>Outputs:</h5>
+      {{body | safe}}
+    markdown: !String |
+      ``` 
+      {{body}}
+      ```
+    latex: !String |
+      \begin{minted}{python}
+      {{body | safe }}
+      \end{minted}
+
+
+output_error:
+  templates:
+    html: !String |
+      <div class="notification is-warning">{{value}}</div>
+    markdown: !String |
+      `{{value}}`
+    latex: !String |
+      \emph{error: {{value}} }
+
+
+output_img:
+  templates:
+    html: !String |
+      <img src="data:image/png;base64,{{ value }}" alt="output">
+    markdown: !String |
+      *img*
+    latex: !String |
+      \emph{img:  }
+
+
+output_text:
+  templates:
+    html: !String |
+      <img alt="output"><svg width="640px" height="480px">{{ value }}</svg></img>
+    markdown: !String |
+      *img*
+    latex: !String |
+      \emph{svg:  }

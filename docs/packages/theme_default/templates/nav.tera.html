@@ -1,0 +1,51 @@
+<div class="sidebar p-2" x-show="sidebar_open">
+  <ul class="menu">
+
+    {% for part in project.children %}
+    {% if part.children and current_path[1] == part.id %}
+
+    <li>
+
+      {% for chapter in part.children %}
+      {% if mode == "draft" or not chapter.content.meta.draft %}
+    <li>
+      {% if chapter.children %}
+      <details open>
+        <summary>
+          <a
+            href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}{% if chapter.type == 'Section' %}/index{% endif %}.html"
+            class="{% if chapter.id == current_path[2] %}{% if current_path | length == 3 or current_path[3] == chapter.id %}active{% endif %}{% endif %}">{{
+            chapter.content.meta.title }}</a>
+        </summary>
+        <ul>
+
+          {% if chapter.children %}
+          {% for doc in chapter.children %}
+          {% if mode == "draft" or not doc.content.meta.draft %}
+          <li>
+            <a
+              href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}/{{ doc.id }}.html"
+              class="{% if current_path | length > 3 and doc.id == current_path[3] %}active{% endif %}"
+            >{{ loop.index }}. {{ doc.content.meta.title | safe }}</a
+            >
+          </li>
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+        </ul>
+      </details>
+      {% else %}
+    <a
+      href="{{ config.url_prefix }}/{{ part.id }}/{{ chapter.id }}{% if chapter.type == 'Section' %}/index{% endif %}.html"
+      class="{% if chapter.id == current_path[2] %}{% if current_path | length == 3 or current_path[3] == chapter.id %}active{% endif %}{% endif %}">{{
+      chapter.content.meta.title }}</a>
+      {% endif %}
+    </li>
+
+    {% endif %}
+    {% endfor %}
+    </li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+</div>
