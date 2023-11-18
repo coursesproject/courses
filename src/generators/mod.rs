@@ -5,12 +5,15 @@ use cdoc::renderers::RenderResult;
 use cdoc::templates::{TemplateManager, TemplateType};
 use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
+use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use cdoc::templates::new::NewTemplateManager;
 use cdoc_base::document::Document;
 use tera::Context;
 
@@ -27,7 +30,7 @@ pub struct Generator<'a> {
     /// Structured project for inclusion in layout templates.
     pub project: &'a ContentResultX,
     /// Template manager is used to render the layout.
-    pub templates: &'a TemplateManager,
+    pub templates: &'a NewTemplateManager,
     /// The project configuration is included in template contexts.
     pub config: ProjectConfig,
     /// Mode toggle to enable/disable draft inclusion.
@@ -93,9 +96,9 @@ impl Generator<'_> {
                 })?;
         }
 
-        let mut base = Context::new();
-        base.insert("project", &self.project);
-        base.insert("config", &self.config);
+        let mut base = HashMap::new();
+        base.insert("project".to_string(), serde_json::to_value(&self.project)?);
+        base.insert("config".to_string(), serde_json::to_value(&self.config)?);
 
         let res = project_vec
             // .iter()
@@ -114,7 +117,7 @@ impl Generator<'_> {
     /// This method writes (and renders into template if applicable) a single document.
     pub fn process<T>(
         &self,
-        args: &Context,
+        args: &HashMap<String, Value>,
         doc: &Document<RenderResult>,
         item: &ContentItemDescriptor<T>,
     ) -> anyhow::Result<()> {
@@ -129,15 +132,17 @@ impl Generator<'_> {
                 })?;
             if let Some(layout_id) = self.format.layout() {
                 let mut args = args.clone();
-                args.insert("current_path", &item.path);
+                args.insert(
+                    "current_path".to_string(),
+                    serde_json::to_value(&item.path)?,
+                );
 
-                args.insert("doc", &doc);
-                args.insert("mode", &self.mode);
+                args.insert("doc".to_string(), serde_json::to_value(&doc)?);
+                args.insert("mode".to_string(), serde_json::to_value(&self.mode)?);
 
-                self.templates.render(
-                    &layout_id,
+                self.templates.render_layout(
                     self.format.template_prefix(),
-                    TemplateType::Layout,
+                    &layout_id,
                     &args,
                     &mut writer,
                 )?;
@@ -158,9 +163,9 @@ impl Generator<'_> {
         doc: &Document<RenderResult>,
         doc_info: &ContentItemDescriptor<()>,
     ) -> anyhow::Result<()> {
-        let mut base = Context::new();
-        base.insert("project", &self.project);
-        base.insert("config", &self.config);
+        let mut base = HashMap::new();
+        base.insert("project".to_string(), serde_json::to_value(&self.project)?);
+        base.insert("config".to_string(), serde_json::to_value(&self.config)?);
         self.process(&base, doc, doc_info)
     }
 }

@@ -1,0 +1,11 @@
+<figure class="image" {% if id %}id="{{ id }}"{% endif %}>
+  {% if url %}
+  <img src="{{config.url_prefix}}/resources/{{url}}" class="figure-img img-fluid rounded" style="width:{{width | default(value='50%')}}" />
+  {% elif base64 %}
+  <img src="data:image/png;base64,{{ base64 }}" class="figure-img img-fluid rounded" style="width:{{width | default(value='50%')}}" />
+  {% elif svg %}
+  <div class="figure-img img-fluid rounded" style="width:{{width | default(value='50%')}}"><svg viewBox="0 0 100 100" width="100%" height="auto">{{ svg | safe }}</svg></div>
+  {% else %}
+  {% endif %}
+  {% if id %}<figcaption class="figure-caption has-text-{{ alignment | default(value='centered') }}">Figure {{ num }}{%if caption %}: {{caption | safe}}{% endif %}</figcaption>{% endif %}
+</figure>

@@ -1,10 +1,10 @@
+pub mod definition;
 pub mod visitor;
 pub mod xml_writer;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-
 
 pub enum DataValue {
     String { kind: String, value: String },
@@ -124,47 +124,47 @@ impl Attribute {
     }
 }
 
-#[derive(Deserialize)]
-pub struct NodeTypeDef {
-    pub type_id: String,
-    pub attributes: Option<Vec<AttributeDef>>,
-    pub children: Option<Vec<NodeChildSpec>>,
-}
-
-#[derive(Deserialize)]
-pub struct NodeChildSpec {
-    pub type_: ChildType,
-    pub rule: ChildRule,
-}
-
-#[derive(Deserialize)]
-pub enum ChildType {
-    Any,
-    Is(String),
-    OneOf(Vec<ChildType>),
-}
-
-#[derive(Deserialize)]
-pub enum ChildRule {
-    One,
-    OneOrMany,
-    ZeroOrMany,
-    ZeroOrOne,
-    Exactly(usize),
-}
-
-#[derive(Deserialize)]
-pub struct AttributeDef {
-    pub name: String,
-    pub optional: bool,
-    pub data_type: DataType,
-}
-
-#[derive(Deserialize)]
-pub enum DataType {
-    Int,
-    Float,
-    String,
-    Enum(Vec<String>),
-    Flag,
-}
+// #[derive(Deserialize)]
+// pub struct NodeTypeDef {
+//     pub type_id: String,
+//     pub attributes: Option<Vec<AttributeDef>>,
+//     pub children: Option<Vec<NodeChildSpec>>,
+// }
+//
+// #[derive(Deserialize)]
+// pub struct NodeChildSpec {
+//     pub type_: ChildType,
+//     pub rule: ChildRule,
+// }
+//
+// #[derive(Deserialize)]
+// pub enum ChildType {
+//     Any,
+//     Is(String),
+//     OneOf(Vec<ChildType>),
+// }
+//
+// #[derive(Deserialize)]
+// pub enum ChildRule {
+//     One,
+//     OneOrMany,
+//     ZeroOrMany,
+//     ZeroOrOne,
+//     Exactly(usize),
+// }
+//
+// #[derive(Deserialize)]
+// pub struct AttributeDef {
+//     pub name: String,
+//     pub optional: bool,
+//     pub data_type: DataType,
+// }
+//
+// #[derive(Deserialize)]
+// pub enum DataType {
+//     Int,
+//     Float,
+//     String,
+//     Enum(Vec<String>),
+//     Flag,
+// }

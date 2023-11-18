@@ -1,7 +1,6 @@
 use crate::code_ast::types::CodeElem;
 use crate::raw::{ArgumentVal, Child, ComposedMarkdown, Special};
-use cdoc_base::module::Module;
-use cdoc_base::node::{Attribute, ChildType, Compound, Node, Script};
+use cdoc_base::node::{Attribute, Compound, Node, Script};
 use lazy_static::lazy_static;
 use pulldown_cmark::{Event, HeadingLevel, Parser as MdParser, Tag};
 use regex::Regex;

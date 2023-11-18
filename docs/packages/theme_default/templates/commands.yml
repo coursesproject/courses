@@ -1,0 +1,9 @@
+figure:
+  templates:
+    html: !File templates/figure.tera.html
+    markdown: !File templates/figure.tera.md
+
+message:
+  templates:
+    html: !File templates/message.tera.html
+    markdown: !File templates/message.tera.md

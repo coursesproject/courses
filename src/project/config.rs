@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use cdoc::config::Format;
 
-use cdoc::package::Dependency;
 use cdoc::parser::{Parser, ParserSettings};
 
+use cdoc::package::{DependencyConfig, DependencySpec};
 use cdoc::renderers::extensions::RenderExtensionConfig;
 use cdoc_parser::notebook::NotebookMeta;
 use clap::ValueEnum;
@@ -36,7 +36,7 @@ pub struct ProjectConfig {
     pub profiles: HashMap<String, Profile>,
 
     #[serde(default)]
-    pub packages: Vec<Dependency>,
+    pub packages: DependencyConfig,
 
     #[serde(default)]
     pub custom: HashMap<String, serde_yaml::Value>,

@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use dyn_clone::DynClone;
 
 use cowstr::CowStr;
+use extism::Val;
 use linked_hash_map::LinkedHashMap;
+use serde_json::Value;
 use std::fmt::Debug;
 use std::io::Write;
 
@@ -17,6 +19,7 @@ use cdoc_base::node::Node;
 
 use crate::renderers::references::Reference;
 
+use crate::templates::new::NewTemplateManager;
 use cdoc_base::document::Document;
 use cdoc_parser::notebook::NotebookMeta;
 use tera::Context;
@@ -35,9 +38,9 @@ pub type RenderResult = CowStr;
 
 /// Context that is passed to the render functions.
 pub struct RenderContext<'a> {
-    pub templates: &'a TemplateManager,
+    pub templates: &'a NewTemplateManager,
     /// Extra arguments (this type is essentially a wrapped HashMap)
-    pub extra_args: Context,
+    pub extra_args: HashMap<String, Value>,
     /// For syntax highlighting using Syntect
     // pub syntax_set: &'a SyntaxSet,
     // theme: &'a Theme,
@@ -50,8 +53,8 @@ pub struct RenderContext<'a> {
 
 impl<'a> RenderContext<'a> {
     pub fn new(
-        templates: &'a TemplateManager,
-        mut extra_args: Context,
+        templates: &'a NewTemplateManager,
+        mut extra_args: HashMap<String, Value>,
         // syntax_set: &'a SyntaxSet,
         // theme: &'a Theme,
         notebook_output_meta: &'a NotebookMeta,
@@ -67,7 +70,10 @@ impl<'a> RenderContext<'a> {
         //
         // extra_args.insert("refs", &ref_visit.references);
         // extra_args.insert("refs_by_type", &rbt);
-        extra_args.insert("defs", &templates.definitions);
+
+        // TODO: Add defs again
+        // extra_args.insert("defs", &templates.definitions);
+
         // args.insert("refs", &ctx.references);
         // println!("{:?}", &ctx.references);
         // args.insert("refs_by_type", &ctx.references_by_type);

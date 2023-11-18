@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use tera::{Context, Filter, Function, Tera};
 
 mod definition;
+pub mod new;
 mod precompiled;
 
 use crate::renderers::RenderedParam;

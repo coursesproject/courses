@@ -126,7 +126,7 @@ impl RenderElement<Compound> for ElementRenderer {
         } else {
             if let Some(_) = elem.attributes.get("id") {
                 let num = self.fetch_and_inc_num(elem.type_id.clone());
-                args.insert("num", &num);
+                args.insert("num".to_string(), Value::Number(Number::from(num)));
             }
 
             let rendered = self
@@ -141,22 +141,17 @@ impl RenderElement<Compound> for ElementRenderer {
             add_args(&mut args, rendered)?;
 
             let body = self.render_inner(&elem.children, ctx)?;
-            args.insert("body", &body);
+            args.insert("body".to_string(), Value::String(body));
 
-            ctx.templates.render(
-                &elem.type_id,
-                ctx.format.template_prefix(),
-                TemplateType::Shortcode,
-                &args,
-                buf,
-            )
+            ctx.templates
+                .render(ctx.format.template_prefix(), &elem.type_id, &args, buf)
         }
     }
 }
 
-fn add_args(args: &mut TeraContext, arguments: Vec<RenderedParam>) -> Result<()> {
+fn add_args(args: &mut HashMap<String, Value>, arguments: Vec<RenderedParam>) -> Result<()> {
     for p in arguments {
-        args.insert(p.key.as_str(), &p.value);
+        args.insert(p.key.to_string(), p.value);
     }
     Ok(())
 }

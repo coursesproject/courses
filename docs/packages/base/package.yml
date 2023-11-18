@@ -5,8 +5,7 @@ package:
     base of most courses projects, hence its name.
     
 
-  version: 0.1
+  version: 0.1.0
   authors:
     - Anton Mølbjerg Eskildsen
 
-dependencies: []

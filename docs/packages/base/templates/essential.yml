@@ -8,7 +8,7 @@
 
 paragraph:
   templates:
-    html: !Precompiled [ paragraph, html ]
+    html: !String <p>{{ body | safe }}</p>
     markdown: !String |
       {{ body | safe }}\n
     latex: !String |
@@ -17,16 +17,16 @@ paragraph:
 
 soft_break:
   templates:
-    html: ""
-    markdown: ""
-    latex: ""
+    html: !String ""
+    markdown: !String ""
+    latex: !String ""
 
 
 hard_break:
   templates:
-    html: <br>
-    markdown: \n
-    latex: \\
+    html: !String <br>
+    markdown: !String \n
+    latex: !String \\
 
 
 rule:
@@ -107,7 +107,7 @@ list_item:
       \item {{ value | safe }}
 
 
-header:
+heading:
   templates:
     html: !String |
       <h{{level}} class="title is-{{level}}">{{body | safe}}</h{{level}}>
@@ -141,9 +141,10 @@ math_block:
 
 code:
   templates:
-    html: <pre><code>{{body | safe}}</code></pre>
-    markdown: `{{body | safe}}`
-    latex: \mintinline{ {{body | safe}} }
+    html: !String <pre><code>{{body | safe}}</code></pre>
+    markdown: !String |
+      `{{body | safe}}`
+    latex: !String \mintinline{ {{body | safe}} }
 
 
 code_block:

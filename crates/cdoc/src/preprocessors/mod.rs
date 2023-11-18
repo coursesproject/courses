@@ -10,6 +10,7 @@ use thiserror::Error;
 use crate::config::Format;
 
 use crate::parser::ParserSettings;
+use crate::templates::new::NewTemplateManager;
 use crate::templates::TemplateManager;
 
 pub mod cell_outputs;
@@ -31,7 +32,7 @@ pub enum Error {
 #[derive(Clone)]
 pub struct PreprocessorContext<'a> {
     pub project_root: PathBuf,
-    pub templates: &'a TemplateManager,
+    pub templates: &'a NewTemplateManager,
     pub output_format: &'a dyn Format,
 }
 

@@ -1,8 +1,0 @@
-name: output_text
-description: Code cell text output.
-
-type: shortcode
-settings:
-  kind: inline
-  accept_arbitrary_params: true
-

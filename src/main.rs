@@ -113,7 +113,7 @@ fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 fn init_config(path: &Path, allow_incompatible: bool) -> anyhow::Result<ProjectConfig> {
     print!("Reading config...");
 
-    let config_path = path.join("config.yml");
+    let config_path = path.join("package.yml");
     let config_input = fs::read_to_string(config_path)?;
     if !allow_incompatible {
         let dummy: ProjectConfigDummy = serde_yaml::from_str(&config_input)?;
@@ -492,8 +492,8 @@ fn err_print(res: anyhow::Result<()>) {
     }
 }
 
-#[cfg_attr(feature = "server", tokio::main)]
 #[cfg_attr(feature = "no-server", pollster::main)]
+#[cfg_attr(feature = "server", tokio::main)]
 async fn main() {
     err_print(cli_run().await)
 }

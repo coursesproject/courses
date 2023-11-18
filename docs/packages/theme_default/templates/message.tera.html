@@ -1,0 +1,6 @@
+<div class="alert alert-{{color}} not-prose">
+  <div>
+    <h3 class="font-bold">{{ title | default(value=color) | capitalize }}</h3>
+    <div class="text-xs">{{ body|safe }}</div>
+  </div>
+</div>

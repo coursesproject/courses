@@ -21,6 +21,7 @@ use cdoc::config::Format;
 use cdoc::preprocessors::PreprocessorContext;
 
 use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
+use cdoc::templates::new::NewTemplateManager;
 use cdoc::templates::TemplateManager;
 use image::io::Reader as ImageReader;
 use mover::Mover;
@@ -38,6 +39,7 @@ use crate::project::caching::Cache;
 use cdoc::renderers::base::{ElementRenderer, ElementRendererConfig};
 use cdoc::renderers::extensions::build_extensions;
 
+use cdoc::package::{Dist, PackageConfig};
 use cdoc_base::document::{Document, Metadata};
 use cowstr::CowStr;
 use lazy_static::lazy_static;
@@ -110,7 +112,7 @@ pub struct Pipeline {
 
     pub cache_info: Cache,
 
-    templates: TemplateManager,
+    templates: NewTemplateManager,
     cached_contexts: Arc<Mutex<HashMap<String, ProjectItemVec>>>,
 }
 
@@ -146,22 +148,34 @@ impl Pipeline {
             .ok_or(anyhow!("Profile doesn't exist"))?
             .clone();
 
-        print!("Parsing templates... ");
-        let mut template_manager = TemplateManager::from_path(
-            project_path.as_ref().join("templates"),
-            project_path.as_ref().join("filters"),
-            p.create_filters,
+        let main = PackageConfig::create_main_package(config.packages.clone());
+        println!("Deps: {:?}", &main.dependencies.0);
+        let dist = main
+            .build_module(&project_path.as_ref().to_path_buf())?
+            .build_dist()?;
+
+        fs::write(
+            project_path.as_ref().join("dist.yaml"),
+            serde_yaml::to_string(&dist)?,
         )?;
+
+        print!("Parsing templates... ");
+        let template_manager = NewTemplateManager::new(dist)?;
+        // let mut template_manager = TemplateManager::from_path(
+        //     project_path.as_ref().join("templates"),
+        //     project_path.as_ref().join("filters"),
+        //     p.create_filters,
+        // )?;
         println!("{}", style("done").green());
 
         let cache_path = project_path.as_ref().join(".cache");
         fs::create_dir_all(&cache_path)
             .with_context(|| format!("at path {}", cache_path.display()))?;
 
-        template_manager.register_filter(
-            "embed",
-            create_embed_fn(project_path.as_ref().join("resources"), cache_path.clone()),
-        );
+        // template_manager.register_filter(
+        //     "embed",
+        //     create_embed_fn(project_path.as_ref().join("resources"), cache_path.clone()),
+        // );
 
         let cache_info = match fs::read_to_string(cache_path.join("project_info.json")) {
             Ok(cache_val) => serde_json::from_str(&cache_val)?,
@@ -176,6 +190,7 @@ impl Pipeline {
             project_config: config,
             cache_info,
             templates: template_manager,
+
             cached_contexts: Arc::new(Mutex::new(HashMap::new())),
         };
 
@@ -236,10 +251,10 @@ impl Pipeline {
         meta: Metadata,
         format: &'a dyn Format,
     ) -> anyhow::Result<RenderContext<'a>> {
-        let mut ctx = Context::default();
-        ctx.insert("config", &self.project_config);
+        let mut ctx = HashMap::default();
+        ctx.insert("config".to_string(), to_value(&self.project_config)?);
         // meta.insert("references", &doc.references);
-        ctx.insert("doc_meta", &meta);
+        ctx.insert("doc_meta".to_string(), to_value(&meta)?);
         let _ts = &DEFAULT_THEME;
         RenderContext::new(
             &self.templates,
@@ -522,6 +537,17 @@ impl Pipeline {
                     .unwrap();
 
                 // format_errs.append(&mut errs.lock().unwrap())
+
+                if proj.is_empty() {
+                    format_errs.iter().for_each(|e| {
+                        eprintln!("{} {}", style("Error:").red().bold(), e);
+                        e.chain().skip(1).for_each(|cause| {
+                            eprintln!(" {} {}", style("caused by:").bold(), cause)
+                        });
+                        // eprintln!("backtrace {}", e.backtrace());
+                    });
+                    return;
+                }
 
                 let project_full = from_vec(&proj);
                 let context = Generator {

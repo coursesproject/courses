@@ -1,9 +1,7 @@
-pub mod module;
 pub mod node;
-mod package;
 
 pub mod extension;
-mod template;
+pub mod template;
 
 pub mod document;
 
