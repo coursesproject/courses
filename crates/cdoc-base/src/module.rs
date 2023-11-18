@@ -1,11 +1,11 @@
 use crate::node::NodeTypeDef;
-use crate::package::TemplateDefinition;
+
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
 pub struct Module {
     pub(crate) node_defs: HashMap<String, NodeTypeDef>,
-    pub(crate) templates: HashMap<String, TemplateDefinition>,
+    // pub(crate) templates: HashMap<String, TemplateDefinition>,
 }
 
 impl Module {

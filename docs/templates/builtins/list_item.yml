@@ -1,13 +1,20 @@
 name: List item
 description: Markdown list item.
 
-type: builtin
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: idx
+      description: "List index"
+      type: regular
+      optional: true
 
 
 templates:
   html: !String |
-    <li>{{ value | safe }}</li>
+    <li>{{ body | safe }}</li>
   markdown: !String |
-    {% if idx %}{{idx}}.{% else %}-{% endif %} {{ value | safe }}
+    {% if idx %}{{idx}}.{% else %}-{% endif %} {{ body | safe }}
   latex: !String |
-    \item {{ value | safe }}
+    \item {{ body | safe }}

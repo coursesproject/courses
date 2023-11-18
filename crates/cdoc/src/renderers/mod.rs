@@ -103,7 +103,8 @@ pub fn references_by_type(
 
 #[typetag::serde]
 pub trait RendererConfig: DynClone + Debug + Send + Sync {
-    fn build(&self) -> Result<Box<dyn DocumentRenderer>>;
+    fn build(&self, extensions: Vec<Box<dyn RenderExtension>>)
+        -> Result<Box<dyn DocumentRenderer>>;
 }
 
 dyn_clone::clone_trait_object!(RendererConfig);
@@ -111,10 +112,10 @@ dyn_clone::clone_trait_object!(RendererConfig);
 /// Trait used for rendering a whole document. The trait is used for configuring custom formats in
 /// the courses project.
 pub trait DocumentRenderer {
-    fn render_doc(
+    fn render_doc<'a>(
         &mut self,
         doc: &Document<Vec<Node>>,
-        ctx: &mut RenderContext,
+        ctx: &'a mut RenderContext<'a>,
     ) -> Result<Document<RenderResult>>;
 }
 

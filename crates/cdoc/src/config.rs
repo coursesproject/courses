@@ -35,7 +35,7 @@ pub trait Format: DynClone + Debug + Send + Sync {
     /// currently only used for the info format which exports all parsed contents in a project.
     fn no_parse(&self) -> bool;
     /// Return a renderer instance. Currently does not allow for configuration.
-    // fn renderer(&self) -> Box<dyn RendererConfig>;
+    fn renderer(&self) -> Box<dyn RendererConfig>;
     /// Determines whether non-source files should be copied to
     fn include_resources(&self) -> bool;
     fn layout(&self) -> Option<String>;
@@ -92,8 +92,8 @@ pub struct DynamicFormat {
     /// Format name (used for build folder)
     pub name: String,
     /// Renderer to use (generic or notebook)
-    // #[serde(default = "default_renderer")]
-    // pub renderer: Box<dyn RendererConfig>,
+    #[serde(default = "default_renderer")]
+    pub renderer: Box<dyn RendererConfig>,
     /// Include resources folder in output
     #[serde(default)]
     pub include_resources: bool,
@@ -101,9 +101,9 @@ pub struct DynamicFormat {
     pub layout: Option<String>,
 }
 
-// fn default_renderer() -> Box<dyn RendererConfig> {
-//     Box::<ElementRendererConfig>::default()
-// }
+fn default_renderer() -> Box<dyn RendererConfig> {
+    Box::<ElementRendererConfig>::default()
+}
 
 #[typetag::serde(name = "dynamic")]
 impl Format for DynamicFormat {
@@ -123,9 +123,9 @@ impl Format for DynamicFormat {
         false
     }
 
-    // fn renderer(&self) -> Box<dyn RendererConfig> {
-    //     self.renderer.clone()
-    // }
+    fn renderer(&self) -> Box<dyn RendererConfig> {
+        self.renderer.clone()
+    }
 
     fn include_resources(&self) -> bool {
         self.include_resources
@@ -154,9 +154,9 @@ impl Format for NotebookFormat {
         false
     }
 
-    // fn renderer(&self) -> Box<dyn RendererConfig> {
-    //     Box::new(NotebookRenderer)
-    // }
+    fn renderer(&self) -> Box<dyn RendererConfig> {
+        todo!()
+    }
 
     fn include_resources(&self) -> bool {
         true
@@ -185,9 +185,9 @@ impl Format for HtmlFormat {
         false
     }
 
-    // fn renderer(&self) -> Box<dyn RendererConfig> {
-    //     Box::<ElementRendererConfig>::default()
-    // }
+    fn renderer(&self) -> Box<dyn RendererConfig> {
+        Box::<ElementRendererConfig>::default()
+    }
     fn include_resources(&self) -> bool {
         true
     }
@@ -214,9 +214,9 @@ impl Format for InfoFormat {
         true
     }
 
-    // fn renderer(&self) -> Box<dyn RendererConfig> {
-    //     Box::<ElementRendererConfig>::default()
-    // }
+    fn renderer(&self) -> Box<dyn RendererConfig> {
+        Box::<ElementRendererConfig>::default()
+    }
     fn include_resources(&self) -> bool {
         false
     }
@@ -242,9 +242,9 @@ impl Format for MarkdownFormat {
     fn no_parse(&self) -> bool {
         false
     }
-    // fn renderer(&self) -> Box<dyn RendererConfig> {
-    //     Box::<ElementRendererConfig>::default()
-    // }
+    fn renderer(&self) -> Box<dyn RendererConfig> {
+        Box::<ElementRendererConfig>::default()
+    }
     fn include_resources(&self) -> bool {
         false
     }
@@ -270,9 +270,9 @@ impl Format for LaTexFormat {
     fn no_parse(&self) -> bool {
         false
     }
-    // fn renderer(&self) -> Box<dyn RendererConfig> {
-    //     Box::<ElementRendererConfig>::default()
-    // }
+    fn renderer(&self) -> Box<dyn RendererConfig> {
+        Box::<ElementRendererConfig>::default()
+    }
     fn include_resources(&self) -> bool {
         true
     }

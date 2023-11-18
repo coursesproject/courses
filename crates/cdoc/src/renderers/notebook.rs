@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook, NotebookMeta};
 
-use cdoc_base::document::CodeOutput;
+use cdoc_base::document::{CodeOutput, Document};
 use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::{Compound, Node};
 use nanoid::nanoid;
@@ -16,17 +16,58 @@ use crate::renderers::{
     DocumentRenderer, RenderContext, RenderElement, RenderResult, RendererConfig,
 };
 
-pub struct NotebookRendererBuilder;
-
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct NotebookRenderer;
+pub struct NotebookRenderConfig;
+
+#[typetag::serde(name = "notebook")]
+impl RendererConfig for NotebookRenderConfig {
+    fn build(
+        &self,
+        extensions: Vec<Box<dyn RenderExtension>>,
+    ) -> Result<Box<dyn DocumentRenderer>> {
+        Ok(Box::new(NotebookRenderer { extensions }))
+    }
+}
+
+pub struct NotebookRenderer {
+    extensions: Vec<Box<dyn RenderExtension>>,
+}
+
+impl DocumentRenderer for NotebookRenderer {
+    fn render_doc<'a>(
+        &mut self,
+        doc: &Document<Vec<Node>>,
+        ctx: &'a mut RenderContext<'a>,
+    ) -> Result<Document<RenderResult>> {
+        let renderer = ElementRenderer::new(self.extensions.clone())?;
+
+        let writer = NotebookWriter {
+            notebook_meta: ctx.notebook_output_meta.clone(),
+            outputs: doc.code_outputs.clone(),
+            code_cells: vec![],
+            ctx,
+            renderer,
+        };
+
+        let notebook: Notebook = writer.convert(doc.content.clone())?;
+        let output = serde_json::to_string_pretty(&notebook)
+            .expect("Invalid notebook format")
+            .into();
+
+        Ok(Document {
+            content: output,
+            meta: doc.meta.clone(),
+            code_outputs: doc.code_outputs.clone(),
+        })
+    }
+}
 
 pub struct NotebookWriter<'a> {
     pub notebook_meta: NotebookMeta,
-    pub outputs: HashMap<u64, CodeOutput>,
+    pub outputs: HashMap<String, CodeOutput>,
     pub code_cells: Vec<Cell>,
     pub ctx: &'a mut RenderContext<'a>,
-    pub renderer: ElementRenderer<'a>,
+    pub renderer: ElementRenderer,
 }
 
 impl NotebookWriter<'_> {

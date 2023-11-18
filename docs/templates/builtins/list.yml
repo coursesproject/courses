@@ -1,0 +1,27 @@
+name: Listist
+description: Markdown list.
+
+type: shortcode
+shortcode:
+  kind: block
+  parameters:
+    - name: start_idx
+      description: ""
+      type: regular
+      optional: true
+
+templates:
+  html: !String |
+    {% if start_idx %}<ol start="{{ start_idx }}">{{ body | safe }}</ol>{% else %}<ul>{{ body | safe }}</ul>{% endif %}
+  markdown: !String |
+    {{ body | safe }}
+  latex: !String |
+    {% if start_idx %}
+    \begin{enumerate}
+    {{ body | safe }}
+    \end{enumerate}
+    {% else %}
+    \begin{itemize}
+    {{ body | safe }}
+    \end{itemize}
+    {% endif %}

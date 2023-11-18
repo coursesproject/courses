@@ -744,8 +744,8 @@ impl Pipeline {
                             .get(format.name())
                             .unwrap_or(&empty);
 
-                        let mut renderer = ElementRenderer::new("", build_extensions(ext)?)?;
-                        // let mut renderer = format.renderer().build()?;
+                        // let mut renderer = ElementRenderer::new(build_extensions(ext)?)?;
+                        let mut renderer = format.renderer().build(build_extensions(ext)?)?;
 
                         Ok(Some(renderer.render_doc(&res, &mut ctx)?))
                     } else {

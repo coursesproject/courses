@@ -15,6 +15,7 @@ linked-hash-map = {version = "0.5.6", features = ["serde_impl"]}
 semver = {version = "1.0.19", features = ["serde"]}
 
 tera = "1.19.1"
+minijinja = {version = "1.0.10", features = ["loader"]}
 
 xml-rs = {version = "0.8.19", optional = true}
 

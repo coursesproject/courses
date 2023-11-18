@@ -22,18 +22,19 @@ use std::io::{BufWriter, Cursor, Write};
 use tera::Context as TeraContext;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct ElementRendererConfig {
-    list_level: usize,
-    current_list_idx: Vec<Option<u64>>,
-    counters: HashMap<String, usize>,
+pub struct ElementRendererConfig;
+
+#[typetag::serde(name = "base")]
+impl RendererConfig for ElementRendererConfig {
+    fn build(
+        &self,
+        extensions: Vec<Box<dyn RenderExtension>>,
+    ) -> Result<Box<dyn DocumentRenderer>> {
+        Ok(Box::new(ElementRenderer::new(extensions)?))
+    }
 }
 
-
-pub struct ElementRenderer<'a> {
-    engine: Engine,
-    ast: AST,
-    scope: Scope<'a>,
-    fns: HashSet<String>,
+pub struct ElementRenderer {
     list_level: usize,
     current_list_idx: Vec<Option<u64>>,
     counters: HashMap<String, usize>,
@@ -55,26 +56,14 @@ pub fn references_by_type(
     type_map
 }
 
-impl ElementRenderer<'_> {
-    pub fn new(src: &str, extensions: Vec<Box<dyn RenderExtension>>) -> Result<Self> {
-        let mut engine = Engine::new();
-        // build_types(&mut engine);
-        let ast = engine.compile(src)?;
-        let mut scope = Scope::new();
-        engine.run_ast_with_scope(&mut scope, &ast)?;
-
-        let fns = ast.iter_functions().map(|m| m.name.to_string()).collect();
-
+impl ElementRenderer {
+    pub fn new(extensions: Vec<Box<dyn RenderExtension>>) -> Result<Self> {
         let extensions = extensions
             .into_iter()
             .map(|e| (e.register_root_type(), e))
             .collect();
 
         Ok(Self {
-            engine,
-            scope,
-            ast,
-            fns,
             list_level: 0,
             current_list_idx: vec![],
             counters: Default::default(),
@@ -90,7 +79,7 @@ impl ElementRenderer<'_> {
     }
 }
 
-impl DocumentRenderer for ElementRenderer<'_> {
+impl DocumentRenderer for ElementRenderer {
     fn render_doc(
         &mut self,
         doc: &Document<Vec<Node>>,
@@ -109,7 +98,7 @@ impl DocumentRenderer for ElementRenderer<'_> {
     }
 }
 
-impl RenderElement<Node> for ElementRenderer<'_> {
+impl RenderElement<Node> for ElementRenderer {
     fn render(&mut self, elem: &Node, ctx: &mut RenderContext, mut buf: impl Write) -> Result<()> {
         Ok(match elem {
             Node::Plain(t) => buf.write_all(t.as_bytes())?,
@@ -119,7 +108,7 @@ impl RenderElement<Node> for ElementRenderer<'_> {
     }
 }
 
-impl RenderElement<Compound> for ElementRenderer<'_> {
+impl RenderElement<Compound> for ElementRenderer {
     fn render(
         &mut self,
         elem: &Compound,
@@ -135,7 +124,7 @@ impl RenderElement<Compound> for ElementRenderer<'_> {
             )?;
             Ok(())
         } else {
-            if let Some(_) = elem.attributes.get("label") {
+            if let Some(_) = elem.attributes.get("id") {
                 let num = self.fetch_and_inc_num(elem.type_id.clone());
                 args.insert("num", &num);
             }
@@ -177,7 +166,7 @@ pub struct RenderedParam {
     pub value: Value,
 }
 
-impl ElementRenderer<'_> {
+impl ElementRenderer {
     pub(crate) fn render_params(
         &mut self,
         parameters: BTreeMap<String, Attribute>,

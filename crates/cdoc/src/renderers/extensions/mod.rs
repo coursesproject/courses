@@ -1,4 +1,3 @@
-
 pub mod structure;
 
 use crate::renderers::base::ElementRenderer;
@@ -21,7 +20,7 @@ impl RenderExtensionContext {
     }
 }
 
-pub trait RenderExtension {
+pub trait RenderExtension: DynClone {
     fn register_root_type(&self) -> String;
     fn process(&mut self, element: &Compound, ctx: &mut RenderExtensionContext) -> Result<String>;
 }
@@ -47,3 +46,4 @@ pub fn build_extensions(
 }
 
 dyn_clone::clone_trait_object!(RenderExtensionConfig);
+dyn_clone::clone_trait_object!(RenderExtension);
