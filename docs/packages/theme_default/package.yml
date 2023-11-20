@@ -13,3 +13,9 @@ dependencies:
 layouts:
   section:
     html: templates/layouts/section.tera.html
+  nav:
+    html: templates/layouts/nav.tera.html
+  index:
+    html: templates/layouts/index.tera.html
+  bar:
+    html: templates/layouts/bar.tera.html

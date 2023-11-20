@@ -1,25 +1,20 @@
-#name: Button row
-#description: Simple row of buttons.
-#private: true
-#
-#type: shortcode
-#shortcode:
-#  kind: inline
-#
-#
-#templates:
-#  html: !String |
-#      <div class="not-prose">
-#        <div class="flex items-center justify-center">
-#          <a class="btn btn-success mx-2" href="{{config.url_prefix}}/documentation">Documentation</a>
-#          <a class="btn btn-warning mx-2" href="{{config.custom.crates.courses}}" target="_blank">Crates.io</a>
-#          <a class="btn btn-neutral mx-2" href="{{config.repository.url}}" target="_blank">
-#              <span class="icon-text">
-#                  <span>GitHub</span>
-#                  <span class="icon">
-#                  <i class="bi bi-github"></i>
-#                </span>
-#              </span>
-#          </a>
-#      </div>
-#      </div>
+
+button_row:
+  description: Simple row of buttons.
+
+  templates:
+    html: !String |
+      <div class="not-prose">
+        <div class="flex items-center justify-center">
+          <a class="btn btn-success mx-2" href="{{config.url_prefix}}/documentation">Documentation</a>
+          <a class="btn btn-warning mx-2" href="{{config.custom.crates.courses}}" target="_blank">Crates.io</a>
+          <a class="btn btn-neutral mx-2" href="{{config.repository.url}}" target="_blank">
+              <span class="icon-text">
+                  <span>GitHub</span>
+                  <span class="icon">
+                  <i class="bi bi-github"></i>
+                </span>
+              </span>
+          </a>
+      </div>
+      </div>

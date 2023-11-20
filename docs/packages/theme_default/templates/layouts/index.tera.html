@@ -170,10 +170,10 @@
   ></script>
 
 </head>
-<body x-data="{ sidebar_open: {{ not meta.layout.hide_sidebar }} }">
-{% include "bar.tera.html" %}
+<body x-data="{ sidebar_open: {{ not doc.meta.layout.hide_sidebar }} }">
+{% include "layout_bar" %}
 {% if not doc.meta.layout.hide_sidebar %}
-{% include "nav.tera.html" %}
+{% include "layout_nav" %}
 {% endif %}
 
 <div

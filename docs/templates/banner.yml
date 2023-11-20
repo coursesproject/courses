@@ -9,3 +9,8 @@
 #
 #templates:
 #  html: !File "banner.tera.html"
+
+banner:
+  description: Banner element.
+  templates:
+    html: !File "templates/banner.tera.html"

@@ -141,7 +141,7 @@ math_block:
 
 code:
   templates:
-    html: !String <pre><code>{{body | safe}}</code></pre>
+    html: !String <code>{{body | safe}}</code>
     markdown: !String |
       `{{body | safe}}`
     latex: !String \mintinline{ {{body | safe}} }

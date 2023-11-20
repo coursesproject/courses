@@ -36,6 +36,7 @@ impl NewTemplateManager {
                 let env = environments
                     .entry(prefix.to_string())
                     .or_insert_with(|| Environment::new());
+                println!("layout {}", name);
                 env.add_template_owned(format!("layout_{name}"), src.clone())?;
             }
         }
@@ -68,7 +69,6 @@ impl NewTemplateManager {
         ctx: S,
         buf: impl Write,
     ) -> anyhow::Result<()> {
-        println!("prefix {prefix}");
         self.environments
             .get(prefix)
             .ok_or_else(|| anyhow!("Invalid prefix"))?

@@ -18,7 +18,7 @@ pub struct PackageConfig {
     #[serde(default)]
     pub dependencies: DependencyConfig,
     #[serde(default)]
-    layouts: HashMap<String, LayoutConfig>,
+    pub layouts: HashMap<String, LayoutConfig>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -62,10 +62,10 @@ impl DependencySpec {
         &self,
         local_path: &PathBuf,
     ) -> anyhow::Result<(PathBuf, PackageConfig)> {
-        println!(
-            "reading {}",
-            local_path.as_path().join(&self.file).display()
-        );
+        // println!(
+        //     "reading {}",
+        //     local_path.as_path().join(&self.file).display()
+        // );
         let config_src =
             fs::read_to_string(local_path.as_path().join(&self.file).join("package.yml"))?;
         Ok((self.file.clone(), serde_yaml::from_str(&config_src)?))
@@ -84,6 +84,7 @@ impl PackageConfig {
             .map(|spec| spec.resolve_dependency(local_path))
             .collect()
     }
+
     pub fn build_module(self, local_path: &PathBuf) -> anyhow::Result<Module> {
         let dependencies = self
             .resolve_dependencies(local_path)?
@@ -105,7 +106,7 @@ impl PackageConfig {
                         let path = e.path();
                         let filename = path.file_name().unwrap().to_str().unwrap();
 
-                        println!("path {}, ext: {:?}", path.display(), path.extension());
+                        // println!("path {}, ext: {:?}", path.display(), path.extension());
 
                         path.extension()
                             .map(|e| e.to_str().unwrap() == "yml")
@@ -126,7 +127,7 @@ impl PackageConfig {
                 });
 
         let node_definitions = definitions?.resolve_templates(local_path)?;
-        println!("defs: {:?}", node_definitions);
+        // println!("defs: {:?}", node_definitions);
 
         Ok(Module {
             config: self,
@@ -153,7 +154,12 @@ impl Module {
     }
 
     pub fn build_layouts(&self) -> anyhow::Result<HashMap<String, Layout>> {
-        self.config
+        let mut layouts = self
+            .dependencies
+            .iter()
+            .try_fold(HashMap::new(), |layouts, m| m.build_layouts())?;
+        let new = self
+            .config
             .layouts
             .iter()
             .map(|(name, layout_path)| {
@@ -173,7 +179,9 @@ impl Module {
                     ),
                 ))
             })
-            .collect::<anyhow::Result<HashMap<String, Layout>>>()
+            .collect::<anyhow::Result<HashMap<String, Layout>>>()?;
+        layouts.extend(new.into_iter());
+        Ok(layouts)
     }
 
     pub fn build_dist(self) -> anyhow::Result<Dist> {

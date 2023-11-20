@@ -1,28 +1,23 @@
-#name: Card
-#description: A bulma card element.
-#private: true
-#
-#type: shortcode
-#shortcode:
-#  kind: block
-#  parameters:
-#    - name: title
-#      description: Card title.
-#      type: regular
-#    - name: color
-#      description: Card color.
-#      type: !choice [ primary, success, warning, info, danger, white, black ]
-#
-#
-#templates:
-#  html: !String |
-#    <div class="column bg-base-100 shadow-xl">
-#      <div class="card-body">
-#          <h2 class="card-title">{{title}}</h2>
-#          <div class="card-content" >
-#              <p class="content">
-#                  {{body|safe}}
-#              </p>
-#          </div>
-#      </div>
-#    </div>
+card:
+  description: A bulma card element.
+
+  parameters:
+    - name: title
+      description: Card title.
+      type: regular
+    - name: color
+      description: Card color.
+      type: enum
+
+  templates:
+    html: !String |
+      <div class="column bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">{{title}}</h2>
+            <div class="card-content" >
+                <p class="content">
+                    {{body|safe}}
+                </p>
+            </div>
+        </div>
+      </div>
