@@ -36,7 +36,7 @@ impl NewTemplateManager {
                 let env = environments
                     .entry(prefix.to_string())
                     .or_insert_with(|| Environment::new());
-                println!("layout {}", name);
+                // println!("layout {}", name);
                 env.add_template_owned(format!("layout_{name}"), src.clone())?;
             }
         }

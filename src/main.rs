@@ -113,7 +113,7 @@ fn path_with_default(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 fn init_config(path: &Path, allow_incompatible: bool) -> anyhow::Result<ProjectConfig> {
     print!("Reading config...");
 
-    let config_path = path.join("package.yml");
+    let config_path = path.join("project.yml");
     let config_input = fs::read_to_string(config_path)?;
     if !allow_incompatible {
         let dummy: ProjectConfigDummy = serde_yaml::from_str(&config_input)?;

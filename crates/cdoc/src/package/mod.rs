@@ -145,6 +145,8 @@ pub struct Module {
     dependencies: Vec<Module>,
 }
 
+// pub struct LayoutFile(HashMap<String, >)
+
 impl Module {
     pub fn build_defs(self) -> anyhow::Result<DefinitionFile> {
         let defs = self.node_definitions.clone();
@@ -154,30 +156,34 @@ impl Module {
     }
 
     pub fn build_layouts(&self) -> anyhow::Result<HashMap<String, Layout>> {
-        let mut layouts = self
+        let mut layouts: HashMap<String, Layout> = self
             .dependencies
             .iter()
-            .try_fold(HashMap::new(), |layouts, m| m.build_layouts())?;
+            .map(|m| m.build_layouts())
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
         let new = self
             .config
             .layouts
             .iter()
             .map(|(name, layout_path)| {
-                Ok((
-                    name.to_string(),
-                    Layout(
-                        layout_path
-                            .0
-                            .iter()
-                            .map(|(prefix, path)| {
-                                Ok((
-                                    prefix.to_string(),
-                                    fs::read_to_string(self.source_path.join(&path))?,
-                                ))
-                            })
-                            .collect::<anyhow::Result<HashMap<String, String>>>()?,
-                    ),
-                ))
+                let layout = Layout(
+                    layout_path
+                        .0
+                        .iter()
+                        .map(|(prefix, path)| {
+                            // println!("layout: {}, {}", prefix, path.display());
+                            Ok((
+                                prefix.to_string(),
+                                fs::read_to_string(self.source_path.join(&path))?,
+                            ))
+                        })
+                        .collect::<anyhow::Result<HashMap<String, String>>>()?,
+                );
+                // println!("ll: {:?}", &layout);
+                Ok((name.to_string(), layout))
             })
             .collect::<anyhow::Result<HashMap<String, Layout>>>()?;
         layouts.extend(new.into_iter());
@@ -186,6 +192,7 @@ impl Module {
 
     pub fn build_dist(self) -> anyhow::Result<Dist> {
         let layouts = self.build_layouts()?;
+        // println!("l: {:?}", layouts);
         Ok(Dist {
             nodes: self.build_defs()?.try_into_node_descriptions()?,
             layouts,

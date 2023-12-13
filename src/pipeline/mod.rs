@@ -149,7 +149,7 @@ impl Pipeline {
             .clone();
 
         let main = PackageConfig::create_main_package(config.packages.clone());
-        println!("Deps: {:?}", &main.dependencies.0);
+        // println!("Deps: {:?}", &main.dependencies.0);
         let dist = main
             .build_module(&project_path.as_ref().to_path_buf())?
             .build_dist()?;
