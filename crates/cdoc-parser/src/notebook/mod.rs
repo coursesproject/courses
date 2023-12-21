@@ -381,10 +381,10 @@ mod tests {
 
     use crate::code_ast::types::{CodeContent, CodeElem};
     use crate::common::Span;
+    use cdoc_base::node::{Attribute, Compound};
     use std::fs::File;
     use std::io::BufReader;
     use std::path::PathBuf;
-    use cdoc_base::node::Compound;
 
     #[test]
     fn deserialize() {
@@ -432,9 +432,28 @@ mod tests {
                 Node::Compound(Compound {
                     type_id: "heading".to_string(),
                     id: None,
-                    attributes: Default::default(),
+                    attributes: vec![(Some("level".to_string()), Attribute::Int(1))],
                     children: vec![Node::Plain("Heading".into())],
-                })
+                }),
+                Node::Compound(Compound {
+                    type_id: "func".to_string(),
+                    id: Some("".to_string()),
+                    attributes: vec![],
+                    children: vec![],
+                }),
+                Node::Compound(Compound {
+                    type_id: "code_block".to_string(),
+                    id: Some("".to_string()),
+                    attributes: vec![
+                        (
+                            Some("language".to_string()),
+                            Attribute::String("python".to_string()),
+                        ),
+                        (Some("is_cell".to_string()), Attribute::Flag),
+                        (Some("tags".to_string()), Attribute::String("".to_string())),
+                    ],
+                    children: vec![Node::Plain("print('x')\n\n".to_string())],
+                }),
             ],
             // content: Ast {
             //     blocks: vec![

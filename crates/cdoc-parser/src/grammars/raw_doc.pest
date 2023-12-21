@@ -63,7 +63,7 @@ code        =  { (!PEEK ~ ANY)+ }
 
 verbatim =  { (!"\\}" ~ ANY)+ }
 link     = _{ "[" ~ (!"]" ~ ANY)+ ~ "]" }
-src      = ${ ("#"+ ~ WHITESPACE) | "#" | (link? ~ command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ !";" ~ !"[" ~ !"]" ~ ANY)+ }
+src      = ${ ("#"+ ~ WHITESPACE) | "#" | (link? ~ command_disallow ~ !"$" ~ !"`" ~ !"\\{" ~ !"\\}" ~ !"[" ~ !"]" ~ ANY)+ }
 
 element = _{ math_block | code_def | verbatim_def | script | command | src }
 

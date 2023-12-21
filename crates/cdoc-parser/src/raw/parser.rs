@@ -140,7 +140,8 @@ impl RawDocument {
         }
 
         Ok(Element::Special(
-            label.unwrap_or(nanoid!().into()),
+            // label.unwrap_or(nanoid!().into()),
+            label.unwrap_or_default(),
             Special::Command {
                 function: name,
                 parameters,
@@ -196,7 +197,8 @@ impl RawDocument {
         }
 
         Element::Special(
-            label.unwrap_or(nanoid!().into()),
+            // label.unwrap_or(nanoid!().into()),
+            label.unwrap_or_default(),
             Special::Math {
                 inner: src,
                 is_block: lvl.len() != 1,
@@ -259,7 +261,8 @@ impl RawDocument {
         }
 
         Ok(Element::Special(
-            id.unwrap_or(nanoid!().into()),
+            // id.unwrap_or(nanoid!().into()),
+            id.unwrap_or_default(),
             if lvl.len() == 1 {
                 Special::CodeInline { inner: src }
             } else {
@@ -277,7 +280,8 @@ impl RawDocument {
     fn parse_verbatim(&mut self, pair: Pair<Rule>) -> Element {
         let value = pair.as_str();
         Element::Special(
-            CowStr::from(nanoid!()),
+            // CowStr::from(nanoid!()),
+            CowStr::new(),
             Special::Verbatim {
                 inner: value.into(),
             },

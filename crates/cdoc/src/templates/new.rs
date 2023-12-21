@@ -1,12 +1,12 @@
 use crate::package::Dist;
 use anyhow::anyhow;
 use cdoc_base::node::definition::NodeDef;
+use cdoc_base::node::Attribute;
 use minijinja::Environment;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 use std::path::PathBuf;
-use cdoc_base::node::Attribute;
 
 #[derive(Clone)]
 pub struct NewTemplateManager {
@@ -63,15 +63,25 @@ impl NewTemplateManager {
         Ok(())
     }
 
-    pub fn resolve_params(&self, node: &str, params: Vec<(Option<String>, Attribute)>) -> anyhow::Result<BTreeMap<String, Attribute>> {
-        let def = self.nodes.get(node).ok_or(anyhow!("Node type does not exist"))?;
+    pub fn resolve_params(
+        &self,
+        node: &str,
+        params: Vec<(Option<String>, Attribute)>,
+    ) -> anyhow::Result<BTreeMap<String, Attribute>> {
+        let def = self
+            .nodes
+            .get(node)
+            .ok_or(anyhow!("Node of type '{node}' does not exist"))?;
         let mut out = BTreeMap::new();
 
         for (i, (name, val)) in params.iter().enumerate() {
             if let Some(n) = name {
                 out.insert(n.clone(), val.clone());
             } else {
-                let key = def.parameters.get(i).ok_or(anyhow!("Invalid parameter position {i} for node of type {}", def.name))?;
+                let key = def.parameters.get(i).ok_or(anyhow!(
+                    "Invalid parameter position {i} for node of type {}",
+                    def.name
+                ))?;
                 out.insert(key.name.clone(), val.clone());
             }
         }
