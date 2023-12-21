@@ -1,0 +1,41 @@
+image: rust:1-buster
+
+stages:
+  - check
+  - build
+  - test
+  - publish
+
+check:
+  stage: check
+  parallel:
+    matrix:
+      - PACKAGE: [ cdoc-base, cdoc-parser, cdoc, courses ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  script:
+    - cargo check --package $PACKAGE
+
+build:
+  stage: build
+  needs:
+    - job: check
+      parallel:
+        matrix:
+          - PACKAGE: [ cdoc-base, cdoc-parser, cdoc, courses ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  script:
+    - cargo build --package $PACKAGE
+
+test:
+  stage: test
+  needs:
+    - job: build
+      parallel:
+        matrix:
+          - PACKAGE: [ cdoc-base, cdoc-parser, cdoc, courses ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  script:
+    - cargo test --package $PACKAGE
