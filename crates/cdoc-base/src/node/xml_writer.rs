@@ -62,7 +62,7 @@ impl Node {
                 let attr: Vec<(String, String)> = node
                     .attributes
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.to_string()))
+                    .map(|(k, v)| (k.clone().unwrap_or_default(), v.to_string()))
                     .collect();
                 for (k, v) in &attr {
                     start = start.attr(k.as_str(), &v);

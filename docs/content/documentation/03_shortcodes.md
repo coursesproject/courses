@@ -31,7 +31,7 @@ is pre-rendered as html and then passed to the shortcode's template in the `body
 typically written using the block syntax can also be written using the inline syntax with the `body` parameter
 specified manually.*
 
-#message|id(color=warning, title=Tip){
+#message|msg_id(color=warning, title=Tip){
 
 Shortcodes can be expanded over multiple lines to improve readability. For example:
 

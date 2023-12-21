@@ -82,7 +82,7 @@ impl From<Child> for Node {
                 for (i, parameter) in parameters.into_iter().enumerate() {
                     match parameter.value {
                         ArgumentVal::Flag(f) => {
-                            attributes.push((f.to_string(), Attribute::Flag));
+                            attributes.push((Some(f.to_string()), Attribute::Flag));
                         }
                         ArgumentVal::Content(c) => {
                             let composed = ComposedMarkdown::from(c);
@@ -103,7 +103,7 @@ impl From<Child> for Node {
                             };
 
                             attributes.push((
-                                parameter.key.unwrap().to_string(),
+                                parameter.key.map(|k| k.to_string()),
                                 Attribute::Compound(el),
                             ));
                             // children.push(Element::Node(Node::new(
@@ -118,22 +118,19 @@ impl From<Child> for Node {
                         ArgumentVal::String(s) => attributes.push((
                             parameter
                                 .key
-                                .map(|k| k.to_string())
-                                .unwrap_or(format!("pos_{}", i)),
+                                .map(|k| k.to_string()),
                             Attribute::String(s.to_string()),
                         )),
                         ArgumentVal::Int(i) => attributes.push((
                             parameter
                                 .key
-                                .map(|k| k.to_string())
-                                .unwrap_or(format!("pos_{}", i)),
+                                .map(|k| k.to_string()),
                             Attribute::Int(i),
                         )),
                         ArgumentVal::Float(f) => attributes.push((
                             parameter
                                 .key
-                                .map(|k| k.to_string())
-                                .unwrap_or(format!("pos_{}", i)),
+                                .map(|k| k.to_string()),
                             Attribute::Float(f),
                         )),
                     }
@@ -173,13 +170,13 @@ impl From<Child> for Node {
                 attributes: attr,
             } => {
                 if let Some(lang) = attr.get(0) {
-                    attributes.push(("language".to_string(), Attribute::String(lang.to_string())));
+                    attributes.push((Some("language".to_string()), Attribute::String(lang.to_string())));
                 }
                 if let Some(_) = attr.get(1) {
-                    attributes.push(("is_cell".to_string(), Attribute::Flag));
+                    attributes.push((Some("is_cell".to_string()), Attribute::Flag));
                 }
                 inner.meta.iter().for_each(|(k, v)| {
-                    attributes.push((k.to_string(), Attribute::String(v.to_string())))
+                    attributes.push((Some(k.to_string()), Attribute::String(v.to_string())))
                 });
                 Node::Compound(Compound::new(
                     "code_block",
@@ -221,12 +218,12 @@ impl From<ComposedMarkdown> for Vec<Node> {
                             let mut attributes = vec![];
                             if let Some(label) = label {
                                 attributes.push((
-                                    "label".to_string(),
+                                    Some("label".to_string()),
                                     Attribute::String(label.to_string()),
                                 ));
                             }
                             attributes
-                                .push(("level".to_string(), Attribute::Int(heading_to_lvl(level))));
+                                .push((Some("level".to_string()), Attribute::Int(heading_to_lvl(level))));
                             current_node.push(Node::Compound(Compound::new(
                                 "heading", None, attributes, children,
                             )))
@@ -235,7 +232,7 @@ impl From<ComposedMarkdown> for Vec<Node> {
                             "list",
                             None,
                             idx.map(|idx| {
-                                vec![("start_idx".to_string(), Attribute::Int(idx as i64))]
+                                vec![(Some("start_idx".to_string()), Attribute::Int(idx as i64))]
                             })
                             .unwrap_or_default(),
                             children,
@@ -265,8 +262,8 @@ impl From<ComposedMarkdown> for Vec<Node> {
                             "link",
                             None,
                             [
-                                ("url".to_string(), Attribute::String(url.to_string())),
-                                ("alt".to_string(), Attribute::String(alt.to_string())),
+                                (Some("url".to_string()), Attribute::String(url.to_string())),
+                                (Some("alt".to_string()), Attribute::String(alt.to_string())),
                             ],
                             children,
                         ))),
@@ -275,8 +272,8 @@ impl From<ComposedMarkdown> for Vec<Node> {
                                 "image",
                                 None,
                                 [
-                                    ("url".to_string(), Attribute::String(url.to_string())),
-                                    ("alt".to_string(), Attribute::String(alt.to_string())),
+                                    (Some("url".to_string()), Attribute::String(url.to_string())),
+                                    (Some("alt".to_string()), Attribute::String(alt.to_string())),
                                 ],
                                 children,
                             )))

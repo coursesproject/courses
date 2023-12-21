@@ -137,7 +137,12 @@ impl NodeVisitor for NotebookWriter<'_> {
     fn visit_element(&mut self, element: &mut Node) -> Result<()> {
         if let Node::Compound(node) = element {
             if node.type_id == "code_block" {
-                if node.attributes.contains_key("is_cell") {
+                if node
+                    .attributes
+                    .iter()
+                    .find(|(s, _)| s.as_ref().map(|v| v == "is_cell").unwrap_or_default())
+                    .is_some()
+                {
                     let rendered = "temp".to_string();
 
                     self.code_cells.push(Cell::Code {

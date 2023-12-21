@@ -40,7 +40,7 @@ impl NodeVisitor for CellVisitor<'_> {
                             let node = Compound::new_with_attributes(
                                 "output_text",
                                 None,
-                                [("value".to_string(), Attribute::String(s.into()))],
+                                [(Some("value".to_string()), Attribute::String(s.into()))],
                             );
 
                             output_nodes.push(Node::Compound(node));
@@ -50,9 +50,9 @@ impl NodeVisitor for CellVisitor<'_> {
 
                             match img {
                                 Image::Png(png) => attributes
-                                    .insert("base64".to_string(), Attribute::String(png.into())),
+                                    .push((Some("base64".to_string()), Attribute::String(png.into()))),
                                 Image::Svg(svg) => attributes
-                                    .insert("svg".to_string(), Attribute::String(svg.into())),
+                                    .push((Some("svg".to_string()), Attribute::String(svg.into()))),
                             };
 
                             let node = Compound::new_with_attributes("figure", None, attributes);

@@ -5,6 +5,7 @@ pub mod xml_writer;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
+use anyhow::anyhow;
 
 pub enum DataValue {
     String { kind: String, value: String },
@@ -36,12 +37,12 @@ pub struct Script {
 pub struct Compound {
     pub type_id: String,
     pub id: Option<String>,
-    pub attributes: BTreeMap<String, Attribute>,
+    pub attributes: Vec<(Option<String>, Attribute)>,
     pub children: Vec<Node>,
 }
 
 impl Compound {
-    pub fn new<S: Into<String>, B: IntoIterator<Item = (String, Attribute)>>(
+    pub fn new<S: Into<String>, B: IntoIterator<Item = (Option<String>, Attribute)>>(
         type_id: S,
         id: Option<&str>,
         attributes: B,
@@ -63,7 +64,7 @@ impl Compound {
         Self::new(type_id, id, BTreeMap::new(), children)
     }
 
-    pub fn new_with_attributes<S: Into<String>, B: IntoIterator<Item = (String, Attribute)>>(
+    pub fn new_with_attributes<S: Into<String>, B: IntoIterator<Item = (Option<String>, Attribute)>>(
         type_id: S,
         id: Option<&str>,
         attributes: B,
@@ -80,7 +81,7 @@ impl Compound {
         Self {
             type_id: type_id.into(),
             id: id.map(String::from),
-            attributes: BTreeMap::new(),
+            attributes: Vec::new(),
             children: vec![],
         }
     }
@@ -102,6 +103,8 @@ impl Node {
             None
         }
     }
+
+
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]

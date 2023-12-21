@@ -76,14 +76,14 @@ impl Solutions {
             }
         }
 
-        code_node.attributes.insert(
-            "solution".to_string(),
+        code_node.attributes.push((
+            Some("solution".to_string()),
             Attribute::String(solution.trim().to_string()),
-        );
-        code_node.attributes.insert(
-            "placeholder".to_string(),
+        ));
+        code_node.attributes.push((
+            Some("placeholder".to_string()),
             Attribute::String(placeholder.trim().to_string()),
-        );
+        ));
         code_node.children = vec![];
 
         Ok(())

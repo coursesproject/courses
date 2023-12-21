@@ -23,13 +23,13 @@ pub struct UsageExample {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Parameter {
-    name: String,
+    pub name: String,
     #[serde(default)]
-    description: String,
+    pub description: String,
     #[serde(rename = "type")]
-    type_: String,
+    pub type_: String,
     #[serde(default)]
-    optional: bool,
+    pub optional: bool,
 }
 
 #[derive(Deserialize)]

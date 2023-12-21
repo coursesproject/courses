@@ -1,25 +1,18 @@
 use crate::config::Format;
-use crate::parser::ParserSettings;
 use crate::renderers::extensions::{RenderExtension, RenderExtensionContext};
-use crate::renderers::parameter_resolution::ParameterResolution;
 use crate::renderers::{
     DocumentRenderer, RenderContext, RenderElement, RenderResult, RendererConfig,
 };
-use crate::templates::{TemplateDefinition, TemplateManager, TemplateType};
 use anyhow::{Context as Ctx, Result};
-// use cdoc_base::node::into_rhai::build_types;
-use cdoc_base::node::visitor::NodeVisitor;
 use cdoc_base::node::{Attribute, Compound, Node};
 
 use crate::renderers::references::Reference;
 use cdoc_base::document::Document;
 use linked_hash_map::LinkedHashMap;
-use rhai::{Array, Dynamic, Engine, ImmutableString, Scope, AST};
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::{BufWriter, Cursor, Write};
-use tera::Context as TeraContext;
+use std::collections::{BTreeMap, HashMap};
+use std::io::{Cursor, Write};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ElementRendererConfig;
@@ -124,13 +117,21 @@ impl RenderElement<Compound> for ElementRenderer {
             )?;
             Ok(())
         } else {
-            if let Some(_) = elem.attributes.get("id") {
+            if elem
+                .attributes
+                .iter()
+                .find(|(a, _)| a.as_ref().map(|v| v == "id").unwrap_or_default())
+                .is_some()
+            {
                 let num = self.fetch_and_inc_num(elem.type_id.clone());
                 args.insert("num".to_string(), Value::Number(Number::from(num)));
             }
 
+            let params: BTreeMap<String, Attribute> = ctx
+                .templates
+                .resolve_params(&elem.type_id, elem.attributes.clone())?;
             let rendered = self
-                .render_params(elem.attributes.clone(), ctx)
+                .render_params(params, ctx)
                 .with_context(|| format!("error rendering node {}", elem.type_id,))?;
 
             // let template_def = ctx
