@@ -79,7 +79,7 @@ impl From<Child> for Node {
                 body,
             } => {
                 let mut children = vec![];
-                for (i, parameter) in parameters.into_iter().enumerate() {
+                for parameter in parameters {
                     match parameter.value {
                         ArgumentVal::Flag(f) => {
                             attributes.push((Some(f.to_string()), Attribute::Flag));
@@ -116,23 +116,13 @@ impl From<Child> for Node {
                             // )));
                         }
                         ArgumentVal::String(s) => attributes.push((
-                            parameter
-                                .key
-                                .map(|k| k.to_string()),
+                            parameter.key.map(|k| k.to_string()),
                             Attribute::String(s.to_string()),
                         )),
-                        ArgumentVal::Int(i) => attributes.push((
-                            parameter
-                                .key
-                                .map(|k| k.to_string()),
-                            Attribute::Int(i),
-                        )),
-                        ArgumentVal::Float(f) => attributes.push((
-                            parameter
-                                .key
-                                .map(|k| k.to_string()),
-                            Attribute::Float(f),
-                        )),
+                        ArgumentVal::Int(i) => attributes
+                            .push((parameter.key.map(|k| k.to_string()), Attribute::Int(i))),
+                        ArgumentVal::Float(f) => attributes
+                            .push((parameter.key.map(|k| k.to_string()), Attribute::Float(f))),
                     }
                 }
                 if let Some(body) = body {
@@ -165,14 +155,17 @@ impl From<Child> for Node {
                 ))
             }
             Special::CodeBlock {
-                lvl,
                 inner,
                 attributes: attr,
+                ..
             } => {
                 if let Some(lang) = attr.get(0) {
-                    attributes.push((Some("language".to_string()), Attribute::String(lang.to_string())));
+                    attributes.push((
+                        Some("language".to_string()),
+                        Attribute::String(lang.to_string()),
+                    ));
                 }
-                if let Some(_) = attr.get(1) {
+                if attr.get(1).is_some() {
                     attributes.push((Some("is_cell".to_string()), Attribute::Flag));
                 }
                 inner.meta.iter().for_each(|(k, v)| {
@@ -196,7 +189,7 @@ impl From<Child> for Node {
 }
 
 lazy_static! {
-    static ref r: Regex = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
+    static ref R: Regex = Regex::new(r"elem-([0-9]+)").expect("invalid regex expression");
 }
 
 impl From<ComposedMarkdown> for Vec<Node> {
@@ -222,8 +215,10 @@ impl From<ComposedMarkdown> for Vec<Node> {
                                     Attribute::String(label.to_string()),
                                 ));
                             }
-                            attributes
-                                .push((Some("level".to_string()), Attribute::Int(heading_to_lvl(level))));
+                            attributes.push((
+                                Some("level".to_string()),
+                                Attribute::Int(heading_to_lvl(level)),
+                            ));
                             current_node.push(Node::Compound(Compound::new(
                                 "heading", None, attributes, children,
                             )))
@@ -282,7 +277,7 @@ impl From<ComposedMarkdown> for Vec<Node> {
                     }
                 }
                 Event::Html(src) => {
-                    let is_insert = r.captures(src.as_ref()).and_then(|c| c.get(1));
+                    let is_insert = R.captures(src.as_ref()).and_then(|c| c.get(1));
 
                     if let Some(match_) = is_insert {
                         let idx = usize::from_str(match_.as_str()).unwrap();

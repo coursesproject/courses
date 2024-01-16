@@ -1,0 +1,35 @@
+test:
+  description: debugging
+
+  parameters:
+    - name: type
+      description: tp
+      type: regular
+    - name: param
+      description: parameter to use as title
+      type: regular
+
+  templates:
+    html: !String |
+      <article class="message">
+          <div class="message-body">
+              <strong>{{ title }}</strong>
+              <ul style="list-style: none;">{% for info in refs_by_type[type] %}
+                  <li>{% with param = info.attr[param].render(ctx) %}
+                  <a href="#{{ info.id }}">{{ label }} {{ loop.index }}{% if param %}: {{ param  }}{% endif %}</a>
+                  </li>{% endwith %}{% endfor %}
+              </ul>
+          </div>
+      </article>
+
+elem:
+  description: debugging
+
+  parameters:
+    - name: title
+      description: title
+      type: regular
+
+  templates:
+    html: !String |
+      {{ title }}

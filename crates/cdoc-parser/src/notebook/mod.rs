@@ -1,6 +1,5 @@
 use base64;
 use base64::Engine;
-use std::collections::hash_map::DefaultHasher;
 
 use anyhow::Result;
 
@@ -16,7 +15,6 @@ use serde_json::Value;
 use serde_with::{formats::PreferOne, serde_as, EnumMap, OneOrMany};
 use std::collections::HashMap;
 use std::default::Default;
-use std::hash::{Hash, Hasher};
 use std::io::{BufWriter, Write};
 
 /// Top-level notebook structure (the type is a mostly complete implementation of the official
@@ -379,8 +377,6 @@ pub fn notebook_to_doc(nb: Notebook, accept_draft: bool) -> Result<Option<Docume
 mod tests {
     use super::*;
 
-    use crate::code_ast::types::{CodeContent, CodeElem};
-    use crate::common::Span;
     use cdoc_base::node::{Attribute, Compound};
     use std::fs::File;
     use std::io::BufReader;

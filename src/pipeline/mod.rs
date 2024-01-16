@@ -11,10 +11,8 @@ use anyhow::{anyhow, Context as AContext};
 use console::style;
 use image::ImageOutputFormat;
 use indicatif::{MultiProgress, ParallelProgressIterator, ProgressBar, ProgressStyle};
-use serde_json::{from_value, to_value, Value};
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
-use tera::{Context, Filter, Function};
 
 use cdoc::config::Format;
 
@@ -22,8 +20,6 @@ use cdoc::preprocessors::PreprocessorContext;
 
 use cdoc::renderers::{DocumentRenderer, RenderContext, RenderResult};
 use cdoc::templates::new::NewTemplateManager;
-use cdoc::templates::TemplateManager;
-use image::io::Reader as ImageReader;
 use mover::Mover;
 
 use rayon::prelude::*;
@@ -36,67 +32,69 @@ use crate::project::{
 };
 
 use crate::project::caching::Cache;
-use cdoc::renderers::base::{ElementRenderer, ElementRendererConfig};
 use cdoc::renderers::extensions::build_extensions;
 
 use cdoc::package::{Dist, PackageConfig};
 use cdoc_base::document::{Document, Metadata};
+use cdoc_base::node::Node;
 use cowstr::CowStr;
+use indicatif::style::ProgressTracker;
 use lazy_static::lazy_static;
+use minijinja::Value;
 use std::borrow::Borrow;
 
 mod mover;
 
-fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
-    Box::new(
-        move |url: &Value, _args: &HashMap<String, Value>| -> tera::Result<Value> {
-            match from_value::<String>(url.clone()) {
-                Ok(v) => {
-                    let mut file_no_ext = PathBuf::from_str(&v).unwrap();
-                    if file_no_ext.extension().unwrap().to_str().unwrap() == "svg" {
-                        let contents = fs::read_to_string(resource_path.join(v)).unwrap();
-                        Ok(to_value(contents).unwrap())
-                    } else {
-                        file_no_ext.set_extension(".txt");
-
-                        let cache_file = cache_path.join(&file_no_ext);
-                        let resource_file = resource_path.join(v);
-                        let resource_meta = resource_file.metadata()?;
-
-                        let data = match cache_file.metadata().ok().and_then(|meta| {
-                            (meta.modified().unwrap() > resource_meta.modified().unwrap())
-                                .then_some(())
-                        }) {
-                            None => {
-                                let img = ImageReader::open(&resource_file)
-                                    .map_err(|_| tera::Error::msg("Could not open image"))?
-                                    .decode()
-                                    .map_err(|_| tera::Error::msg("Could not decode image"))?;
-                                // println!("loaded");
-                                let mut image_data: Vec<u8> = Vec::new();
-                                let mut img_writer = BufWriter::new(Cursor::new(&mut image_data));
-                                img.write_to(&mut img_writer, ImageOutputFormat::Jpeg(60))
-                                    .map_err(|_| tera::Error::msg("Could not write image data"))?;
-                                drop(img_writer);
-                                // println!("semi");
-                                let data = base64_simd::STANDARD.encode_to_string(&image_data);
-
-                                fs::create_dir_all(cache_file.parent().unwrap())?;
-                                fs::write(cache_file, &data)?;
-                                data
-                            }
-                            Some(_) => fs::read_to_string(&cache_file).unwrap(),
-                        };
-
-                        // println!("written");
-                        Ok(to_value(data).unwrap())
-                    }
-                }
-                Err(_) => Err("file not found".into()),
-            }
-        },
-    )
-}
+// fn create_embed_fn(resource_path: PathBuf, cache_path: PathBuf) -> impl Filter {
+//     Box::new(
+//         move |url: &Value, _args: &HashMap<String, Value>| -> tera::Result<Value> {
+//             match url.as_str() {
+//                 Some(v) => {
+//                     let mut file_no_ext = PathBuf::from_str(&v).unwrap();
+//                     if file_no_ext.extension().unwrap().to_str().unwrap() == "svg" {
+//                         let contents = fs::read_to_string(resource_path.join(v)).unwrap();
+//                         Ok(Value::from(contents))
+//                     } else {
+//                         file_no_ext.set_extension(".txt");
+//
+//                         let cache_file = cache_path.join(&file_no_ext);
+//                         let resource_file = resource_path.join(v);
+//                         let resource_meta = resource_file.metadata()?;
+//
+//                         let data = match cache_file.metadata().ok().and_then(|meta| {
+//                             (meta.modified().unwrap() > resource_meta.modified().unwrap())
+//                                 .then_some(())
+//                         }) {
+//                             None => {
+//                                 let img = ImageReader::open(&resource_file)
+//                                     .map_err(|_| tera::Error::msg("Could not open image"))?
+//                                     .decode()
+//                                     .map_err(|_| tera::Error::msg("Could not decode image"))?;
+//                                 // println!("loaded");
+//                                 let mut image_data: Vec<u8> = Vec::new();
+//                                 let mut img_writer = BufWriter::new(Cursor::new(&mut image_data));
+//                                 img.write_to(&mut img_writer, ImageOutputFormat::Jpeg(60))
+//                                     .map_err(|_| tera::Error::msg("Could not write image data"))?;
+//                                 drop(img_writer);
+//                                 // println!("semi");
+//                                 let data = base64_simd::STANDARD.encode_to_string(&image_data);
+//
+//                                 fs::create_dir_all(cache_file.parent().unwrap())?;
+//                                 fs::write(cache_file, &data)?;
+//                                 data
+//                             }
+//                             Some(_) => fs::read_to_string(&cache_file).unwrap(),
+//                         };
+//
+//                         // println!("written");
+//                         Ok(Value::from(data))
+//                     }
+//                 }
+//                 None => Err("file not found".into()),
+//             }
+//         },
+//     )
+// }
 
 /// Orchestrates the build process for a project (either everything or single files).
 #[derive(Clone)]
@@ -112,7 +110,7 @@ pub struct Pipeline {
 
     pub cache_info: Cache,
 
-    templates: NewTemplateManager,
+    templates: Arc<NewTemplateManager>,
     cached_contexts: Arc<Mutex<HashMap<String, ProjectItemVec>>>,
 }
 
@@ -189,7 +187,7 @@ impl Pipeline {
             project_structure,
             project_config: config,
             cache_info,
-            templates: template_manager,
+            templates: Arc::new(template_manager),
 
             cached_contexts: Arc::new(Mutex::new(HashMap::new())),
         };
@@ -246,22 +244,30 @@ impl Pipeline {
     //     )
     // }
 
-    fn get_render_context<'a>(
-        &'a self,
-        meta: Metadata,
-        format: &'a dyn Format,
-    ) -> anyhow::Result<RenderContext<'a>> {
+    fn get_render_context(
+        &self,
+        doc: &mut Document<Vec<Node>>,
+        format: Box<dyn Format>,
+    ) -> anyhow::Result<RenderContext> {
         let mut ctx = HashMap::default();
-        ctx.insert("config".to_string(), to_value(&self.project_config)?);
+        ctx.insert(
+            "config".to_string(),
+            Value::from_serializable(&self.project_config),
+        );
+        ctx.insert(
+            "profile".to_string(),
+            Value::from_serializable(&self.profile),
+        );
         // meta.insert("references", &doc.references);
-        ctx.insert("doc_meta".to_string(), to_value(&meta)?);
+        ctx.insert("doc_meta".to_string(), Value::from_serializable(&doc.meta));
         let _ts = &DEFAULT_THEME;
         RenderContext::new(
-            &self.templates,
+            self.templates.clone(),
             ctx,
+            doc,
             // &DEFAULT_SYNTAX,
             // &ts.themes["base16-ocean.light"],
-            self.project_config.notebook_meta.as_ref().unwrap(),
+            self.project_config.notebook_meta.clone().unwrap(),
             format,
             self.profile.parser.settings.clone(),
         )
@@ -275,7 +281,8 @@ impl Pipeline {
     }
 
     pub fn reload_templates(&mut self) -> anyhow::Result<()> {
-        self.templates.reload()
+        // self.templates.reload()
+        Ok(())
     }
 
     /// Build a single content file.
@@ -301,7 +308,7 @@ impl Pipeline {
 
         for format in self.get_formats_or_default().clone() {
             print!("format: {}", style(&format).bold());
-            let output = self.process_document(&loaded.doc, format.as_ref());
+            let output = self.process_document(&loaded.doc, format.clone());
 
             match output {
                 Err(e) => {
@@ -512,7 +519,7 @@ impl Pipeline {
                     style(format.name()).bold(),
                     style("parsing").blue()
                 ));
-                let output = self.process_all(loaded.clone(), format.as_ref(), bar.clone());
+                let output = self.process_all(loaded.clone(), format.clone(), bar.clone());
 
                 // let mut errs = Vec::new();
                 let output: ProjectItemContentVec = output
@@ -690,7 +697,7 @@ impl Pipeline {
     fn process_all(
         &self,
         project: Vec<ContentItemDescriptor<Option<String>>>,
-        format: &dyn Format,
+        format: Box<dyn Format>,
         bar: ProgressBar,
     ) -> ProjectItemVecErr {
         let res = project
@@ -698,12 +705,14 @@ impl Pipeline {
             // .iter()
             .progress_with(bar)
             .map(|i| {
-                let res = self.process_document(&i.doc, format).with_context(|| {
-                    format!(
-                        "Failed to process document – {}",
-                        style(format!("content/{}", i.doc.path.display())).italic()
-                    )
-                });
+                let res = self
+                    .process_document(&i.doc, format.clone())
+                    .with_context(|| {
+                        format!(
+                            "Failed to process document – {}",
+                            style(format!("content/{}", i.doc.path.display())).italic()
+                        )
+                    });
 
                 res.map(|res| ContentItemDescriptor {
                     is_section: i.is_section,
@@ -726,7 +735,7 @@ impl Pipeline {
     fn process_document(
         &self,
         item: &DocumentDescriptor<Option<String>>,
-        format: &dyn Format,
+        format: Box<dyn Format>,
     ) -> anyhow::Result<Option<Document<RenderResult>>> {
         if let Some(content) = item.content.as_ref() {
             let doc = item
@@ -736,7 +745,7 @@ impl Pipeline {
 
             match doc {
                 None => Ok(None),
-                Some(doc) => {
+                Some(mut doc) => {
                     if format.no_parse() {
                         Ok(Some(Document {
                             meta: doc.meta,
@@ -754,15 +763,16 @@ impl Pipeline {
                     {
                         let processor_ctx = PreprocessorContext {
                             templates: &self.templates,
-                            output_format: format,
+                            output_format: format.as_ref(),
                             project_root: self.project_path.clone(),
                         };
 
                         let mut res = self.profile.parser.parse(doc, &processor_ctx)?;
 
                         // let res = print_err(res)?;
+                        // let b = ;
 
-                        let mut ctx = self.get_render_context(res.meta.clone(), format)?;
+                        let mut ctx = self.get_render_context(&mut res, format.clone())?;
                         let empty = vec![];
                         let ext = self
                             .profile

@@ -11,9 +11,10 @@ use crate::config::Format;
 
 use crate::parser::ParserSettings;
 use crate::templates::new::NewTemplateManager;
-use crate::templates::TemplateManager;
 
 pub mod cell_outputs;
+
+#[cfg(feature = "extism")]
 pub mod extism;
 pub mod md_labels;
 pub mod solutions;

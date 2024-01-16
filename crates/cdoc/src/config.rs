@@ -9,9 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::loader::{Loader, MarkdownLoader, NotebookLoader};
 
-use crate::renderers::base::{ElementRenderer, ElementRendererConfig};
-use crate::renderers::notebook::NotebookRenderer;
-use crate::renderers::{DocumentRenderer, RendererConfig};
+use crate::renderers::base::ElementRendererConfig;
+use crate::renderers::RendererConfig;
 
 /// Input formats. Currently supports regular markdown files as well as Jupyter Notebooks.
 #[derive(Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Debug, ValueEnum)]

@@ -68,7 +68,7 @@ impl NodeDefinitionDescriptor {
             let mut new_templates = HashMap::default();
 
             for prefix in self.templates.as_ref().unwrap().keys() {
-                let src = self.load(&prefix, &base_path)?;
+                let src = self.load(prefix, base_path)?;
                 new_templates.insert(prefix.to_string(), TemplateSource::String(src));
             }
 
@@ -109,7 +109,7 @@ impl NodeDefinitionDescriptor {
 impl DefinitionFile {
     pub fn combine(mut self, other: Self) -> Self {
         for (key, value) in other.0 {
-            if let Some(mut first_value) = self.0.get_mut(&key) {
+            if let Some(first_value) = self.0.get_mut(&key) {
                 first_value.combine(value);
             } else {
                 self.0.insert(key, value);

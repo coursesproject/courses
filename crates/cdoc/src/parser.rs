@@ -67,9 +67,6 @@ pub enum ParserError {
     #[error("IO Error: ")]
     IoError(#[from] std::io::Error),
 
-    #[error("Error in template")]
-    TemplateError(#[from] tera::Error),
-
     #[error("JSON Error: ")]
     JSONError(#[from] serde_json::error::Error),
 

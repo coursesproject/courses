@@ -1,6 +1,3 @@
-use cdoc_base::document::Metadata;
-use rhai::{CustomType, TypeBuilder};
-
 // impl CustomType for Metadata {
 //     fn build(mut builder: TypeBuilder<Self>) {
 //         builder

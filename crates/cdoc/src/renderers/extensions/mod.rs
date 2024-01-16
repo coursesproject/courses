@@ -1,8 +1,7 @@
 pub mod structure;
 
-use crate::renderers::base::ElementRenderer;
 use anyhow::Result;
-use cdoc_base::node::{Attribute, Compound, Node};
+use cdoc_base::node::{Attribute, Compound};
 
 use dyn_clone::DynClone;
 use linked_hash_map::LinkedHashMap;

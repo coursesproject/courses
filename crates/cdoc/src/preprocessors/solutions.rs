@@ -5,7 +5,7 @@ use cdoc_base::node::{Attribute, Compound, Node};
 
 use cdoc_base::document::Document;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter, Pointer};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SolutionsConfig {}
@@ -14,8 +14,8 @@ pub struct SolutionsConfig {}
 impl AstPreprocessorConfig for SolutionsConfig {
     fn build(
         &self,
-        ctx: &PreprocessorContext,
-        settings: &ParserSettings,
+        _ctx: &PreprocessorContext,
+        _settings: &ParserSettings,
     ) -> anyhow::Result<Box<dyn Processor>> {
         Ok(Box::new(Solutions {}))
     }
@@ -40,7 +40,7 @@ impl NodeVisitor for Solutions {
             self.parse_content(node)?;
         }
 
-        self.walk_node(node)
+        self.walk_compound(node)
     }
 }
 
@@ -54,7 +54,7 @@ impl Solutions {
             match elem {
                 Node::Compound(solution_block) => {
                     let inners = &mut solution_block.children;
-                    for mut inner in inners {
+                    for inner in inners {
                         let inner = inner.get_compound().unwrap();
                         let val = inner.children[0].get_plain().unwrap();
                         match inner.type_id.as_str() {

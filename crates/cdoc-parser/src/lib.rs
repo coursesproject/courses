@@ -15,7 +15,7 @@ fn parse_raw(doc: RawDocument) -> anyhow::Result<Document<Vec<Node>>> {
         .children
         .iter()
         .filter_map(|c| match &c.elem {
-            Special::CodeBlock { inner, .. } => Some((c.label.to_string(), CodeOutput::default())),
+            Special::CodeBlock { inner, .. } => Some((c.label.to_string(), CodeOutput::default())), // todo: implement functionality
             _ => None,
         })
         .collect();

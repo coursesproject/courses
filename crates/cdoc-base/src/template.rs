@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
-use std::fs;
+use serde::Deserialize;
+
 use std::path::PathBuf;
 
 #[derive(Deserialize, Debug, Clone)]

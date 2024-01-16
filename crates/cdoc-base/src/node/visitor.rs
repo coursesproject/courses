@@ -14,7 +14,7 @@ pub trait NodeVisitor {
         }
     }
 
-    fn walk_node(&mut self, node: &mut Compound) -> Result<()> {
+    fn walk_compound(&mut self, node: &mut Compound) -> Result<()> {
         self.walk_elements(&mut node.children)
     }
 
@@ -22,15 +22,15 @@ pub trait NodeVisitor {
         self.walk_element(element)
     }
 
-    fn visit_script(&mut self, script: &mut Script) -> Result<()> {
+    fn visit_script(&mut self, _script: &mut Script) -> Result<()> {
         Ok(())
     }
 
-    fn visit_plain(&mut self, text: &mut String) -> Result<()> {
+    fn visit_plain(&mut self, _text: &mut String) -> Result<()> {
         Ok(())
     }
 
     fn visit_compound(&mut self, node: &mut Compound) -> Result<()> {
-        self.walk_node(node)
+        self.walk_compound(node)
     }
 }

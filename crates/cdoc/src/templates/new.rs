@@ -2,13 +2,13 @@ use crate::package::Dist;
 use anyhow::anyhow;
 use cdoc_base::node::definition::NodeDef;
 use cdoc_base::node::Attribute;
+use linked_hash_map::LinkedHashMap;
 use minijinja::Environment;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::io::Write;
-use std::path::PathBuf;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NewTemplateManager {
     environments: HashMap<String, Environment<'static>>,
     nodes: HashMap<String, NodeDef>,
@@ -27,7 +27,7 @@ impl NewTemplateManager {
             for (prefix, src) in &node.templates {
                 let env = environments
                     .entry(prefix.to_string())
-                    .or_insert_with(|| Environment::new());
+                    .or_insert_with(Environment::new);
                 env.add_template_owned(node.name.clone(), src.clone())?;
             }
         }
@@ -36,7 +36,7 @@ impl NewTemplateManager {
             for (prefix, src) in layout.0.iter() {
                 let env = environments
                     .entry(prefix.to_string())
-                    .or_insert_with(|| Environment::new());
+                    .or_insert_with(Environment::new);
                 // println!("layout {}", name);
                 env.add_template_owned(format!("layout_{name}"), src.clone())?;
             }
@@ -48,7 +48,7 @@ impl NewTemplateManager {
         })
     }
 
-    pub fn render<S: Serialize>(
+    pub fn render_template<S: Serialize>(
         &self,
         prefix: &str,
         node: &str,
@@ -67,12 +67,12 @@ impl NewTemplateManager {
         &self,
         node: &str,
         params: Vec<(Option<String>, Attribute)>,
-    ) -> anyhow::Result<BTreeMap<String, Attribute>> {
+    ) -> anyhow::Result<LinkedHashMap<String, Attribute>> {
         let def = self
             .nodes
             .get(node)
             .ok_or(anyhow!("Node of type '{node}' does not exist"))?;
-        let mut out = BTreeMap::new();
+        let mut out = LinkedHashMap::new();
 
         for (i, (name, val)) in params.iter().enumerate() {
             if let Some(n) = name {

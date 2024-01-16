@@ -2,14 +2,13 @@ mod node_def_builder;
 
 use crate::package::node_def_builder::DefinitionFile;
 use cdoc_base::node::definition::NodeDef;
-use rhai::Definitions;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
-use std::any::Any;
+
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
-use walkdir::{DirEntry, WalkDir};
+use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 #[derive(Deserialize, Clone)]
 pub struct PackageConfig {
@@ -60,14 +59,14 @@ pub struct DependencySpec {
 impl DependencySpec {
     pub fn resolve_dependency(
         &self,
-        local_path: &PathBuf,
+        local_path: &Path,
     ) -> anyhow::Result<(PathBuf, PackageConfig)> {
         // println!(
         //     "reading {}",
         //     local_path.as_path().join(&self.file).display()
         // );
         let config_src =
-            fs::read_to_string(local_path.as_path().join(&self.file).join("package.yml"))?;
+            fs::read_to_string(local_path.clone().join(&self.file).join("package.yml"))?;
         Ok((self.file.clone(), serde_yaml::from_str(&config_src)?))
     }
 }
@@ -80,7 +79,6 @@ impl PackageConfig {
         self.dependencies
             .0
             .values()
-            .into_iter()
             .map(|spec| spec.resolve_dependency(local_path))
             .collect()
     }
@@ -177,7 +175,7 @@ impl Module {
                             // println!("layout: {}, {}", prefix, path.display());
                             Ok((
                                 prefix.to_string(),
-                                fs::read_to_string(self.source_path.join(&path))?,
+                                fs::read_to_string(self.source_path.join(path))?,
                             ))
                         })
                         .collect::<anyhow::Result<HashMap<String, String>>>()?,
@@ -186,7 +184,7 @@ impl Module {
                 Ok((name.to_string(), layout))
             })
             .collect::<anyhow::Result<HashMap<String, Layout>>>()?;
-        layouts.extend(new.into_iter());
+        layouts.extend(new);
         Ok(layouts)
     }
 

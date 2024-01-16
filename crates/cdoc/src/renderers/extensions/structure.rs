@@ -1,13 +1,14 @@
-use crate::renderers::extensions::{RenderExtension, RenderExtensionConfig};
-
-use cowstr::CowStr;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
-use linked_hash_map::LinkedHashMap;
-
-use crate::renderers::base::ElementRenderer;
-use serde::{Deserialize, Serialize};
+// use crate::renderers::extensions::{RenderExtension, RenderExtensionConfig};
+//
+// use cowstr::CowStr;
+// use std::cmp::Ordering;
+// use std::collections::HashMap;
+//
+// use linked_hash_map::LinkedHashMap;
+//
+// use crate::renderers::base::ElementRenderer;
+// use serde::{Deserialize, Serialize};
+// use crate::renderers::RenderContext;
 //
 // #[derive(Debug, Serialize, Deserialize, Clone)]
 // pub struct DocStructureConfig {
@@ -30,18 +31,18 @@ use serde::{Deserialize, Serialize};
 //
 // pub struct DocStructureVisitor<'a> {
 //     base: &'a DocStructure,
-//     ctx: &'a RenderContext<'a>,
+//     ctx: &'a RenderContext,
 //     elems: Vec<Elem>,
 //     current_level: u8,
-//     renderer: ElementRenderer<'a>,
+//     renderer: ElementRenderer,
 //     num_counters: HashMap<String, usize>,
 // }
 //
 // impl<'a> DocStructureVisitor<'a> {
 //     pub fn new(
 //         base: &'a DocStructure,
-//         ctx: &'a RenderContext<'a>,
-//         renderer: ElementRenderer<'a>,
+//         ctx: &'a RenderContext,
+//         renderer: ElementRenderer,
 //     ) -> Self {
 //         DocStructureVisitor {
 //             base,

@@ -49,8 +49,10 @@ impl NodeVisitor for CellVisitor<'_> {
                             let mut attributes = node.attributes.clone();
 
                             match img {
-                                Image::Png(png) => attributes
-                                    .push((Some("base64".to_string()), Attribute::String(png.into()))),
+                                Image::Png(png) => attributes.push((
+                                    Some("base64".to_string()),
+                                    Attribute::String(png.into()),
+                                )),
                                 Image::Svg(svg) => attributes
                                     .push((Some("svg".to_string()), Attribute::String(svg.into()))),
                             };
@@ -71,7 +73,7 @@ impl NodeVisitor for CellVisitor<'_> {
             }
         }
 
-        self.walk_node(node)
+        self.walk_compound(node)
     }
 }
 

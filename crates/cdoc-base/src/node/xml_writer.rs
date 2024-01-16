@@ -1,5 +1,5 @@
 use crate::node::{Attribute, Node};
-use std::io;
+
 use std::io::Write;
 use xml::writer::Result;
 use xml::writer::XmlEvent;
@@ -44,7 +44,7 @@ impl Attribute {
             Attribute::String(s) => s.clone(),
             Attribute::Enum(v) => v.clone(),
             Attribute::Flag => "".to_string(),
-            Attribute::Compound(x) => "".to_string(),
+            Attribute::Compound(_x) => "".to_string(),
         }
     }
 }
@@ -65,7 +65,7 @@ impl Node {
                     .map(|(k, v)| (k.clone().unwrap_or_default(), v.to_string()))
                     .collect();
                 for (k, v) in &attr {
-                    start = start.attr(k.as_str(), &v);
+                    start = start.attr(k.as_str(), v);
                 }
                 writer.write(start)?;
 
@@ -92,7 +92,6 @@ impl Node {
 
                 writer.write(XmlEvent::end_element())
             }
-            _ => Ok(()),
         }
     }
 }

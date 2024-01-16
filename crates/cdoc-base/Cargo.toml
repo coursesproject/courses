@@ -1,6 +1,6 @@
 [package]
 name = "cdoc-base"
-version = "0.1.0"
+version = "0.10.0-alpha"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,7 +14,6 @@ linked-hash-map = {version = "0.5.6", features = ["serde_impl"]}
 
 semver = {version = "1.0.19", features = ["serde"]}
 
-tera = "1.19.1"
 minijinja = {version = "1.0.10", features = ["loader"]}
 
 xml-rs = {version = "0.8.19", optional = true}

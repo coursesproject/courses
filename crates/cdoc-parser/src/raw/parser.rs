@@ -1,6 +1,6 @@
 use crate::raw::{RawDocument, Reference};
 use cowstr::CowStr;
-use nanoid::nanoid;
+
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -61,7 +61,7 @@ impl RawDocument {
 
         let element = match pair.as_rule() {
             Rule::command => self.parse_command(pair)?,
-            Rule::script => self.parse_script(pair)?,
+            // Rule::script => self.parse_script(pair)?,
             Rule::math_block => self.parse_math_block(pair),
             Rule::code_def => self.parse_code(pair)?,
             Rule::verbatim => self.parse_verbatim(pair),
@@ -77,36 +77,36 @@ impl RawDocument {
         Element::Markdown(value.into())
     }
 
-    fn parse_script(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
-        let mut inner = pair.into_inner();
-        let kw = inner.next().unwrap().as_str();
-
-        let mut src = String::from(kw);
-        let mut children = vec![];
-
-        let id = nanoid!(10, &ALPHABET);
-        for elem in inner.next().unwrap().into_inner() {
-            match elem.as_rule() {
-                Rule::script_src => src.push_str(elem.as_str()),
-                Rule::script_escape => {
-                    src.push_str(&format!(" e_{}[{}] ", id, children.len()));
-                    children.push(self.parse_elements(elem.into_inner())?)
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        src.push(';');
-
-        Ok(Element::Special(
-            id.clone().into(),
-            Special::Script {
-                id,
-                src: src.into(),
-                children,
-            },
-        ))
-    }
+    // fn parse_script(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
+    //     let mut inner = pair.into_inner();
+    //     let kw = inner.next().unwrap().as_str();
+    //
+    //     let mut src = String::from(kw);
+    //     let mut children = vec![];
+    //
+    //     let id = nanoid!(10, &ALPHABET);
+    //     for elem in inner.next().unwrap().into_inner() {
+    //         match elem.as_rule() {
+    //             Rule::script_src => src.push_str(elem.as_str()),
+    //             Rule::script_escape => {
+    //                 src.push_str(&format!(" e_{}[{}] ", id, children.len()));
+    //                 children.push(self.parse_elements(elem.into_inner())?)
+    //             }
+    //             _ => unreachable!(),
+    //         }
+    //     }
+    //
+    //     src.push(';');
+    //
+    //     Ok(Element::Special(
+    //         id.clone().into(),
+    //         Special::Script {
+    //             id,
+    //             src: src.into(),
+    //             children,
+    //         },
+    //     ))
+    // }
 
     fn parse_command(&mut self, pair: Pair<Rule>) -> Result<Element, ParserError> {
         let mut inner = pair.into_inner();
@@ -180,9 +180,9 @@ impl RawDocument {
         Ok(match pair.as_rule() {
             Rule::basic_val | Rule::string => ArgumentVal::String(pair.as_str().into()),
             Rule::md_val => ArgumentVal::Content(self.parse_elements(pair.into_inner())?),
-            Rule::flag => ArgumentVal::Flag(pair.as_str().into()),
-            Rule::integer => ArgumentVal::Int(pair.as_str().parse()?),
-            Rule::float => ArgumentVal::Float(pair.as_str().parse()?),
+            // Rule::flag => ArgumentVal::Flag(pair.as_str().into()),
+            // Rule::integer => ArgumentVal::Int(pair.as_str().parse()?),
+            // Rule::float => ArgumentVal::Float(pair.as_str().parse()?),
             _ => unreachable!(),
         })
     }

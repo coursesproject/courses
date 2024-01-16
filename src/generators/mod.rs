@@ -2,7 +2,6 @@ use crate::project::config::Mode;
 use anyhow::{anyhow, Context as AContext};
 use cdoc::config::Format;
 use cdoc::renderers::RenderResult;
-use cdoc::templates::{TemplateManager, TemplateType};
 use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::prelude::*;
 use serde_json::Value;
@@ -15,7 +14,6 @@ use std::path::PathBuf;
 
 use cdoc::templates::new::NewTemplateManager;
 use cdoc_base::document::Document;
-use tera::Context;
 
 use crate::project::config::ProjectConfig;
 use crate::project::{ContentItemDescriptor, ContentResultX, ProjectItemContentVec};

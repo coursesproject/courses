@@ -4,13 +4,13 @@ use cdoc_parser::notebook::{Cell, CellCommon, CellMeta, JupyterLabMeta, Notebook
 
 use cdoc_base::document::{CodeOutput, Document};
 use cdoc_base::node::visitor::NodeVisitor;
-use cdoc_base::node::{Compound, Node};
+use cdoc_base::node::Node;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::BufWriter;
 
-use crate::renderers::base::{ElementRenderer, ElementRendererConfig};
+use crate::renderers::base::ElementRenderer;
 use crate::renderers::extensions::RenderExtension;
 use crate::renderers::{
     DocumentRenderer, RenderContext, RenderElement, RenderResult, RendererConfig,
@@ -37,7 +37,7 @@ impl DocumentRenderer for NotebookRenderer {
     fn render_doc<'a>(
         &mut self,
         doc: &Document<Vec<Node>>,
-        ctx: &'a mut RenderContext<'a>,
+        ctx: &RenderContext,
     ) -> Result<Document<RenderResult>> {
         let renderer = ElementRenderer::new(self.extensions.clone())?;
 
@@ -66,7 +66,7 @@ pub struct NotebookWriter<'a> {
     pub notebook_meta: NotebookMeta,
     pub outputs: HashMap<String, CodeOutput>,
     pub code_cells: Vec<Cell>,
-    pub ctx: &'a mut RenderContext<'a>,
+    pub ctx: &'a RenderContext,
     pub renderer: ElementRenderer,
 }
 
@@ -136,25 +136,24 @@ const CODE_SPLIT: &str = "--+code+--";
 impl NodeVisitor for NotebookWriter<'_> {
     fn visit_element(&mut self, element: &mut Node) -> Result<()> {
         if let Node::Compound(node) = element {
-            if node.type_id == "code_block" {
-                if node
+            if node.type_id == "code_block"
+                && node
                     .attributes
                     .iter()
                     .find(|(s, _)| s.as_ref().map(|v| v == "is_cell").unwrap_or_default())
                     .is_some()
-                {
-                    let rendered = "temp".to_string();
+            {
+                let rendered = "temp".to_string();
 
-                    self.code_cells.push(Cell::Code {
-                        common: CellCommon {
-                            id: nanoid!(),
-                            metadata: Default::default(),
-                            source: rendered.trim().to_string(),
-                        },
-                        execution_count: Some(0),
-                        outputs: vec![], // TODO: fix outputs
-                    });
-                }
+                self.code_cells.push(Cell::Code {
+                    common: CellCommon {
+                        id: nanoid!(),
+                        metadata: Default::default(),
+                        source: rendered.trim().to_string(),
+                    },
+                    execution_count: Some(0),
+                    outputs: vec![], // TODO: fix outputs
+                });
             }
 
             *element = Node::Plain(CODE_SPLIT.into())

@@ -1,11 +1,11 @@
 pub mod definition;
+mod template_types;
 pub mod visitor;
 pub mod xml_writer;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
-use anyhow::anyhow;
+use std::collections::BTreeMap;
 
 pub enum DataValue {
     String { kind: String, value: String },
@@ -64,7 +64,10 @@ impl Compound {
         Self::new(type_id, id, BTreeMap::new(), children)
     }
 
-    pub fn new_with_attributes<S: Into<String>, B: IntoIterator<Item = (Option<String>, Attribute)>>(
+    pub fn new_with_attributes<
+        S: Into<String>,
+        B: IntoIterator<Item = (Option<String>, Attribute)>,
+    >(
         type_id: S,
         id: Option<&str>,
         attributes: B,
@@ -103,8 +106,6 @@ impl Node {
             None
         }
     }
-
-
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]

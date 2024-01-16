@@ -19,3 +19,10 @@ print("solution")
 #| >>
 ```
 
+
+
+#test|lbl(type=elem, param=title)
+
+
+#elem|x(x)
+#elem|y(y)
